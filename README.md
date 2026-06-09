@@ -33,3 +33,12 @@ mi-proyecto-trazabilidad/
 │   ├── scripts/              # Scripts de despliegue en redes de prueba/producción
 │   └── hardhat.config.js     # Configuración del entorno de desarrollo EVM
 └── shared/                   # Especificaciones de negocio, documentación ISO y esquemas JSON
+## 🚀 Gestión del Monorepo con Turborepo
+
+Este proyecto utiliza **Turborepo** para la orquestación y almacenamiento en caché inteligente de tareas de construcción, pruebas y desarrollo.
+
+### Comandos Globales (Ejecutar en la raíz)
+* `npm run dev`: Levanta de forma paralela los entornos de desarrollo de todos los componentes (FastAPI, Astro, EVM).
+* `npm run build`: Compila las aplicaciones optimizando el tiempo mediante caché local y remoto.
+* `npm run test`: Ejecuta las suites de pruebas unitarias de todos los módulos del sistema.
+
