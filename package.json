@@ -1,9 +1,9 @@
 {
-  "name": "HuellaDeAltura",
+  "name": "huella-de-altura",
   "private": true,
   "workspaces": [
     "HAFront",
-    "HAMobile",
+    "mobile",
     "HABlockchain",
     "backend/auth-service",
     "backend/exped-service"
