@@ -33,6 +33,7 @@ model User {
   suspended_from  DateTime?
   suspended_until DateTime?
   session_token   String?    @unique
+  // TODO: Agregar lógica de wallets por usuario aquí
   audit_logs      AuditLog[]
   role            Role       @relation(fields: [role_id], references: [id])
 
