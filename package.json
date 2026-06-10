@@ -1,0 +1,19 @@
+{
+  "name": "HuellaDeAltura",
+  "private": true,
+  "workspaces": [
+    "HAFront",
+    "HAMobile",
+    "HABlockchain",
+    "backend/auth-service",
+    "backend/exped-service"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}
