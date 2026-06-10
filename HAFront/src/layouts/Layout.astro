@@ -1,4 +1,6 @@
 ---
+import CookieConsent from "../components/CookieConsent.astro";
+
 interface Props {
   title?: string;
 }
@@ -131,5 +133,6 @@ const { title = "Huella de Altura" } = Astro.props;
   </head>
   <body class="bg-surface font-body-md text-on-surface antialiased">
     <slot />
+    <CookieConsent />
   </body>
 </html>

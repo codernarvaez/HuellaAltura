@@ -1,0 +1,63 @@
+name: HAFront CI
+
+on:
+  push:
+    branches: [main, master, develop, landingPage]
+    paths:
+      - "HAFront/**"
+      - "turbo.json"
+      - "HAFront/turbo.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hafront-ci.yml"
+  pull_request:
+    paths:
+      - "HAFront/**"
+      - "turbo.json"
+      - "HAFront/turbo.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hafront-ci.yml"
+
+concurrency:
+  group: hafront-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+jobs:
+  ci:
+    name: Turbo CI (HAFront)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run HAFront CI pipeline
+        run: npm run ci:hafront
+        env:
+          CI: true
+          PUBLIC_SITE_URL: http://127.0.0.1:4321
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hafront-dist
+          path: HAFront/dist
+          retention-days: 7
+          if-no-files-found: error

@@ -1,0 +1,46 @@
+---
+export const prerender = false;
+---
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conectando… — Huella de Altura</title>
+  </head>
+  <body class="min-h-screen flex items-center justify-center bg-[#f9f9ff] text-[#141b2b] font-sans">
+    <p id="status">Completando autenticación…</p>
+    <script>
+      import { createClient } from "../../lib/supabase/client";
+
+      const supabase = createClient();
+      const status = document.getElementById("status");
+
+      async function finishAuth() {
+        if (!status) return;
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            status.textContent = error.message;
+            return;
+          }
+          window.location.replace("/dashboard");
+          return;
+        }
+
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) {
+          status.textContent = error?.message ?? "No se pudo iniciar sesión.";
+          return;
+        }
+
+        window.location.replace("/dashboard");
+      }
+
+      finishAuth();
+    </script>
+  </body>
+</html>
