@@ -1,0 +1,112 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+---
+
+<DashboardLayout title="Management Dashboard">
+
+  <div class="space-y-6">
+
+    <!-- HEADER -->
+    <section>
+      <h1 class="text-3xl font-bold text-primary">
+        Dynamic Asset Management
+      </h1>
+
+      <p class="text-on-surface-variant mt-2 max-w-2xl">
+        Configure your schema and manage environmental records with precision and compliance tracking.
+      </p>
+    </section>
+
+    <!-- GRID -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- FORM -->
+<div class="lg:col-span-4 bg-surface-container-low border border-outline-variant rounded-xl p-6 hover-lift">
+
+  <div class="flex items-center gap-2 mb-5">
+    <span class="material-symbols-outlined text-primary">add_circle</span>
+    <h2 class="font-semibold text-lg">
+      Crear Nueva Variable
+    </h2>
+  </div>
+
+  <form class="space-y-4">
+
+    <!-- Nombre -->
+    <div>
+      <label class="block text-sm font-medium mb-2 text-on-surface">
+        Nombre / Etiqueta de la Variable
+      </label>
+
+      <input
+        type="text"
+        placeholder="Ej. pH del Suelo"
+        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+    </div>
+
+    <!-- Sección -->
+    <div>
+      <label class="block text-sm font-medium mb-2 text-on-surface">
+        Sección de Destino
+      </label>
+
+      <select
+        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        <option>Módulo de Biodiversidad</option>
+        <option>Módulo de Carbono</option>
+        <option>Módulo de Recursos Hídricos</option>
+        <option>Módulo de Suelos</option>
+      </select>
+    </div>
+
+    <!-- Tipo -->
+    <div>
+      <label class="block text-sm font-medium mb-2 text-on-surface">
+        Tipo de Dato
+      </label>
+
+      <select
+        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        <option>Numérico (Decimal/Entero)</option>
+        <option>Texto</option>
+        <option>Booleano (Sí / No)</option>
+        <option>Fecha</option>
+        <option>Porcentaje (%)</option>
+      </select>
+    </div>
+
+    <!-- Valor por defecto -->
+    <div>
+      <label class="block text-sm font-medium mb-2 text-on-surface">
+        Valor por Defecto
+      </label>
+
+      <input
+        type="text"
+        placeholder="Opcional"
+        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+    </div>
+
+    
+
+    <!-- Botón -->
+    <button
+      type="submit"
+      class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:opacity-90 transition-all"
+    >
+      Crear Variable
+    </button>
+
+  </form>
+
+</div>
+
+    </div>
+
+  </div>
+
+</DashboardLayout>

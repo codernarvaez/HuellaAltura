@@ -1,0 +1,108 @@
+---
+import "../styles/global.css";
+const { title = "AgroRegistry" } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title}</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+</head>
+
+<body class="bg-background text-on-surface overflow-hidden">
+
+  <!-- TOP BAR -->
+  <header class="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-8 z-50">
+
+    <h1 class="text-primary font-bold text-lg">AgroRegistry</h1>
+
+    <nav class="hidden md:flex gap-6 text-sm">
+      <a class="text-on-surface-variant hover:text-primary">Dashboard</a>
+      <a class="text-primary font-semibold">Management</a>
+      <a class="text-on-surface-variant hover:text-primary">Reports</a>
+    </nav>
+
+    <div class="flex gap-4">
+      <span class="material-symbols-outlined cursor-pointer">notifications</span>
+      <span class="material-symbols-outlined cursor-pointer">help</span>
+    </div>
+
+  </header>
+
+  <!-- WRAPPER -->
+  <div class="flex pt-16 h-screen">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 fixed top-16 bottom-0 bg-surface-container-low border-r border-outline-variant p-4 overflow-y-auto">
+
+      <!-- PROGRESO -->
+      <div class="mb-4 p-3 rounded-xl bg-surface-container">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="material-symbols-outlined text-primary">agriculture</span>
+          <div>
+            <p class="text-sm font-semibold">EUDR Registration</p>
+            <p class="text-xs text-on-surface-variant">Module 1: 20%</p>
+          </div>
+        </div>
+        <div class="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+          <div class="h-full w-1/5 bg-primary"></div>
+        </div>
+      </div>
+
+      <!-- MENU -->
+      <nav class="space-y-1 text-sm mb-4">
+
+        <a class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition">
+          <span class="material-symbols-outlined text-sm">person</span>
+          Productor y finca
+        </a>
+
+        <a class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition">
+          <span class="material-symbols-outlined text-sm">satellite_alt</span>
+          Reporte satelital
+        </a>
+
+        <a class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition">
+          <span class="material-symbols-outlined text-sm">folder_open</span>
+          Expediente
+        </a>
+
+        <a class="flex items-center gap-2 p-2 rounded-lg bg-primary text-white">
+          <span class="material-symbols-outlined text-sm">settings_input_component</span>
+          Campos
+        </a>
+
+      </nav>
+
+      <!-- PERFIL -->
+      <div class="mt-auto p-3 rounded-xl bg-surface-container">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+            <span class="material-symbols-outlined text-sm">person</span>
+          </div>
+          <div>
+            <p class="text-sm font-semibold">Admin User</p>
+            <p class="text-xs text-on-surface-variant">Online</p>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- MAIN (FIX IMPORTANTE: padding correcto) -->
+    <main class="ml-64 flex-1 overflow-y-auto p-8 pb-24">
+
+      <div class="max-w-6xl mx-auto">
+        <slot />
+      </div>
+
+    </main>
+
+  </div>
+
+</body>
+</html>
