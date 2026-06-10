@@ -1,0 +1,80 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+const displayName =
+  (user?.user_metadata?.full_name as string | undefined) ??
+  user?.email ??
+  "Usuario";
+const provider = (user?.user_metadata?.auth_provider as string | undefined) ?? "email";
+const wallet = user?.user_metadata?.wallet_address as string | undefined;
+---
+
+<Layout title="Panel — Huella de Altura">
+  <header class="border-b border-outline-variant/50 bg-white/90 backdrop-blur-xl">
+    <nav class="max-w-container-max mx-auto px-6 flex justify-between items-center h-20">
+      <span class="text-headline-md font-display tracking-tighter text-primary flex items-center">
+        <span class="material-symbols-outlined mr-2 text-primary" style="font-variation-settings: 'FILL' 1;">landscape</span>
+        Huella de Altura
+      </span>
+      <form action="/api/auth/signout" method="post" id="signout-form">
+        <button
+          type="submit"
+          class="border border-outline text-primary px-6 py-3 rounded-xl font-label-md text-label-md hover:bg-surface-container-low transition-all"
+        >
+          Cerrar sesión
+        </button>
+      </form>
+    </nav>
+  </header>
+
+  <main class="max-w-container-max mx-auto px-6 py-section-py-desktop">
+    <div class="max-w-2xl">
+      <span class="inline-block px-4 py-1 bg-primary-fixed text-on-primary-fixed-variant text-label-sm font-label-sm rounded-full mb-4">
+        Sesión activa
+      </span>
+      <h1 class="font-headline-lg text-headline-lg text-primary mb-4">
+        Bienvenido, {displayName}
+      </h1>
+      <p class="text-on-surface-variant mb-8">
+        Has accedido correctamente a la plataforma. Desde aquí podrás gestionar la trazabilidad de tu producción.
+      </p>
+
+      <div class="bg-white border border-outline-variant rounded-2xl p-6 space-y-4 shadow-sm">
+        <div class="flex justify-between gap-4 border-b border-outline-variant/30 pb-4">
+          <span class="text-on-surface-variant">Correo</span>
+          <span class="font-label-md text-primary">{user?.email}</span>
+        </div>
+        <div class="flex justify-between gap-4 border-b border-outline-variant/30 pb-4">
+          <span class="text-on-surface-variant">Método de acceso</span>
+          <span class="font-label-md text-primary capitalize">{provider}</span>
+        </div>
+        {wallet && (
+          <div class="flex justify-between gap-4">
+            <span class="text-on-surface-variant">Wallet</span>
+            <span class="font-label-md text-primary font-mono text-sm">{wallet}</span>
+          </div>
+        )}
+      </div>
+
+      <a
+        href="/"
+        class="inline-block mt-8 text-secondary font-label-md text-label-md hover:underline"
+      >
+        ← Volver a la landing
+      </a>
+    </div>
+  </main>
+
+  <script>
+    document.getElementById("signout-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const { createClient } = await import("../../lib/supabase/client.ts");
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      window.location.href = "/acceso";
+    });
+  </script>
+</Layout>

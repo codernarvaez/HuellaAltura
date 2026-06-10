@@ -1,0 +1,132 @@
+---
+import CookieConsent from "../components/CookieConsent.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  updatedAt?: string;
+}
+
+const {
+  title,
+  description = "Documentación legal de Huella de Altura, plataforma operada por AGOBAMBA LTDA.",
+  updatedAt = "10 de junio de 2026",
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html class="scroll-smooth" lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <title>{title} — Huella de Altura</title>
+    <script is:inline src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/style.css" rel="stylesheet" />
+    <script is:inline id="tailwind-config">
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#004328",
+              "on-primary": "#ffffff",
+              "primary-container": "#0d5c3a",
+              secondary: "#775a19",
+              "on-surface": "#141b2b",
+              "on-surface-variant": "#404942",
+              surface: "#f9f9ff",
+              "surface-container-low": "#f1f3ff",
+              "outline-variant": "#bfc9c0",
+              "error-container": "#ffdad6",
+              "on-error-container": "#93000a",
+            },
+            spacing: { "container-max": "1280px", "section-py-desktop": "6rem" },
+            fontFamily: { display: ["Geist"], body: ["Geist"] },
+          },
+        },
+      };
+    </script>
+    <style>
+      .legal-prose h2 {
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #004328;
+      }
+      .legal-prose h3 {
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #141b2b;
+      }
+      .legal-prose p,
+      .legal-prose li {
+        color: #404942;
+        line-height: 1.7;
+      }
+      .legal-prose p {
+        margin-bottom: 1rem;
+      }
+      .legal-prose ul,
+      .legal-prose ol {
+        margin-bottom: 1rem;
+        padding-left: 1.25rem;
+      }
+      .legal-prose ul {
+        list-style: disc;
+      }
+      .legal-prose ol {
+        list-style: decimal;
+      }
+      .legal-prose li {
+        margin-bottom: 0.35rem;
+      }
+      .legal-prose a {
+        color: #775a19;
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body class="bg-surface font-body text-on-surface antialiased">
+    <header class="border-b border-outline-variant/50 bg-white/90 backdrop-blur-xl sticky top-0 z-40">
+      <nav class="max-w-container-max mx-auto px-6 flex justify-between items-center h-20">
+        <a class="text-xl font-display tracking-tighter text-primary flex items-center" href="/">
+          <span class="material-symbols-outlined mr-2 text-primary" style="font-variation-settings: 'FILL' 1;">landscape</span>
+          Huella de Altura
+        </a>
+        <a class="text-on-surface-variant hover:text-secondary transition-colors underline" href="/">
+          Volver al inicio
+        </a>
+      </nav>
+    </header>
+
+    <main class="max-w-container-max mx-auto px-6 py-section-py-desktop">
+      <div class="max-w-3xl">
+        <p class="text-sm text-on-surface-variant mb-2">Documento legal · Última actualización: {updatedAt}</p>
+        <h1 class="text-3xl font-display text-primary mb-8">{title}</h1>
+        <article class="legal-prose">
+          <slot />
+        </article>
+
+        <nav class="mt-12 pt-8 border-t border-outline-variant/50 grid gap-3 sm:grid-cols-3">
+          <a class="text-on-surface-variant hover:text-secondary underline" href="/legal/privacidad">Política de Privacidad</a>
+          <a class="text-on-surface-variant hover:text-secondary underline" href="/legal/terminos">Términos de Uso Blockchain</a>
+          <a class="text-on-surface-variant hover:text-secondary underline" href="/legal/cookies">Política de Cookies</a>
+        </nav>
+      </div>
+    </main>
+
+    <footer class="border-t border-outline-variant/50 bg-surface-container-low py-8">
+      <p class="text-center text-sm text-on-surface-variant px-6">
+        © 2026 AGOBAMBA LTDA. Todos los derechos reservados. Tecnología para un Origen Verdadero.
+      </p>
+    </footer>
+
+    <CookieConsent />
+
+    <slot name="scripts" />
+  </body>
+</html>

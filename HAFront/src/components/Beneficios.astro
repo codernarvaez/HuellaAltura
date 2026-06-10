@@ -1,0 +1,42 @@
+---
+const beneficios = [
+  {
+    icon: "verified_user",
+    bg: "bg-primary-fixed",
+    text: "text-on-primary-fixed-variant",
+    titulo: "Garantía de Origen",
+    descripcion: "Elimine el fraude alimentario y asegure que su producto premium mantenga su identidad en toda la cadena.",
+  },
+  {
+    icon: "language",
+    bg: "bg-secondary-container",
+    text: "text-on-secondary-container",
+    titulo: "Acceso a Mercados",
+    descripcion: "Cumpla con las normativas de la UE y EE.UU. sobre deforestación y sostenibilidad de forma automatizada.",
+  },
+  {
+    icon: "monitoring",
+    bg: "bg-tertiary-fixed",
+    text: "text-on-tertiary-fixed-variant",
+    titulo: "Eficiencia Operativa",
+    descripcion: "Reduzca tiempos de auditoría y gestión de certificados mediante nuestra infraestructura digital integrada.",
+  },
+];
+---
+<section class="bg-surface-container-low py-section-py-desktop" id="beneficios">
+  <div class="max-w-container-max mx-auto px-6 text-center mb-12">
+    <span class="text-label-md font-label-md text-secondary uppercase tracking-widest">Desafíos del Agro Moderno</span>
+    <h2 class="font-headline-lg text-headline-lg text-primary mt-4">Transparencia que genera valor real</h2>
+  </div>
+  <div class="max-w-container-max mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+    {beneficios.map((b) => (
+      <div class="bg-white border border-outline-variant p-8 rounded-2xl hover-lift shadow-sm">
+        <div class={`w-14 h-14 ${b.bg} ${b.text} rounded-xl flex items-center justify-center mb-6`}>
+          <span class="material-symbols-outlined text-3xl">{b.icon}</span>
+        </div>
+        <h3 class="font-headline-md text-headline-md text-primary mb-4">{b.titulo}</h3>
+        <p class="text-on-surface-variant leading-relaxed">{b.descripcion}</p>
+      </div>
+    ))}
+  </div>
+</section>

@@ -1,17 +1,22 @@
 {
   "name": "HuellaDeAltura",
   "private": true,
+  "packageManager": "npm@10.9.7",
   "workspaces": [
-    "HAFront",
-    "HAMobile",
-    "HABlockchain"
+    "HAFront"
   ],
   "scripts": {
     "build": "turbo run build",
+    "build:hafront": "turbo run build --filter=hafront",
+    "check": "turbo run check",
+    "check:hafront": "turbo run check --filter=hafront",
+    "ci:hafront": "turbo run check build --filter=hafront",
     "dev": "turbo run dev",
+    "dev:hafront": "turbo run dev --filter=hafront",
+    "preview:hafront": "turbo run preview --filter=hafront",
     "test": "turbo run test"
   },
   "devDependencies": {
-    "tur:bo": "^2.0.0"
+    "turbo": "^2.0.0"
   }
 }

@@ -1,0 +1,37 @@
+---
+const pasos = [
+  {
+    numero: "01",
+    titulo: "Digital Enrollment",
+    descripcion: "Carga de datos maestros de la finca y georreferenciación de parcelas bajo estándares internacionales de Agrotech.",
+    borde: "border-b md:border-b-0 md:border-r",
+  },
+  {
+    numero: "02",
+    titulo: "Geospatial Monitoring",
+    descripcion: "Seguimiento satelital y de IoT en tiempo real para validar prácticas sostenibles y evitar riesgos en la producción.",
+    borde: "border-b md:border-b-0 md:border-r",
+  },
+  {
+    numero: "03",
+    titulo: "Blockchain Certification",
+    descripcion: "Emisión de certificados inmutables y QR de trazabilidad que acompañan al producto hasta el consumidor final.",
+    borde: "",
+  },
+];
+---
+<section class="py-section-py-desktop max-w-container-max mx-auto px-6">
+  <div class="text-center mb-12">
+    <span class="text-label-md font-label-md text-secondary uppercase tracking-widest">NUESTRA RUTA TECNOLÓGICA</span>
+    <h2 class="font-headline-lg text-headline-lg text-primary mt-4">De la tierra al bloque</h2>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-0 border border-outline-variant rounded-2xl overflow-hidden shadow-sm">
+    {pasos.map((p) => (
+      <div class={`p-10 ${p.borde} border-outline-variant group hover:bg-surface-container transition-colors`}>
+        <div class="text-display text-outline-variant font-display mb-6 group-hover:text-primary transition-colors">{p.numero}</div>
+        <h3 class="font-headline-md text-headline-md text-primary mb-4">{p.titulo}</h3>
+        <p class="text-on-surface-variant">{p.descripcion}</p>
+      </div>
+    ))}
+  </div>
+</section>

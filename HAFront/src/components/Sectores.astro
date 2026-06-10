@@ -1,0 +1,50 @@
+---
+const sectores = [
+  {
+    icon: "psychology_alt",
+    titulo: "Agricultura de Precisión",
+    descripcion: "Uso de datos e IA para optimizar rendimientos y minimizar el impacto ambiental.",
+  },
+  {
+    icon: "eco",
+    titulo: "Sostenibilidad Rural",
+    descripcion: "Validación de créditos de carbono y prácticas de regeneración de suelos.",
+  },
+  {
+    icon: "coffee",
+    titulo: "Café y Cacao Especial",
+    descripcion: "Trazabilidad total desde micro-lotes hasta tostadores internacionales.",
+  },
+  {
+    icon: "hub",
+    titulo: "Cadenas de Suministro",
+    descripcion: "Interconexión de actores rurales con exportadores y retailers globales.",
+  },
+];
+---
+<section class="bg-primary py-section-py-desktop text-on-primary overflow-hidden relative" id="sectores">
+  <div class="absolute top-0 right-0 w-1/3 h-full bg-secondary/10 skew-x-12 transform translate-x-1/2"></div>
+  <div class="max-w-container-max mx-auto px-6 relative z-10">
+    <div class="mb-12">
+      <span class="text-label-md font-label-md text-secondary-fixed uppercase tracking-widest">ENFOQUE SECTORIAL</span>
+      <h2 class="font-headline-lg text-headline-lg mt-4">Especialistas en Agrotech y Sostenibilidad</h2>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      {sectores.map((s) => (
+        <div class="bg-primary-container p-8 rounded-2xl border border-outline/20 hover:border-secondary transition-all group cursor-pointer sector-card">
+          <span class="material-symbols-outlined text-secondary-fixed text-4xl mb-6">{s.icon}</span>
+          <h3 class="font-headline-md text-headline-md mb-2">{s.titulo}</h3>
+          <p class="text-on-primary-container text-body-md opacity-80">{s.descripcion}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll(".sector-card").forEach((card) => {
+    const el = card as HTMLElement;
+    el.addEventListener("mouseenter", () => { el.style.transform = "translateY(-8px)"; });
+    el.addEventListener("mouseleave", () => { el.style.transform = "translateY(0)"; });
+  });
+</script>
