@@ -1,0 +1,312 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+---
+
+<DashboardLayout title="Productor y Finca">
+
+<div class="space-y-8">
+
+  <!-- HEADER -->
+  <div class="flex flex-col md:flex-row justify-between gap-6">
+
+    <div>
+      <h1 class="text-3xl font-bold text-on-surface">
+        Módulo 1: Información de Productor y Finca
+      </h1>
+
+      <p class="mt-2 text-on-surface-variant max-w-3xl">
+        Formulario dinámico de recopilación de datos de origen requeridos por el reglamento EUDR.
+      </p>
+    </div>
+
+    <button
+      class="flex items-center justify-center gap-2 px-6 h-12 bg-primary text-white rounded-xl shadow-sm hover:opacity-90 transition"
+    >
+      <span class="material-symbols-outlined">
+        save
+      </span>
+
+      Guardar Registro
+    </button>
+
+  </div>
+
+  <!-- PRODUCTOR -->
+  <section
+    class="bg-surface-container-low border border-outline-variant rounded-xl p-8 hover-lift"
+  >
+
+    <div class="flex items-center gap-3 border-b border-outline-variant pb-4 mb-6">
+
+      <span class="material-symbols-outlined text-primary">
+        person
+      </span>
+
+      <h2 class="text-xl font-semibold">
+        Información del Productor
+      </h2>
+
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Nombre Completo *
+        </label>
+
+        <input
+          type="text"
+          value="José Miguel Mosquera"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Cédula de Identidad / ID *
+        </label>
+
+        <input
+          type="text"
+          value="1100433455"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Organización / Asociación
+        </label>
+
+        <input
+          type="text"
+          value="Asociación Agroartesanal de Productores"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Celular de Contacto
+        </label>
+
+        <input
+          type="text"
+          value="+5939532692"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Género
+        </label>
+
+        <select
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        >
+          <option>Masculino</option>
+          <option>Femenino</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Edad
+        </label>
+
+        <input
+          type="number"
+          value="56"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- FINCA -->
+  <section
+    class="bg-surface-container-low border border-outline-variant rounded-xl p-8 hover-lift"
+  >
+
+    <div class="flex items-center gap-3 border-b border-outline-variant pb-4 mb-6">
+
+      <span class="material-symbols-outlined text-primary">
+        agriculture
+      </span>
+
+      <h2 class="text-xl font-semibold">
+        Información de la Finca Cafetalera / Agrícola
+      </h2>
+
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Nombre de la Finca *
+        </label>
+
+        <input
+          type="text"
+          value="El Ahuacate"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Código Único de Finca
+        </label>
+
+        <input
+          type="text"
+          readonly
+          value="uuidv4-90234-89304"
+          class="w-full h-14 px-4 bg-surface-container border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Provincia
+        </label>
+
+        <input
+          type="text"
+          value="Loja"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Cantón
+        </label>
+
+        <input
+          type="text"
+          value="Loja"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Parroquia
+        </label>
+
+        <input
+          type="text"
+          value="Vilcabamba"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Barrio / Sector
+        </label>
+
+        <input
+          type="text"
+          value="Ullaguanga"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Área Total (ha) *
+        </label>
+
+        <input
+          type="number"
+          value="3"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Área Cultivada (ha)
+        </label>
+
+        <input
+          type="number"
+          value="3"
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        />
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+          Tenencia de Tierra
+        </label>
+
+        <select
+          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+        >
+          <option>Propia con escritura</option>
+          <option>Arrendada</option>
+          <option>Posesión</option>
+        </select>
+      </div>
+
+    </div>
+
+    <!-- ALERTA -->
+    <div
+      class="mt-8 p-5 rounded-xl border border-primary bg-primary-container/10"
+    >
+
+      <div class="flex gap-3">
+
+        <span class="material-symbols-outlined text-primary">
+          info
+        </span>
+
+        <p class="text-sm text-on-surface">
+          El área es de 3 ha (menor a 4 ha). El reglamento EUDR permite
+          registrar únicamente un punto central de coordenadas geográficas
+          para cumplir con el estándar.
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- SIGUIENTE PASO -->
+  <section
+    class="bg-surface-container-low border border-outline-variant rounded-xl p-6"
+  >
+
+    <p class="text-xs uppercase tracking-wider text-on-surface-variant mb-2">
+      Próximo Paso
+    </p>
+
+    <p class="text-on-surface mb-4">
+      Cargar el mapa de la finca para completar el registro.
+    </p>
+
+    <button
+      class="flex items-center gap-2 text-primary font-semibold hover:underline"
+    >
+      Ir al mapeo de campos dinámicos
+
+      <span class="material-symbols-outlined">
+        arrow_forward
+      </span>
+    </button>
+
+  </section>
+
+</div>
+
+</DashboardLayout>

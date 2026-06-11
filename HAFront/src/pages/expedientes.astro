@@ -1,0 +1,162 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+---
+
+<DashboardLayout title="Expedientes">
+
+<div class="space-y-6">
+
+  <!-- HEADER -->
+  <section class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+
+    <div>
+      <h1 class="text-3xl font-bold text-on-surface">
+        Expedientes y Trazabilidad Guardada
+      </h1>
+
+      <p class="text-on-surface-variant mt-2 max-w-3xl">
+        Listado de productores y fincas registrados localmente para la gestión
+        de diligencia debida EUDR.
+      </p>
+    </div>
+
+    <button
+      class="flex items-center gap-2 px-4 py-2 border border-error text-error rounded-lg hover:bg-error-container transition"
+    >
+      <span class="material-symbols-outlined">
+        delete_sweep
+      </span>
+
+      Limpiar Memoria
+    </button>
+
+  </section>
+
+  <!-- TABLA -->
+  <div
+    class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm"
+  >
+
+    <table class="w-full text-sm">
+
+      <thead class="bg-surface-container">
+
+        <tr>
+
+          <th class="p-4 text-left">
+            Productor
+          </th>
+
+          <th class="p-4 text-left">
+            Finca
+          </th>
+
+          <th class="p-4 text-left">
+            Área
+          </th>
+
+          <th class="p-4 text-left">
+            Estado
+          </th>
+
+          <th class="p-4 text-right">
+            Acciones
+          </th>
+
+        </tr>
+
+      </thead>
+
+      <tbody class="divide-y divide-outline-variant">
+
+        <!-- FILA 1 -->
+
+        <tr class="hover:bg-surface-container transition">
+
+          <td class="p-4">
+
+            <div class="flex items-center gap-3">
+
+              <div
+                class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold"
+              >
+                JM
+              </div>
+
+              <div>
+                <p class="font-semibold">
+                  José Miguel Mosquera
+                </p>
+
+                <p class="text-xs text-on-surface-variant">
+                  ID: 1100433455
+                </p>
+              </div>
+
+            </div>
+
+          </td>
+
+          <td class="p-4">
+
+            <p>
+              El Ahuacate
+            </p>
+
+            <p class="text-xs text-on-surface-variant">
+              Vilcabamba, Loja
+            </p>
+
+          </td>
+
+          <td class="p-4">
+            3.00 Hectáreas
+          </td>
+
+          <td class="p-4">
+
+            <span
+              class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold"
+            >
+              <span class="material-symbols-outlined text-sm">
+                check_circle
+              </span>
+
+              Approved
+            </span>
+
+          </td>
+
+          <td class="p-4 text-right">
+
+            <div class="flex justify-end gap-2">
+
+              <button
+                class="bg-secondary-container px-3 py-2 rounded-lg text-sm"
+              >
+                DDS
+              </button>
+
+              <button
+                class="border border-outline-variant p-2 rounded-lg"
+              >
+                <span class="material-symbols-outlined">
+                  edit_note
+                </span>
+              </button>
+
+            </div>
+
+          </td>
+
+        </tr>
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+</div>
+
+</DashboardLayout>
