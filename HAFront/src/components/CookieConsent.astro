@@ -1,0 +1,69 @@
+<div
+  id="cookie-consent"
+  class="hidden fixed bottom-0 inset-x-0 z-[100] p-4 md:p-6"
+  role="dialog"
+  aria-labelledby="cookie-consent-title"
+  aria-describedby="cookie-consent-desc"
+>
+  <div class="max-w-container-max mx-auto bg-white border border-outline-variant rounded-2xl shadow-2xl p-6 md:p-8">
+    <div class="flex flex-col lg:flex-row lg:items-center gap-6">
+      <div class="flex-1 space-y-2">
+        <h2 id="cookie-consent-title" class="font-headline-md text-headline-md text-primary flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary">cookie</span>
+          Uso de cookies
+        </h2>
+        <p id="cookie-consent-desc" class="text-on-surface-variant text-body-md leading-relaxed">
+          Utilizamos cookies estrictamente necesarias para el funcionamiento del sitio y, con su consentimiento,
+          cookies funcionales y analíticas. Consulte nuestra
+          <a class="text-secondary underline hover:text-primary" href="/legal/cookies">Política de Cookies</a>
+          y la
+          <a class="text-secondary underline hover:text-primary" href="/legal/privacidad">Política de Privacidad</a>
+          conforme a la LOPDP de Ecuador.
+        </p>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3 shrink-0">
+        <button
+          type="button"
+          id="cookie-reject"
+          class="border border-outline text-primary px-6 py-3 rounded-xl font-label-md text-label-md hover:bg-surface-container-low transition-all"
+        >
+          Solo necesarias
+        </button>
+        <button
+          type="button"
+          id="cookie-accept"
+          class="bg-primary text-on-primary px-6 py-3 rounded-xl font-label-md text-label-md hover:bg-primary-container transition-all shadow-sm"
+        >
+          Aceptar todas
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = "ha-cookie-consent";
+  const banner = document.getElementById("cookie-consent");
+  const acceptBtn = document.getElementById("cookie-accept");
+  const rejectBtn = document.getElementById("cookie-reject");
+
+  function hideBanner() {
+    banner?.classList.add("hidden");
+  }
+
+  function saveConsent(value: "all" | "necessary") {
+    localStorage.setItem(STORAGE_KEY, value);
+    document.documentElement.dataset.cookieConsent = value;
+    hideBanner();
+  }
+
+  const existing = localStorage.getItem(STORAGE_KEY);
+  if (!existing) {
+    banner?.classList.remove("hidden");
+  } else {
+    document.documentElement.dataset.cookieConsent = existing;
+  }
+
+  acceptBtn?.addEventListener("click", () => saveConsent("all"));
+  rejectBtn?.addEventListener("click", () => saveConsent("necessary"));
+</script>

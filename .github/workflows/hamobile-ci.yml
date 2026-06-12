@@ -1,0 +1,55 @@
+name: HAMobile CI
+
+on:
+  push:
+    branches: [main, master, develop, landingPage]
+    paths:
+      - "HAMobile/**"
+      - "mobile/**"
+      - "turbo.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hamobile-ci.yml"
+  pull_request:
+    paths:
+      - "HAMobile/**"
+      - "mobile/**"
+      - "turbo.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hamobile-ci.yml"
+
+concurrency:
+  group: hamobile-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: HAMobile (Expo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: HAMobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install monorepo dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Install HAMobile dependencies
+        run: npm install
+        working-directory: HAMobile
+
+      - name: Expo doctor
+        run: npx expo-doctor
+
+      - name: Turbo CI (HAMobile)
+        run: npm run ci:hamobile
+        working-directory: .

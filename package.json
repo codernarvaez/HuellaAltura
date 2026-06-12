@@ -1,17 +1,33 @@
 {
   "name": "huella-de-altura",
   "private": true,
+  "packageManager": "npm@10.9.7",
   "workspaces": [
     "HAFront",
-    "mobile",
-    "HABlockchain",
-    "backend/auth-service",
-    "backend/exped-service"
+    "HAMobile",
+    "HABack/auth-service",
+    "HABack/exped-service"
   ],
   "scripts": {
     "build": "turbo run build",
+    "build:hafront": "turbo run build --filter=hafront",
+    "build:haback": "turbo run build --filter=./HABack/*",
+    "build:hamobile": "turbo run build --filter=hamobile",
+    "check": "turbo run check",
+    "check:hafront": "turbo run check --filter=hafront",
+    "lint": "turbo run lint",
+    "lint:haback": "turbo run lint --filter=./HABack/*",
+    "lint:hafront": "turbo run lint --filter=hafront",
+    "lint:hamobile": "turbo run lint --filter=hamobile",
+    "test": "turbo run test",
+    "test:haback": "turbo run test --filter=./HABack/*",
+    "ci": "turbo run lint check test build",
+    "ci:hafront": "turbo run check build --filter=hafront",
+    "ci:haback": "turbo run lint test build --filter=./HABack/*",
+    "ci:hamobile": "turbo run lint build --filter=hamobile",
     "dev": "turbo run dev",
-    "test": "turbo run test"
+    "dev:hafront": "turbo run dev --filter=hafront",
+    "preview:hafront": "turbo run preview --filter=hafront"
   },
   "devDependencies": {
     "turbo": "^2.0.0"

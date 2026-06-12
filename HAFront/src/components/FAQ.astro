@@ -1,0 +1,37 @@
+---
+const faqs = [
+  {
+    pregunta: "¿Cómo garantiza Blockchain la trazabilidad?",
+    respuesta: "Cada evento en la cadena de suministro se registra como un bloque inmutable. Una vez guardado, no puede ser alterado, asegurando que la información que llega al consumidor sea 100% verídica.",
+  },
+  {
+    pregunta: "¿Es compatible con mis sistemas actuales?",
+    respuesta: "Sí, Huella de Altura cuenta con una API robusta que se integra con los principales ERPs agrícolas y sistemas de gestión de inventarios.",
+  },
+  {
+    pregunta: "¿Qué beneficios tiene el código QR en el empaque?",
+    respuesta: "Permite que el consumidor final escanee y vea la historia completa de su producto: desde la altitud de la finca hasta las certificaciones de comercio justo y sostenibilidad obtenidas.",
+  },
+];
+---
+<section class="py-section-py-desktop max-w-container-max mx-auto px-6">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-12">
+      <h2 class="font-headline-lg text-headline-lg text-primary">Preguntas Frecuentes</h2>
+      <p class="text-on-surface-variant mt-4">Información clave sobre nuestra plataforma de trazabilidad.</p>
+    </div>
+    <div class="space-y-4">
+      {faqs.map((faq) => (
+        <details class="group border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+          <summary class="flex justify-between items-center p-6 cursor-pointer list-none font-headline-md text-headline-md text-primary bg-white hover:bg-surface-container-low transition-colors">
+            {faq.pregunta}
+            <span class="material-symbols-outlined text-secondary group-open:rotate-180 transition-transform">expand_more</span>
+          </summary>
+          <div class="px-6 pb-6 text-on-surface-variant border-l-4 border-secondary ml-6 mb-4">
+            {faq.respuesta}
+          </div>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>

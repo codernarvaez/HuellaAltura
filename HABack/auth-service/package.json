@@ -1,0 +1,9 @@
+{
+  "name": "auth-service",
+  "private": true,
+  "scripts": {
+    "lint": "ruff check app tests && ruff format --check app tests",
+    "build": "prisma generate && python -m compileall -q app",
+    "test": "prisma generate && pytest tests/ -q"
+  }
+}

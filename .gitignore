@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / Monorepo
+node_modules/
+.turbo/
+.astro/
+.vercel/
+HAFront/dist/
+*.tsbuildinfo
+
+# Local SQLite test DBs
+.test_geoguard.db
+geoguard.db
+HABack/exped-service/.test_geoguard.db
+HABack/exped-service/geoguard.db

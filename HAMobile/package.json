@@ -1,0 +1,22 @@
+{
+  "name": "hamobile",
+  "version": "1.0.0",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "npx expo-doctor",
+    "build": "node -e \"console.log('hamobile build: scaffold ok')\"",
+    "test": "node -e \"console.log('hamobile test: scaffold ok')\"",
+    "check": "node -e \"console.log('hamobile check: scaffold ok')\""
+  },
+  "dependencies": {
+    "expo": "~56.0.9",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.3",
+    "react-native": "0.85.3"
+  }
+}
