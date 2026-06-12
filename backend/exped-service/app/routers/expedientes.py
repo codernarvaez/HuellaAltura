@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from prisma import Prisma
 from typing import List, Optional
 from uuid import uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from prisma import Prisma
+
 from app.database import get_db
-from app.security import get_current_user, require_roles
+from app.dependencies import get_current_user, require_roles, log_user_action
 from app.schemas.schemas import (
-    ExpedienteCreate, ExpedienteOut, ExpedienteUpdate,
-    HistorialCreate, HistorialOut,
+    ExpedienteCreate,
+    ExpedienteOut,
+    ExpedienteUpdate,
+    HistorialCreate,
+    HistorialOut,
 )
 
 router = APIRouter()
@@ -17,8 +22,6 @@ _INCLUDE = {"datos_agroambientales": True, "historial": True}
 def generar_eudr_id() -> str:
     return f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}"
 
-
-# ─── EXPEDIENTES ─────────────────────────────────────────────
 
 @router.get("/", response_model=List[ExpedienteOut], summary="Listar todos los expedientes")
 def listar_expedientes(
@@ -35,7 +38,13 @@ def listar_expedientes(
     return db.expediente.find_many(where=where, include=_INCLUDE)
 
 
-@router.post("/", response_model=ExpedienteOut, status_code=201, summary="Crear nuevo expediente")
+@router.post(
+    "/",
+    response_model=ExpedienteOut,
+    status_code=201,
+    summary="Crear nuevo expediente",
+    dependencies=[Depends(log_user_action("create_expediente"))],
+)
 def crear_expediente(
     data: ExpedienteCreate,
     db: Prisma = Depends(get_db),
@@ -80,7 +89,12 @@ def obtener_expediente(
     return exp
 
 
-@router.patch("/{expediente_id}", response_model=ExpedienteOut, summary="Actualizar expediente")
+@router.patch(
+    "/{expediente_id}",
+    response_model=ExpedienteOut,
+    summary="Actualizar expediente",
+    dependencies=[Depends(log_user_action("update_expediente"))],
+)
 def actualizar_expediente(
     expediente_id: str,
     data: ExpedienteUpdate,
@@ -100,7 +114,11 @@ def actualizar_expediente(
     return db.expediente.find_first(where={"id": expediente_id}, include=_INCLUDE)
 
 
-@router.delete("/{expediente_id}", summary="Eliminar expediente")
+@router.delete(
+    "/{expediente_id}",
+    summary="Eliminar expediente",
+    dependencies=[Depends(log_user_action("delete_expediente"))],
+)
 def eliminar_expediente(
     expediente_id: str,
     db: Prisma = Depends(get_db),
@@ -111,8 +129,6 @@ def eliminar_expediente(
     db.expediente.delete(where={"id": expediente_id})
     return {"message": "Expediente eliminado"}
 
-
-# ─── TRAZABILIDAD ────────────────────────────────────────────
 
 @router.get("/{expediente_id}/historial", response_model=List[HistorialOut], summary="Ver historial de trazabilidad")
 def ver_historial(
@@ -125,7 +141,13 @@ def ver_historial(
     return db.historial.find_many(where={"expediente_id": expediente_id})
 
 
-@router.post("/{expediente_id}/historial", response_model=HistorialOut, status_code=201, summary="Agregar evento al historial")
+@router.post(
+    "/{expediente_id}/historial",
+    response_model=HistorialOut,
+    status_code=201,
+    summary="Agregar evento al historial",
+    dependencies=[Depends(log_user_action("add_historial_event"))],
+)
 def agregar_historial(
     expediente_id: str,
     data: HistorialCreate,

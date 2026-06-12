@@ -1,8 +1,12 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+from app.core import endpoints
 from app.database import db
-from app.routers import expedientes, agroambiental, usuarios, roles, fincas, auditoria, certificados
+from app.routers import expedientes, agroambiental, fincas, auditoria, certificados
 
 
 @asynccontextmanager
@@ -13,9 +17,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="GeoGuard EUDR - Backend Kevin Sarango",
+    title="GeoGuard EUDR — Expedientes",
     description="API para Gestión de Expedientes, Trazabilidad e Información Agroambiental",
-    version="2.0.0",
+    version=settings.app_version,
     lifespan=lifespan,
 )
 
@@ -27,20 +31,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(expedientes.router,  prefix="/api/v1/expedientes",  tags=["Expedientes"])
-app.include_router(agroambiental.router, prefix="/api/v1/agroambiental", tags=["Agroambiental"])
-app.include_router(usuarios.router,     prefix="/api/v1/usuarios",     tags=["Usuarios"])
-app.include_router(roles.router,        prefix="/api/v1/roles",        tags=["Roles"])
-app.include_router(fincas.router,       prefix="/api/v1/fincas",       tags=["Fincas"])
-app.include_router(auditoria.router,    prefix="/api/v1/auditoria",    tags=["Auditoría GEE"])
-app.include_router(certificados.router, prefix="/api/v1/certificados", tags=["Certificados DDS"])
+app.include_router(expedientes.router, prefix=endpoints.EXPEDIENTES_PREFIX, tags=["Expedientes"])
+app.include_router(agroambiental.router, prefix=endpoints.AGROAMBIENTAL_PREFIX, tags=["Agroambiental"])
+app.include_router(fincas.router, prefix=endpoints.FINCAS_PREFIX, tags=["Fincas"])
+app.include_router(auditoria.router, prefix=endpoints.AUDITORIA_PREFIX, tags=["Auditoría GEE"])
+app.include_router(certificados.router, prefix=endpoints.CERTIFICADOS_PREFIX, tags=["Certificados DDS"])
 
 
-@app.get("/")
+@app.get(endpoints.ROOT)
 def root():
-    return {"message": "GeoGuard EUDR API - Kevin Sarango", "version": "2.0.0"}
+    return {
+        "message": "GeoGuard EUDR API — Expedientes",
+        "version": settings.app_version,
+        "auth": "Identidad centralizada vía auth-service",
+    }
 
 
-@app.get("/health")
+@app.get(endpoints.HEALTH_CHECK)
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "service": settings.app_name}

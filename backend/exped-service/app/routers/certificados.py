@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
-from prisma import Prisma
+from datetime import datetime
 from typing import List
 from uuid import uuid4
-from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from prisma import Prisma
+
 from app.database import get_db
-from app.security import get_current_user, require_roles
+from app.dependencies import get_current_user, require_roles, log_user_action
 from app.schemas.schemas import CertificadoCreate, CertificadoOut
 
 router = APIRouter()
@@ -18,7 +20,13 @@ def listar_certificados(
     return db.certificado.find_many()
 
 
-@router.post("/", response_model=CertificadoOut, status_code=201, summary="Generar certificado DDS")
+@router.post(
+    "/",
+    response_model=CertificadoOut,
+    status_code=201,
+    summary="Generar certificado DDS",
+    dependencies=[Depends(log_user_action("create_certificado_dds"))],
+)
 def generar_certificado(
     data: CertificadoCreate,
     db: Prisma = Depends(get_db),
@@ -73,7 +81,12 @@ def obtener_certificado(
     return certificado
 
 
-@router.patch("/{certificado_id}/revocar", response_model=CertificadoOut, summary="Revocar certificado DDS")
+@router.patch(
+    "/{certificado_id}/revocar",
+    response_model=CertificadoOut,
+    summary="Revocar certificado DDS",
+    dependencies=[Depends(log_user_action("revoke_certificado_dds"))],
+)
 def revocar_certificado(
     certificado_id: str,
     db: Prisma = Depends(get_db),

@@ -10,6 +10,7 @@ from app.security import decode_access_token
 from app.database import get_db
 from app.config import settings
 from app.core import endpoints
+from app.core.roles import SUPER_ADMIN, TENANT_ADMIN
 
 logger = logging.getLogger("auth-service.dependencies")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_prefix}{endpoints.AUTH_PREFIX}{endpoints.AUTH_LOGIN}")
@@ -98,8 +99,7 @@ class RoleChecker:
         self,
         current_user: Annotated[User, Depends(get_current_active_user)],
     ) -> User:
-        # El ADMIN siempre tiene acceso a todo
-        if current_user.role.name == "ADMIN":
+        if current_user.role.name == SUPER_ADMIN:
             return current_user
 
         if current_user.role.name not in self.allowed_roles:
@@ -110,9 +110,9 @@ class RoleChecker:
             )
         return current_user
 
-# Dependencias de roles comunes
-require_all_access = RoleChecker(["ADMIN"])
-require_manage_users = RoleChecker(["ADMIN", "GERENTE_GENERAL", "GERENTE_OPERACIONES", "CAPATAZ"])
+# Dependencias de roles comunes (EUDR)
+require_all_access = RoleChecker([SUPER_ADMIN])
+require_manage_users = RoleChecker([SUPER_ADMIN, TENANT_ADMIN])
 
 async def _record_audit_log(db: Prisma, user_id: str, action: str, endpoint: str, ip_address: str):
     try:

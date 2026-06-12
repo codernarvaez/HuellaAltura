@@ -77,31 +77,6 @@ model Historial {
   @@map("historial_trazabilidad")
 }
 
-model Rol {
-  id          String   @id @default(uuid())
-  nombre      String   @unique
-  descripcion String?
-
-  usuarios    Usuario[]
-
-  @@map("roles")
-}
-
-model Usuario {
-  id            String   @id @default(uuid())
-  nombre        String
-  email         String   @unique
-  password_hash String
-  rol_id        String?
-  activo        Boolean  @default(true)
-  creado_en     DateTime @default(now())
-
-  rol           Rol?     @relation(fields: [rol_id], references: [id])
-  fincas        Finca[]
-
-  @@map("usuarios")
-}
-
 model Finca {
   id                String   @id @default(uuid())
   nombre            String
@@ -114,10 +89,9 @@ model Finca {
   tenencia          String?
   latitud           Float?
   longitud          Float?
+  /// ID del usuario en auth-service (sin FK — identidad centralizada)
   productor_id      String?
   creado_en         DateTime @default(now())
-
-  productor         Usuario? @relation(fields: [productor_id], references: [id])
 
   @@map("fincas")
 }

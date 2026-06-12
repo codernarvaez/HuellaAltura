@@ -1,8 +1,10 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
-from typing import List
+
 from app.database import get_db
-from app.security import get_current_user, require_roles
+from app.dependencies import get_current_user, require_roles, log_user_action
 from app.schemas.schemas import DatoAgroambientalCreate, DatoAgroambientalOut
 
 router = APIRouter()
@@ -19,7 +21,13 @@ def obtener_datos(
     return db.dato.find_many(where={"expediente_id": expediente_id})
 
 
-@router.post("/{expediente_id}", response_model=DatoAgroambientalOut, status_code=201, summary="Agregar datos agroambientales")
+@router.post(
+    "/{expediente_id}",
+    response_model=DatoAgroambientalOut,
+    status_code=201,
+    summary="Agregar datos agroambientales",
+    dependencies=[Depends(log_user_action("create_agroambiental"))],
+)
 def crear_datos(
     expediente_id: str,
     data: DatoAgroambientalCreate,
@@ -38,7 +46,12 @@ def crear_datos(
     return dato
 
 
-@router.put("/{expediente_id}/{dato_id}", response_model=DatoAgroambientalOut, summary="Actualizar datos agroambientales")
+@router.put(
+    "/{expediente_id}/{dato_id}",
+    response_model=DatoAgroambientalOut,
+    summary="Actualizar datos agroambientales",
+    dependencies=[Depends(log_user_action("update_agroambiental"))],
+)
 def actualizar_datos(
     expediente_id: str,
     dato_id: str,

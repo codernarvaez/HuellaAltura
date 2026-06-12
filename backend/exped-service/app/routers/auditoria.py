@@ -1,8 +1,10 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
-from typing import List
+
 from app.database import get_db
-from app.security import get_current_user, require_roles
+from app.dependencies import get_current_user, require_roles, log_user_action
 from app.schemas.schemas import AuditoriaCreate, AuditoriaOut
 
 router = APIRouter()
@@ -16,7 +18,13 @@ def listar_auditorias(
     return db.auditoria.find_many()
 
 
-@router.post("/", response_model=AuditoriaOut, status_code=201, summary="Registrar resultado de auditoría GEE")
+@router.post(
+    "/",
+    response_model=AuditoriaOut,
+    status_code=201,
+    summary="Registrar resultado de auditoría GEE",
+    dependencies=[Depends(log_user_action("create_auditoria_gee"))],
+)
 def crear_auditoria(
     data: AuditoriaCreate,
     db: Prisma = Depends(get_db),
@@ -25,7 +33,6 @@ def crear_auditoria(
     if not db.expediente.find_first(where={"id": data.expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
 
-    # Usar sub del token si no se especificó ejecutado_por
     create_data = data.model_dump()
     if not create_data.get("ejecutado_por"):
         create_data["ejecutado_por"] = current_user.get("sub")

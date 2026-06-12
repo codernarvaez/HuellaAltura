@@ -30,6 +30,11 @@ USERS_LIST = "/"
 USERS_UPDATE = "/{user_id}"
 USERS_SUSPEND = "/{user_id}/suspend"
 
+# Internal (S2S)
+INTERNAL_PREFIX = "/internal"
+INTERNAL_AUDIT = "/audit"
+INTERNAL_SESSION_VALIDATE = "/session/validate"
+
 # Global / Health
 HEALTH_CHECK = "/"
 DOCS = "/docs"

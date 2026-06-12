@@ -96,10 +96,10 @@ async def health_check():
     dependencies=[Depends(require_all_access), Depends(log_user_action("access_admin_area"))],
     tags=["Pruebas"],
     summary="Ruta de Prueba para Administradores",
-    description="Endpoint de prueba para validar el acceso restringido a usuarios con el rol ADMIN."
+    description="Endpoint de prueba para validar el acceso restringido a usuarios con rol SUPER_ADMIN."
 )
 async def admin_only_route():
-    return {"message": "Bienvenido, Administrador o Gerente General"}
+    return {"message": "Bienvenido, Super Administrador"}
 
 if __name__ == "__main__":
     import uvicorn

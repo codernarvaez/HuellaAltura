@@ -27,10 +27,8 @@ class EstadoEnum(str, Enum):
 class RolNombreEnum(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
     TENANT_ADMIN = "TENANT_ADMIN"
-    CLIENTE = "CLIENTE"
     TECNICO_CAMPO = "TECNICO_CAMPO"
     AUDITOR_INTERNO = "AUDITOR_INTERNO"
-    AUDITOR_EXTERNO = "AUDITOR_EXTERNO"
 
 
 class ResultadoAuditoriaEnum(str, Enum):
@@ -136,48 +134,6 @@ class ExpedienteOut(ExpedienteBase):
 
     class Config:
         from_attributes = True
-
-
-# ─── Rol ─────────────────────────────────────────────────────
-
-class RolCreate(BaseModel):
-    nombre: RolNombreEnum
-    descripcion: Optional[str] = None
-
-
-class RolOut(BaseModel):
-    id: str
-    nombre: str
-    descripcion: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-# ─── Usuario ─────────────────────────────────────────────────
-
-class UsuarioCreate(BaseModel):
-    nombre: str
-    email: str
-    password: str
-    rol_id: Optional[str] = None
-
-
-class UsuarioOut(BaseModel):
-    id: str
-    nombre: str
-    email: str
-    rol_id: Optional[str] = None
-    activo: bool
-    creado_en: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class UsuarioUpdate(BaseModel):
-    activo: Optional[bool] = None
-    rol_id: Optional[str] = None
 
 
 # ─── Finca ───────────────────────────────────────────────────

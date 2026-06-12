@@ -1,8 +1,10 @@
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
-from typing import List, Optional
+
 from app.database import get_db
-from app.security import get_current_user, require_roles
+from app.dependencies import get_current_user, require_roles, log_user_action
 from app.schemas.schemas import FincaCreate, FincaOut, FincaUpdate
 
 router = APIRouter()
@@ -23,13 +25,22 @@ def listar_fincas(
     return db.finca.find_many(where=where)
 
 
-@router.post("/", response_model=FincaOut, status_code=201, summary="Crear nueva finca")
+@router.post(
+    "/",
+    response_model=FincaOut,
+    status_code=201,
+    summary="Crear nueva finca",
+    dependencies=[Depends(log_user_action("create_finca"))],
+)
 def crear_finca(
     data: FincaCreate,
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    return db.finca.create(data=data.model_dump())
+    payload = data.model_dump()
+    if not payload.get("productor_id"):
+        payload["productor_id"] = current_user.get("sub")
+    return db.finca.create(data=payload)
 
 
 @router.get("/{finca_id}", response_model=FincaOut, summary="Obtener finca por ID")
@@ -44,7 +55,12 @@ def obtener_finca(
     return finca
 
 
-@router.patch("/{finca_id}", response_model=FincaOut, summary="Actualizar datos de la finca")
+@router.patch(
+    "/{finca_id}",
+    response_model=FincaOut,
+    summary="Actualizar datos de la finca",
+    dependencies=[Depends(log_user_action("update_finca"))],
+)
 def actualizar_finca(
     finca_id: str,
     data: FincaUpdate,
@@ -56,7 +72,11 @@ def actualizar_finca(
     return db.finca.update(where={"id": finca_id}, data=data.model_dump(exclude_unset=True))
 
 
-@router.delete("/{finca_id}", summary="Eliminar finca")
+@router.delete(
+    "/{finca_id}",
+    summary="Eliminar finca",
+    dependencies=[Depends(log_user_action("delete_finca"))],
+)
 def eliminar_finca(
     finca_id: str,
     db: Prisma = Depends(get_db),

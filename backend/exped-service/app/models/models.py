@@ -1,5 +1,5 @@
 # Modelos gestionados por Prisma — ver schema.prisma en la raíz del proyecto.
-# Este archivo conserva los enums de Python para importaciones en schemas y routers.
+# Enums de dominio para schemas y routers.
 
 import enum
 
@@ -25,10 +25,8 @@ class EstadoExpedienteEnum(str, enum.Enum):
 class RolNombreEnum(str, enum.Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
     TENANT_ADMIN = "TENANT_ADMIN"
-    CLIENTE = "CLIENTE"
     TECNICO_CAMPO = "TECNICO_CAMPO"
     AUDITOR_INTERNO = "AUDITOR_INTERNO"
-    AUDITOR_EXTERNO = "AUDITOR_EXTERNO"
 
 
 class ResultadoAuditoriaEnum(str, enum.Enum):
