@@ -5,13 +5,15 @@
   "private": true,
   "scripts": {
     "start": "expo start",
+    "dev": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "npx expo-doctor",
     "build": "node -e \"console.log('hamobile build: scaffold ok')\"",
     "test": "node -e \"console.log('hamobile test: scaffold ok')\"",
-    "check": "node -e \"console.log('hamobile check: scaffold ok')\""
+    "check": "node -e \"console.log('hamobile check: scaffold ok')\"",
+    "ci": "npm run lint && npm run build"
   },
   "dependencies": {
     "expo": "~56.0.9",

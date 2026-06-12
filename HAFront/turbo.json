@@ -1,14 +1,21 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
+  "tags": ["frontend", "web"],
   "tasks": {
     "build": {
       "dependsOn": [],
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "astro.config.mjs",
+        "tsconfig.json",
+        "src/**",
+        "public/**"
+      ],
       "outputs": [
         "$TURBO_EXTENDS$",
         "dist/**",
-        ".astro/**",
-        "node_modules/.astro/**"
+        ".astro/**"
       ],
       "env": [
         "PUBLIC_SUPABASE_URL",
@@ -18,6 +25,17 @@
     },
     "check": {
       "dependsOn": [],
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "astro.config.mjs",
+        "tsconfig.json",
+        "src/**"
+      ],
+      "outputs": []
+    },
+    "lint": {
+      "dependsOn": [],
+      "inputs": ["$TURBO_EXTENDS$", "src/**"],
       "outputs": []
     },
     "preview": {

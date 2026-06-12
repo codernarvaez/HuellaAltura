@@ -16,20 +16,23 @@
     "check": "turbo run check",
     "check:hafront": "turbo run check --filter=hafront",
     "lint": "turbo run lint",
-    "lint:haback": "turbo run lint --filter=./HABack/*",
     "lint:hafront": "turbo run lint --filter=hafront",
+    "lint:haback": "turbo run lint --filter=./HABack/*",
     "lint:hamobile": "turbo run lint --filter=hamobile",
     "test": "turbo run test",
     "test:haback": "turbo run test --filter=./HABack/*",
-    "ci": "turbo run lint check test build",
-    "ci:hafront": "turbo run check build --filter=hafront",
-    "ci:haback": "turbo run lint test build --filter=./HABack/*",
-    "ci:hamobile": "turbo run lint build --filter=hamobile",
+    "ci": "turbo run ci",
+    "ci:all": "turbo run lint check test build",
+    "ci:hafront": "turbo run ci --filter=hafront",
+    "ci:haback": "turbo run ci --filter=./HABack/*",
+    "ci:hamobile": "turbo run ci --filter=hamobile",
+    "ci:affected": "turbo run ci --filter=[HEAD^1]",
     "dev": "turbo run dev",
     "dev:hafront": "turbo run dev --filter=hafront",
+    "dev:hamobile": "turbo run dev --filter=hamobile",
     "preview:hafront": "turbo run preview --filter=hafront"
   },
   "devDependencies": {
-    "turbo": "^2.0.0"
+    "turbo": "^2.9.0"
   }
 }

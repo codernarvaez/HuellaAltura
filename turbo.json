@@ -4,7 +4,8 @@
   "globalDependencies": [
     "turbo.json",
     "package.json",
-    "package-lock.json"
+    "package-lock.json",
+    ".github/workflows/*.yml"
   ],
   "globalEnv": [
     "CI",
@@ -20,8 +21,30 @@
     "SUPABASE_SERVICE_ROLE_KEY",
     "DATABASE_URL",
     "JWT_SECRET",
-    "INTERNAL_API_KEY"
+    "SECRET_KEY",
+    "INTERNAL_API_KEY",
+    "SESSION_VALIDATION_ENABLED",
+    "AUTH_SERVICE_URL"
   ],
+  "boundaries": {
+    "tags": {
+      "frontend": {
+        "dependencies": {
+          "deny": ["backend", "mobile"]
+        }
+      },
+      "backend": {
+        "dependencies": {
+          "deny": ["frontend", "mobile"]
+        }
+      },
+      "mobile": {
+        "dependencies": {
+          "deny": ["frontend", "backend"]
+        }
+      }
+    }
+  },
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -29,18 +52,19 @@
       "outputs": ["dist/**", ".astro/**"]
     },
     "check": {
-      "dependsOn": ["^build"],
+      "dependsOn": [],
       "inputs": ["$TURBO_DEFAULT$"],
       "outputs": []
     },
     "lint": {
+      "dependsOn": [],
       "inputs": ["$TURBO_DEFAULT$"],
-      "outputs": []
+      "outputs": [".ruff_cache/**"]
     },
     "test": {
       "dependsOn": ["build"],
       "inputs": ["$TURBO_DEFAULT$"],
-      "outputs": ["coverage/**", ".pytest_cache/**"]
+      "outputs": ["coverage/**", ".pytest_cache/**", "htmlcov/**"]
     },
     "dev": {
       "cache": false,
@@ -50,6 +74,9 @@
       "dependsOn": ["build"],
       "cache": false,
       "persistent": true
+    },
+    "ci": {
+      "cache": false
     }
   }
 }

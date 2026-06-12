@@ -4,6 +4,7 @@
   "scripts": {
     "lint": "ruff check app tests && ruff format --check app tests",
     "build": "prisma generate && python -m compileall -q app",
-    "test": "prisma generate && pytest tests/ -q"
+    "test": "prisma generate && pytest tests/ -q",
+    "ci": "npm run lint && npm run test && npm run build"
   }
 }

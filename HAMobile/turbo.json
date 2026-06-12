@@ -1,18 +1,37 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
+  "tags": ["mobile", "expo"],
   "tasks": {
     "build": {
       "dependsOn": [],
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "app.json",
+        "App.js",
+        "index.js",
+        "assets/**"
+      ],
+      "outputs": []
+    },
+    "check": {
+      "dependsOn": [],
+      "inputs": ["$TURBO_EXTENDS$", "app.json", "App.js"],
       "outputs": []
     },
     "lint": {
       "dependsOn": [],
+      "inputs": ["$TURBO_EXTENDS$", "app.json", "package.json"],
       "outputs": []
     },
     "test": {
       "dependsOn": ["build"],
+      "inputs": ["$TURBO_EXTENDS$"],
       "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
     }
   }
 }
