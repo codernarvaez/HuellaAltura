@@ -2,15 +2,13 @@ generator client {
   provider             = "prisma-client-py"
   interface            = "sync"
   recursive_type_depth = 5
+  binaryTargets        = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// SQLite no soporta enums nativos — los campos se almacenan como String.
-// La validación de valores permitidos la realiza Pydantic en los schemas.
 
 model Expediente {
   id                     String  @id @default(uuid())
@@ -59,9 +57,21 @@ model Dato {
   total_stock_carbono    Float?
   creado_en              DateTime   @default(now())
 
-  expediente             Expediente @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
+  expediente             Expediente       @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
+  variables              VariableDinamica[]
 
   @@map("datos_agroambientales")
+}
+
+model VariableDinamica {
+  id        Int    @id @default(autoincrement())
+  dato_id   String
+  nombre    String
+  valor     String
+  tipo_dato String
+  dato      Dato   @relation(fields: [dato_id], references: [id], onDelete: Cascade)
+
+  @@map("variables_dinamicas")
 }
 
 model Historial {
