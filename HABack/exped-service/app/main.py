@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core import endpoints
 from app.database import db
-from app.routers import expedientes, agroambiental, fincas, auditoria, certificados
+from app.routers import expedientes, agroambiental, fincas, auditoria, certificados, variables
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ app.include_router(agroambiental.router, prefix=endpoints.AGROAMBIENTAL_PREFIX, 
 app.include_router(fincas.router, prefix=endpoints.FINCAS_PREFIX, tags=["Fincas"])
 app.include_router(auditoria.router, prefix=endpoints.AUDITORIA_PREFIX, tags=["Auditoría GEE"])
 app.include_router(certificados.router, prefix=endpoints.CERTIFICADOS_PREFIX, tags=["Certificados DDS"])
+app.include_router(variables.router, prefix=endpoints.VARIABLES_PREFIX, tags=["Variables Dinámicas"])
 
 
 @app.get(endpoints.ROOT)
