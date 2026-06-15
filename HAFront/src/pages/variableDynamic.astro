@@ -17,91 +17,240 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
       </p>
     </section>
 
-    <!-- GRID -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- GRID PRINCIPAL -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-      <!-- FORM -->
-<div class="lg:col-span-4 bg-surface-container-low border border-outline-variant rounded-xl p-6 hover-lift">
+      <!-- FORMULARIO -->
+      <div
+        class="lg:col-span-4 bg-surface-container-low border border-outline-variant rounded-xl p-6 shadow-sm"
+      >
 
-  <div class="flex items-center gap-2 mb-5">
-    <span class="material-symbols-outlined text-primary">add_circle</span>
+        <div class="flex items-center gap-2 mb-5">
+          <span class="material-symbols-outlined text-primary">
+            add_circle
+          </span>
+
+          <h2 class="font-semibold text-lg">
+            Crear Nueva Variable
+          </h2>
+        </div>
+
+        <form class="space-y-5">
+
+          <!-- Nombre -->
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Nombre / Etiqueta de la Variable
+            </label>
+
+            <input
+              type="text"
+              placeholder="Ej. pH del Suelo"
+              class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <!-- Sección -->
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Sección de Destino
+            </label>
+
+            <select
+              class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option>Módulo de Biodiversidad</option>
+              <option>Módulo de Carbono</option>
+              <option>Módulo de Recursos Hídricos</option>
+              <option>Módulo de Suelos</option>
+            </select>
+          </div>
+
+          <!-- Tipo -->
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Tipo de Dato
+            </label>
+
+            <select
+              class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option>Numérico (Decimal/Entero)</option>
+              <option>Texto</option>
+              <option>Booleano (Sí / No)</option>
+              <option>Fecha</option>
+              <option>Porcentaje (%)</option>
+            </select>
+          </div>
+
+          <!-- Valor por defecto -->
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Valor por Defecto
+            </label>
+
+            <input
+              type="text"
+              placeholder="Opcional"
+              class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="w-full h-12 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition"
+          >
+            Crear Variable
+          </button>
+
+        </form>
+
+      </div>
+
+      <!-- TABLA DE VARIABLES -->
+<div
+  class="lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm"
+>
+
+  <!-- HEADER TABLA -->
+  <div class="p-5 border-b border-outline-variant flex justify-between items-center bg-surface-container">
+
     <h2 class="font-semibold text-lg">
-      Crear Nueva Variable
+      Variables Activas
     </h2>
+
+    <span
+      class="text-xs px-3 py-1 rounded-full bg-secondary-container text-secondary font-medium"
+    >
+      8 Variables
+    </span>
+
   </div>
 
-  <form class="space-y-4">
+  <!-- TABLA -->
+  <div class="overflow-x-auto">
 
-    <!-- Nombre -->
-    <div>
-      <label class="block text-sm font-medium mb-2 text-on-surface">
-        Nombre / Etiqueta de la Variable
-      </label>
+    <table class="w-full">
 
-      <input
-        type="text"
-        placeholder="Ej. pH del Suelo"
-        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-      />
-    </div>
-
-    <!-- Sección -->
-    <div>
-      <label class="block text-sm font-medium mb-2 text-on-surface">
-        Sección de Destino
-      </label>
-
-      <select
-        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+      <thead
+        class="bg-surface-container text-on-surface-variant uppercase tracking-wider text-xs"
       >
-        <option>Módulo de Biodiversidad</option>
-        <option>Módulo de Carbono</option>
-        <option>Módulo de Recursos Hídricos</option>
-        <option>Módulo de Suelos</option>
-      </select>
-    </div>
+        <tr>
 
-    <!-- Tipo -->
-    <div>
-      <label class="block text-sm font-medium mb-2 text-on-surface">
-        Tipo de Dato
-      </label>
+          <th class="px-5 py-4 text-left font-semibold">
+            Variable
+          </th>
 
-      <select
-        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-      >
-        <option>Numérico (Decimal/Entero)</option>
-        <option>Texto</option>
-        <option>Booleano (Sí / No)</option>
-        <option>Fecha</option>
-        <option>Porcentaje (%)</option>
-      </select>
-    </div>
+          <th class="px-5 py-4 text-left font-semibold">
+            Módulo
+          </th>
 
-    <!-- Valor por defecto -->
-    <div>
-      <label class="block text-sm font-medium mb-2 text-on-surface">
-        Valor por Defecto
-      </label>
+          <th class="px-5 py-4 text-left font-semibold">
+            Tipo
+          </th>
 
-      <input
-        type="text"
-        placeholder="Opcional"
-        class="w-full p-3 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-      />
-    </div>
+          <th class="px-5 py-4 text-right font-semibold">
+            Acciones
+          </th>
 
-    
+        </tr>
+      </thead>
 
-    <!-- Botón -->
-    <button
-      type="submit"
-      class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:opacity-90 transition-all"
-    >
-      Crear Variable
-    </button>
+      <tbody class="divide-y divide-outline-variant text-sm">
 
-  </form>
+        <tr class="bg-white hover:bg-surface-container-low transition-colors">
+
+          <td class="px-5 py-5 font-medium text-on-surface">
+            Conteo de Especies Nativas
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Biodiversidad
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Integer
+          </td>
+
+          <td class="px-5 py-5 text-right">
+            <button class="text-primary font-medium hover:underline">
+              Editar
+            </button>
+          </td>
+
+        </tr>
+
+        <tr class="bg-white hover:bg-surface-container-low transition-colors">
+
+          <td class="px-5 py-5 font-medium text-on-surface">
+            Tasa de Captura de CO₂
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Carbono
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Decimal
+          </td>
+
+          <td class="px-5 py-5 text-right">
+            <button class="text-primary font-medium hover:underline">
+              Editar
+            </button>
+          </td>
+
+        </tr>
+
+        <tr class="bg-white hover:bg-surface-container-low transition-colors">
+
+          <td class="px-5 py-5 font-medium text-on-surface">
+            Ancho de Franja Ribereña
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Recursos Hídricos
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Porcentaje
+          </td>
+
+          <td class="px-5 py-5 text-right">
+            <button class="text-primary font-medium hover:underline">
+              Editar
+            </button>
+          </td>
+
+        </tr>
+
+        <tr class="bg-white hover:bg-surface-container-low transition-colors">
+
+          <td class="px-5 py-5 font-medium text-on-surface">
+            pH del Suelo
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Suelos
+          </td>
+
+          <td class="px-5 py-5 text-on-surface">
+            Decimal
+          </td>
+
+          <td class="px-5 py-5 text-right">
+            <button class="text-primary font-medium hover:underline">
+              Editar
+            </button>
+          </td>
+
+        </tr>
+
+      </tbody>
+
+    </table>
+
+  </div>
 
 </div>
 
