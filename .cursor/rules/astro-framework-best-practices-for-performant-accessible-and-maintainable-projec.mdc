@@ -1,0 +1,104 @@
+---
+alwaysApply: true
+---
+
+# Astro Best Practices
+
+## Core Principles
+
+- Prefer static generation (SSG) over server-side rendering when possible
+- Use partial hydration with `client:*` directives only when JavaScript is required
+- Keep client-side JavaScript minimal for optimal performance
+- Follow Astro's file-based routing conventions
+
+## Project Structure
+
+```
+src/content.config.ts  # Build-time content collection definitions
+src/
+├── components/    # Reusable UI components (.astro, .tsx, .vue)
+├── layouts/       # Page layouts with common structure
+├── pages/         # File-based routes
+├── content/       # Content entries (Markdown/MDX)
+├── styles/        # Global styles
+└── assets/        # Processed assets (images, fonts)
+public/            # Static assets (served as-is)
+```
+
+## Components
+
+- Use `.astro` components for static content (zero JS by default)
+- Reserve framework components (React, Vue, Svelte) for interactive features
+- Apply client directives strategically:
+  - `client:load` - Critical interactivity needed immediately
+  - `client:idle` - Lower priority, load when browser is idle
+  - `client:visible` - Load when component enters viewport
+  - `client:media` - Load based on media query
+  - `client:only` - Skip server render entirely
+
+## Content Collections
+
+- Define collections in `src/content.config.ts`
+- Use loaders and Zod schemas for type-safe content
+- Use `getCollection()` and `getEntry()` for querying
+- Use `render(entry)` instead of relying on legacy `entry.render()`
+- Leverage frontmatter for metadata
+- Prefer MDX for content requiring components
+
+## Performance
+
+- Use `<Image />` component for automatic optimization
+- Implement view transitions and client routing with `<ClientRouter />` when appropriate
+- Minimize layout shifts with proper image dimensions
+- Use content collections for large content sites
+
+## Accessibility
+
+- Use semantic HTML elements (`<nav>`, `<main>`, `<article>`, etc.)
+- Ensure keyboard navigation works for all interactive elements
+- Provide alt text for images (or `alt=""` for decorative images)
+- Maintain proper heading hierarchy (h1 → h6)
+- Test with screen readers and keyboard-only navigation
+
+## Data Fetching
+
+- Fetch data in component frontmatter (server-side by default)
+- Use `Astro.props` for component data passing
+- Implement `getStaticPaths()` for dynamic routes in SSG mode
+- Consider API routes for server-side endpoints
+
+## Styling
+
+- Scoped styles are default in `.astro` components
+- Use `is:global` directive sparingly for global styles
+- Prefer CSS custom properties for theming
+- Support dark mode with `prefers-color-scheme` or class-based toggle
+
+## Common Patterns
+
+```astro
+---
+// Frontmatter: runs at build time (SSG) or request time (SSR)
+import Layout from '../layouts/Layout.astro'
+import { getCollection } from 'astro:content'
+
+const posts = await getCollection('blog')
+---
+
+<Layout title="Blog">
+  <main>
+    {posts.map(post => (
+      <article>
+        <h2>{post.data.title}</h2>
+      </article>
+    ))}
+  </main>
+</Layout>
+
+<style>
+  /* Scoped by default */
+  article {
+    padding: 1rem;
+  }
+</style>
+```
