@@ -1,4 +1,4 @@
-import { eq, asc, and } from 'drizzle-orm';
+import { eq, asc, and, sql } from 'drizzle-orm';
 import { db } from '../local/database';
 import { colaSincronizacion } from '../local/esquema';
 
@@ -30,7 +30,7 @@ export class RepositorioColaSincronizacion {
         estado, 
         ultimoError: error || null,
         procesadoEn: estado === 'COMPLETADO' ? new Date() : null,
-        conteoReintentos: estado === 'FALLIDO' ? (item) => item.conteoReintentos + 1 : undefined
+        conteoReintentos: estado === 'FALLIDO' ? sql`${colaSincronizacion.conteoReintentos} + 1` : undefined
       })
       .where(eq(colaSincronizacion.id, id));
   }

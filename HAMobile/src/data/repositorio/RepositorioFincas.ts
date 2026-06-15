@@ -17,7 +17,7 @@ export class RepositorioFincas {
     const baseDatos = db();
     const ahora = new Date();
 
-    return await baseDatos.transaction(async (tx) => {
+    return await baseDatos.transaction(async (tx: any) => {
       // 1. Insertar Finca
       const [nuevaFinca] = await tx.insert(fincas).values({
         ...datosFinca,

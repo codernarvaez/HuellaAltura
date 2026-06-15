@@ -12,7 +12,7 @@ const MainTabNavigator = () => {
   return (
     <Tab.Navigator 
       screenOptions={({ route }) => ({
-        headerShown: true,
+        headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.outline,
         tabBarIcon: ({ color, size }) => {

@@ -17,6 +17,6 @@ config.resolver.nodeModulesPaths = [
 ];
 
 // 3. Forzar a Metro a resolver módulos desde las carpetas de node_modules
-config.resolver.disableHierarchicalLookup = true;
+config.resolver.disableHierarchicalLookup = false;
 
 module.exports = config;

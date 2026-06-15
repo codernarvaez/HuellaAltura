@@ -9,12 +9,15 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
+  StatusBar,
+  SafeAreaView,
 } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN } from '@env';
 import { theme } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { RepositorioFincas } from '../../data/repositorio/RepositorioFincas';
+import * as Location from 'expo-location';
 import { 
   Map as MapIcon, 
   User, 
@@ -23,15 +26,19 @@ import {
   Save, 
   Trash2, 
   Plus, 
-  CheckCircle2,
-  FileText,
-  PenTool
+  CheckCircle2, 
+  FileText, 
+  PenTool, 
+  Maximize2, 
+  X, 
+  ChevronLeft,
+  LocateFixed
 } from 'lucide-react-native';
 import * as Crypto from 'expo-crypto';
 
 Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const RegistroFincaScreen = () => {
   const { user } = useAuth();
@@ -41,12 +48,42 @@ const RegistroFincaScreen = () => {
   const [areaTotal, setAreaTotal] = useState('');
   const [tenencia, setTenencia] = useState('Propia con escritura');
   
+  // Geolocation fields
+  const [latitud, setLatitud] = useState('-3.99313');
+  const [longitud, setLongitud] = useState('-79.20422');
+  const [altitud, setAltitud] = useState('2100');
+  
   const [puntos, setPuntos] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showFullMap, setShowFullMap] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   // Repositorio
   const repo = new RepositorioFincas(user?.tenantId || 'default-tenant');
+
+  const obtenerUbicacionActual = async () => {
+    setLocating(true);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Se necesita acceso a la ubicación para calcular las coordenadas.');
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setLatitud(location.coords.latitude.toString());
+      setLongitud(location.coords.longitude.toString());
+      if (location.coords.altitude) {
+        setAltitud(Math.round(location.coords.altitude).toString());
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'No se pudo obtener la ubicación actual.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const agregarPunto = (e) => {
     if (!isDrawing) return;
@@ -61,7 +98,7 @@ const RegistroFincaScreen = () => {
 
   const guardarRegistro = async () => {
     if (!nombreFinca || puntos.length < 3) {
-      Alert.alert('Error', 'Por favor ingresa el nombre de la finca y dibuja un polígono válido (mínimo 3 puntos).');
+      Alert.alert('Error', 'Por favor ingresa el nombre de la finca y dibuja un polígono válido (mínimo 3 puntos en el mapa).');
       return;
     }
 
@@ -69,7 +106,6 @@ const RegistroFincaScreen = () => {
     try {
       const idFinca = Crypto.randomUUID();
       
-      // Cerrar el polígono para el GeoJSON si no está cerrado
       const coordenadasCerradas = [...puntos];
       if (
         puntos[0][0] !== puntos[puntos.length - 1][0] ||
@@ -90,7 +126,6 @@ const RegistroFincaScreen = () => {
         }
       };
 
-      // Payload Flex-Core y Otros (Mock)
       const datosFinca = {
         id: idFinca,
         nombre: nombreFinca,
@@ -99,6 +134,11 @@ const RegistroFincaScreen = () => {
         areaGeodesicaHectareas: parseFloat(areaTotal) || 0,
         tipoCaptura: 'GPS_WALK',
         gpsAccuracyMeters: 2.4,
+        coordenadasCentrales: {
+          latitud: parseFloat(latitud),
+          longitud: parseFloat(longitud),
+          altitud: parseFloat(altitud)
+        },
         datosPersonalizados: {
           modulo_biodiversidad: {
             indice_shannon_wiener: 2.56,
@@ -118,7 +158,7 @@ const RegistroFincaScreen = () => {
 
       await repo.crearConVertices(datosFinca, vertices);
       
-      Alert.alert('Éxito', 'Registro de finca guardado y encolado para sincronización.');
+      Alert.alert('Éxito', 'Registro de finca guardado correctamente.');
       limpiarMapa();
       setNombreFinca('');
       setAreaTotal('');
@@ -132,10 +172,7 @@ const RegistroFincaScreen = () => {
 
   const renderPolygon = () => {
     if (puntos.length < 2) return null;
-    
-    // Para visualización, cerramos el polígono si hay 3 o más puntos
     const coords = puntos.length >= 3 ? [...puntos, puntos[0]] : puntos;
-
     return (
       <Mapbox.ShapeSource
         id="polygonSource"
@@ -150,15 +187,15 @@ const RegistroFincaScreen = () => {
         <Mapbox.FillLayer
           id="polygonFill"
           style={{
-            fillColor: theme.colors.primary,
-            fillOpacity: 0.3,
-            fillOutlineColor: theme.colors.primary
+            fillColor: theme.colors.secondary,
+            fillOpacity: 0.4,
+            fillOutlineColor: theme.colors.secondary
           }}
         />
         <Mapbox.LineLayer
           id="polygonLine"
           style={{
-            lineColor: theme.colors.primary,
+            lineColor: '#fff',
             lineWidth: 3
           }}
         />
@@ -178,50 +215,118 @@ const RegistroFincaScreen = () => {
     ));
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Mapa */}
-      <View style={styles.mapContainer}>
+  if (showFullMap) {
+    return (
+      <View style={styles.fullMapContainer}>
+        <StatusBar barStyle="light-content" />
         <Mapbox.MapView 
-          style={styles.map} 
+          style={styles.fullMap} 
           onPress={agregarPunto}
           logoEnabled={false}
           attributionEnabled={false}
+          styleURL={Mapbox.StyleURL.Satellite}
         >
           <Mapbox.Camera
-            zoomLevel={15}
-            centerCoordinate={[-79.2198, -4.3129]} // Loja, Ecuador (Placeholder)
+            zoomLevel={16}
+            centerCoordinate={[parseFloat(longitud), parseFloat(latitud)]}
           />
           {renderPolygon()}
           {renderPoints()}
+          <Mapbox.UserLocation />
         </Mapbox.MapView>
 
-        {/* Controles del Mapa */}
-        <View style={styles.mapOverlay}>
+        {/* Toolbar Superior */}
+        <SafeAreaView style={styles.mapHeader}>
+          <TouchableOpacity style={styles.closeMapButton} onPress={() => setShowFullMap(false)}>
+            <ChevronLeft size={30} color="#fff" />
+            <Text style={styles.backText}>Volver al Formulario</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+
+        {/* Info Overlay */}
+        <View style={styles.mapInfoOverlay}>
+          <View style={styles.mapBadge}>
+            <MapPin size={16} color={theme.colors.secondary} />
+            <Text style={styles.mapBadgeText}>{puntos.length} Puntos</Text>
+          </View>
+          {isDrawing && (
+            <View style={[styles.mapBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
+              <Text style={[styles.mapBadgeText, { color: theme.colors.onSecondaryContainer }]}>Modo Dibujo Activo</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Floating Controls */}
+        <View style={styles.floatingControls}>
           <TouchableOpacity 
-            style={[styles.mapButton, isDrawing && styles.mapButtonActive]} 
+            style={[styles.floatingAction, isDrawing && styles.floatingActionActive]} 
             onPress={() => setIsDrawing(!isDrawing)}
           >
-            {isDrawing ? (
-              <CheckCircle2 size={24} color="#fff" />
-            ) : (
-              <PenTool size={24} color={theme.colors.primary} />
-            )}
-            <Text style={[styles.mapButtonText, isDrawing && { color: '#fff' }]}>
-              {isDrawing ? 'Finalizar' : 'Dibujar'}
-            </Text>
+            {isDrawing ? <CheckCircle2 size={28} color="#fff" /> : <PenTool size={28} color={theme.colors.primary} />}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.mapButton} onPress={limpiarMapa}>
-            <Trash2 size={24} color={theme.colors.error} />
-            <Text style={[styles.mapButtonText, { color: theme.colors.error }]}>Limpiar</Text>
+          <TouchableOpacity style={styles.floatingAction} onPress={limpiarMapa}>
+            <Trash2 size={28} color={theme.colors.error} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.floatingAction, { backgroundColor: theme.colors.primary }]} onPress={() => setShowFullMap(false)}>
+            <Save size={28} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
+    );
+  }
 
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
       <ScrollView style={styles.formScroll} contentContainerStyle={styles.formContent}>
+        
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.mainTitle}>Registro EUDR</Text>
+          <Text style={styles.subTitle}>Captura de datos georreferenciados</Text>
+        </View>
+
+        {/* MiniMap Card */}
+        <TouchableOpacity 
+          style={styles.miniMapCard} 
+          onPress={() => setShowFullMap(true)}
+          activeOpacity={0.9}
+        >
+          <View style={styles.miniMapHeader}>
+            <View style={styles.miniMapTitleGroup}>
+              <MapIcon size={18} color={theme.colors.onPrimaryContainer} />
+              <Text style={styles.miniMapTitle}>Geometría de la Finca</Text>
+            </View>
+            <Maximize2 size={18} color={theme.colors.onPrimaryContainer} />
+          </View>
+          
+          <View style={styles.miniMapWrapper}>
+            <Mapbox.MapView 
+              style={styles.miniMap} 
+              scrollEnabled={false}
+              zoomEnabled={false}
+              pitchEnabled={false}
+              rotateEnabled={false}
+              logoEnabled={false}
+              attributionEnabled={false}
+              styleURL={Mapbox.StyleURL.Satellite}
+            >
+              <Mapbox.Camera
+                zoomLevel={14}
+                centerCoordinate={[parseFloat(longitud), parseFloat(latitud)]}
+              />
+              {renderPolygon()}
+            </Mapbox.MapView>
+            <View style={styles.miniMapOverlay}>
+              <Text style={styles.miniMapActionText}>Toca para editar polígono</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Formulario */}
         <View style={styles.sectionHeader}>
-          <User size={20} color={theme.colors.primary} />
+          <User size={20} color={theme.colors.onPrimaryContainer} />
           <Text style={styles.sectionTitle}>Datos del Productor</Text>
         </View>
         
@@ -232,6 +337,7 @@ const RegistroFincaScreen = () => {
             value={nombreProductor} 
             onChangeText={setNombreProductor}
             placeholder="Ej. José Miguel Mosquera"
+            placeholderTextColor="#999"
           />
         </View>
 
@@ -243,11 +349,49 @@ const RegistroFincaScreen = () => {
             onChangeText={setDocumentoIdentidad}
             placeholder="Ej. 1100433455"
             keyboardType="numeric"
+            placeholderTextColor="#999"
           />
         </View>
 
         <View style={styles.sectionHeader}>
-          <Home size={20} color={theme.colors.primary} />
+          <MapPin size={20} color={theme.colors.onPrimaryContainer} />
+          <Text style={styles.sectionTitle}>Ubicación Central</Text>
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+            <Text style={styles.label}>Latitud</Text>
+            <TextInput style={styles.input} value={latitud} onChangeText={setLatitud} keyboardType="numeric" placeholderTextColor="#999" />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>Longitud</Text>
+            <TextInput style={styles.input} value={longitud} onChangeText={setLongitud} keyboardType="numeric" placeholderTextColor="#999" />
+          </View>
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+            <Text style={styles.label}>Altitud (msnm)</Text>
+            <TextInput style={styles.input} value={altitud} onChangeText={setAltitud} keyboardType="numeric" placeholderTextColor="#999" />
+          </View>
+          <TouchableOpacity 
+            style={styles.locationButton} 
+            onPress={obtenerUbicacionActual}
+            disabled={locating}
+          >
+            {locating ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <LocateFixed size={20} color="#fff" />
+                <Text style={styles.locationButtonText}>Obtener GPS</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Home size={20} color={theme.colors.onPrimaryContainer} />
           <Text style={styles.sectionTitle}>Información de la Finca</Text>
         </View>
 
@@ -258,37 +402,27 @@ const RegistroFincaScreen = () => {
             value={nombreFinca} 
             onChangeText={setNombreFinca}
             placeholder="Ej. El Ahuacate"
+            placeholderTextColor="#999"
           />
         </View>
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
             <Text style={styles.label}>Área (Ha)</Text>
-            <TextInput 
-              style={styles.input} 
-              value={areaTotal} 
-              onChangeText={setAreaTotal}
-              placeholder="0.0"
-              keyboardType="numeric"
-            />
+            <TextInput style={styles.input} value={areaTotal} onChangeText={setAreaTotal} keyboardType="numeric" />
           </View>
           <View style={[styles.inputGroup, { flex: 2 }]}>
             <Text style={styles.label}>Tenencia</Text>
-            <TextInput 
-              style={styles.input} 
-              value={tenencia} 
-              onChangeText={setTenencia}
-              placeholder="Ej. Propia con escritura"
-            />
+            <TextInput style={styles.input} value={tenencia} onChangeText={setTenencia} />
           </View>
         </View>
 
         <View style={styles.sectionHeader}>
-          <FileText size={20} color={theme.colors.secondary} />
-          <Text style={[styles.sectionTitle, { color: theme.colors.secondary }]}>Módulos Flex-Core (EUDR)</Text>
+          <FileText size={20} color={theme.colors.onPrimaryContainer} />
+          <Text style={styles.sectionTitle}>Verificación EUDR</Text>
         </View>
         <Text style={styles.helperText}>
-          Los módulos de Biodiversidad y Carbono se activarán automáticamente según el perfil del inquilino.
+          Módulos de Biodiversidad y Carbono se calculan en base al polígono capturado.
         </Text>
 
         <TouchableOpacity 
@@ -300,86 +434,104 @@ const RegistroFincaScreen = () => {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Save size={24} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.submitButtonText}>Guardar Registro EUDR</Text>
+              <Save size={22} color="#fff" style={{ marginRight: 10 }} />
+              <Text style={styles.submitButtonText}>Finalizar Registro</Text>
             </>
           )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.primary,
   },
-  mapContainer: {
-    height: 300,
-    width: '100%',
-    position: 'relative',
+  headerTitleContainer: {
+    paddingVertical: 10,
+    marginBottom: 10,
   },
-  map: {
-    flex: 1,
+  mainTitle: {
+    ...theme.typography.headlineLgMobile,
+    color: '#fff',
+    fontSize: 28,
   },
-  mapOverlay: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
+  subTitle: {
+    ...theme.typography.labelSm,
+    color: theme.colors.onPrimaryContainer,
+    opacity: 0.8,
+  },
+  miniMapCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: theme.roundness.xl,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primaryContainer,
+  },
+  miniMapHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  mapButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: theme.roundness.md,
+  miniMapTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  miniMapTitle: {
+    ...theme.typography.labelMd,
+    color: '#fff',
     marginLeft: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    fontWeight: '700',
   },
-  mapButtonActive: {
-    backgroundColor: theme.colors.primary,
+  miniMapWrapper: {
+    height: 180,
+    borderRadius: theme.roundness.lg,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  mapButtonText: {
+  miniMap: {
+    flex: 1,
+  },
+  miniMapOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  miniMapActionText: {
     ...theme.typography.labelSm,
-    marginLeft: 4,
-    color: theme.colors.onSurface,
-  },
-  pointMarker: {
-    height: 12,
-    width: 12,
-    borderRadius: 6,
-    backgroundColor: theme.colors.primary,
-    borderWidth: 2,
-    borderColor: '#fff',
+    color: '#fff',
+    fontWeight: '600',
   },
   formScroll: {
     flex: 1,
   },
   formContent: {
-    padding: theme.spacing.gutter,
+    paddingHorizontal: theme.spacing.gutter,
+    paddingTop: 10,
     paddingBottom: 40,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
+    marginTop: 20,
+    marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outlineVariant,
-    paddingBottom: 8,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingBottom: 6,
   },
   sectionTitle: {
-    ...theme.typography.headlineMd,
-    fontSize: 18,
-    color: theme.colors.primary,
-    marginLeft: 8,
+    ...theme.typography.labelMd,
+    fontSize: 16,
+    color: theme.colors.onPrimaryContainer,
+    marginLeft: 10,
     fontWeight: '700',
   },
   inputGroup: {
@@ -387,47 +539,152 @@ const styles = StyleSheet.create({
   },
   label: {
     ...theme.typography.labelSm,
-    color: theme.colors.onSurfaceVariant,
-    marginBottom: 6,
+    color: '#fff',
+    marginBottom: 8,
+    opacity: 0.7,
   },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: theme.colors.outlineVariant,
-    borderRadius: theme.roundness.md,
-    height: 50,
+    borderColor: theme.colors.primaryContainer,
+    borderRadius: theme.roundness.lg,
+    height: 52,
     paddingHorizontal: 16,
     ...theme.typography.bodyMd,
-    color: theme.colors.onSurface,
+    color: '#000',
   },
-  row: {
-    flexDirection: 'row',
-  },
-  helperText: {
-    ...theme.typography.labelSm,
-    color: theme.colors.outline,
-    fontStyle: 'italic',
-    marginBottom: 24,
-  },
-  submitButton: {
-    backgroundColor: theme.colors.primary,
-    height: 60,
+  locationButton: {
+    backgroundColor: theme.colors.primaryContainer,
     borderRadius: theme.roundness.lg,
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    shadowColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    marginTop: 22,
+    flex: 1,
+  },
+  locationButtonText: {
+    ...theme.typography.labelSm,
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '700',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  helperText: {
+    ...theme.typography.labelSm,
+    color: theme.colors.onPrimaryContainer,
+    fontStyle: 'italic',
+    marginBottom: 20,
+    opacity: 0.8,
+  },
+  submitButton: {
+    backgroundColor: theme.colors.secondary,
+    height: 60,
+    borderRadius: theme.roundness.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 6,
+    elevation: 5,
   },
   submitButtonText: {
     ...theme.typography.labelMd,
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  // Full Map Styles
+  fullMapContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  fullMap: {
+    flex: 1,
+  },
+  mapHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  closeMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignSelf: 'flex-start',
+    margin: 16,
+    paddingRight: 20,
+    paddingVertical: 5,
+    borderRadius: theme.roundness.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  backText: {
+    color: '#fff',
+    fontWeight: '600',
     fontSize: 16,
+  },
+  mapInfoOverlay: {
+    position: 'absolute',
+    top: 100,
+    left: 16,
+    zIndex: 5,
+  },
+  mapBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.roundness.md,
+    marginBottom: 8,
+  },
+  mapBadgeText: {
+    ...theme.typography.labelSm,
+    color: theme.colors.primary,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  floatingControls: {
+    position: 'absolute',
+    bottom: 40,
+    right: 24,
+    gap: 16,
+  },
+  floatingAction: {
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  floatingActionActive: {
+    backgroundColor: theme.colors.secondary,
+  },
+  pointMarker: {
+    height: 16,
+    width: 16,
+    borderRadius: 8,
+    backgroundColor: theme.colors.secondary,
+    borderWidth: 3,
+    borderColor: '#fff',
   },
 });
 
