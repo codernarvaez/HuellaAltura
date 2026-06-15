@@ -9,7 +9,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "check": "astro check",
+    "lint": "astro check",
     "preview": "astro preview",
+    "ci": "npm run check && npm run build",
     "astro": "astro"
   },
   "dependencies": {

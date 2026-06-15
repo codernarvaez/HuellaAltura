@@ -1,0 +1,53 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tags": ["backend"],
+  "tasks": {
+    "lint": {
+      "dependsOn": [],
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "pyproject.toml",
+        "requirements.txt",
+        "requirements-dev.txt",
+        "app/**/*.py",
+        "tests/**/*.py"
+      ],
+      "outputs": [".ruff_cache/**"]
+    },
+    "build": {
+      "dependsOn": [],
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "schema.prisma",
+        "requirements.txt",
+        "app/**/*.py"
+      ],
+      "outputs": [],
+      "env": [
+        "DATABASE_URL",
+        "SECRET_KEY",
+        "INTERNAL_API_KEY",
+        "JWT_SECRET"
+      ]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "tests/**/*.py",
+        "app/**/*.py",
+        "schema.prisma"
+      ],
+      "outputs": [".pytest_cache/**"],
+      "env": [
+        "DATABASE_URL",
+        "SECRET_KEY",
+        "INTERNAL_API_KEY",
+        "JWT_SECRET",
+        "SESSION_VALIDATION_ENABLED",
+        "AUTH_SERVICE_URL"
+      ]
+    }
+  }
+}

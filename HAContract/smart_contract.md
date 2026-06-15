@@ -1,0 +1,1 @@
+** Aqui se detallan los smartcontrat para la trazabilidad que se tiene **

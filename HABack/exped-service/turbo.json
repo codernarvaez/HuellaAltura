@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//", "../turbo.json"],
+  "tags": ["backend", "api", "expedientes"],
+  "tasks": {
+    "build": {
+      "outputs": ["$TURBO_EXTENDS$"]
+    },
+    "test": {
+      "env": [
+        "DATABASE_URL",
+        "SECRET_KEY",
+        "INTERNAL_API_KEY",
+        "SESSION_VALIDATION_ENABLED",
+        "AUTH_SERVICE_URL"
+      ]
+    }
+  }
+}

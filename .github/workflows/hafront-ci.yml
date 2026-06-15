@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run HAFront CI pipeline
+      - name: Run HAFront CI via Turbo
         run: npm run ci:hafront
         env:
           CI: true

@@ -1,0 +1,138 @@
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "sync"
+  recursive_type_depth = 5
+  binaryTargets        = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Expediente {
+  id                     String  @id @default(uuid())
+  eudr_id                String? @unique
+  nombre_completo        String
+  cedula_id              String
+  organizacion           String?
+  celular                String?
+  genero                 String?
+  edad                   Int?
+  nombre_finca           String
+  provincia              String?
+  canton                 String?
+  parroquia              String?
+  barrio_sector          String?
+  area_total_ha          Float?
+  area_cultivada_ha      Float?
+  tenencia               String?
+  latitud                Float?
+  longitud               Float?
+  estado                 String   @default("PENDIENTE")
+  organizacion_inquilino String?
+  creado_en              DateTime @default(now())
+  actualizado_en         DateTime @updatedAt
+
+  datos_agroambientales  Dato[]
+  historial              Historial[]
+  auditorias             Auditoria[]
+  certificados           Certificado[]
+
+  @@map("expedientes")
+}
+
+model Dato {
+  id                     String     @id @default(uuid())
+  expediente_id          String
+  indice_shannon         Float?
+  indice_simpson         Float?
+  uso_suelo              String?
+  cobertura_forestal     String?
+  sistema_produccion     String?
+  biomasa_arboles        Float?
+  biomasa_cafe           Float?
+  hojarasca_mantillo     Float?
+  carbono_organico_suelo Float?
+  total_stock_carbono    Float?
+  creado_en              DateTime   @default(now())
+
+  expediente             Expediente       @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
+  variables              VariableDinamica[]
+
+  @@map("datos_agroambientales")
+}
+
+model VariableDinamica {
+  id        Int    @id @default(autoincrement())
+  dato_id   String
+  nombre    String
+  valor     String
+  tipo_dato String
+  dato      Dato   @relation(fields: [dato_id], references: [id], onDelete: Cascade)
+
+  @@map("variables_dinamicas")
+}
+
+model Historial {
+  id            String     @id @default(uuid())
+  expediente_id String
+  accion        String
+  descripcion   String?
+  usuario       String?
+  fecha         DateTime   @default(now())
+
+  expediente    Expediente @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
+
+  @@map("historial_trazabilidad")
+}
+
+model Finca {
+  id                String   @id @default(uuid())
+  nombre            String
+  eudr_id           String?  @unique
+  provincia         String?
+  canton            String?
+  parroquia         String?
+  area_total_ha     Float?
+  area_cultivada_ha Float?
+  tenencia          String?
+  latitud           Float?
+  longitud          Float?
+  /// ID del usuario en auth-service (sin FK — identidad centralizada)
+  productor_id      String?
+  creado_en         DateTime @default(now())
+
+  @@map("fincas")
+}
+
+model Auditoria {
+  id                      String   @id @default(uuid())
+  expediente_id           String
+  fecha_auditoria         DateTime @default(now())
+  resultado               String
+  deforestacion_detectada Boolean  @default(false)
+  fecha_corte             DateTime?
+  fuente                  String?  @default("Google Earth Engine")
+  observaciones           String?
+  ejecutado_por           String?
+
+  expediente              Expediente @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
+
+  @@map("auditorias_gee")
+}
+
+model Certificado {
+  id                 String   @id @default(uuid())
+  expediente_id      String
+  codigo_certificado String   @unique
+  fecha_emision      DateTime @default(now())
+  fecha_vencimiento  DateTime?
+  estado             String   @default("VIGENTE")
+  generado_por       String?
+  url_documento      String?
+
+  expediente         Expediente @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
+
+  @@map("certificados_dds")
+}
