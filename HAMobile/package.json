@@ -1,24 +1,37 @@
 {
-  "name": "hamobile",
+  "name": "huella-de-altura",
   "version": "1.0.0",
   "main": "index.js",
-  "private": true,
+  "dependencies": {
+    "@op-engineering/op-sqlite": "^16.2.1",
+    "@react-navigation/bottom-tabs": "^7.18.0",
+    "@react-navigation/native": "^7.3.1",
+    "@react-navigation/native-stack": "^7.17.3",
+    "@rnmapbox/maps": "^10.3.1",
+    "drizzle-orm": "^0.45.2",
+    "expo": "~56.0.9",
+    "expo-application": "~56.0.3",
+    "expo-crypto": "~56.0.4",
+    "expo-dev-client": "~56.0.20",
+    "expo-linear-gradient": "^56.0.4",
+    "expo-status-bar": "~56.0.4",
+    "lucide-react-native": "^1.18.0",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-dotenv": "^3.4.11",
+    "react-native-gesture-handler": "~2.31.1",
+    "react-native-reanimated": "4.3.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "^4.25.2"
+  },
   "scripts": {
     "start": "expo start",
-    "dev": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web",
-    "lint": "npx expo-doctor",
-    "build": "node -e \"console.log('hamobile build: scaffold ok')\"",
-    "test": "node -e \"console.log('hamobile test: scaffold ok')\"",
-    "check": "node -e \"console.log('hamobile check: scaffold ok')\"",
-    "ci": "npm run lint && npm run build"
+    "web": "expo start --web"
   },
-  "dependencies": {
-    "expo": "~56.0.9",
-    "expo-status-bar": "~56.0.4",
-    "react": "19.2.3",
-    "react-native": "0.85.3"
+  "private": true,
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10"
   }
 }
