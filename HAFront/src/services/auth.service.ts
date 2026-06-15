@@ -36,7 +36,7 @@ export interface UserOut {
   updated_at?: string;
 }
 
-//agregamos las interfaces para la recuperación de contra
+//agregamos las interfaces para la recuperación de contraaase
 
 export interface PasswordResetRequest {
   email: string;
