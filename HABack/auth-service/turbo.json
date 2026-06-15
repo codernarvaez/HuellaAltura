@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "extends": ["//", "../turbo.json"],
+  "extends": ["//"],
   "tags": ["backend", "api", "auth"],
   "tasks": {
     "build": {

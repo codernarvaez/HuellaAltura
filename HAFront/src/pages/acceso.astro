@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { createServerSupabase } from "../lib/supabase/server";
-
+import { AuthService } from '../services/auth.service';
 export const prerender = false;
 
 const configured = Boolean(
@@ -9,7 +9,7 @@ const configured = Boolean(
 );
 const siteUrl = import.meta.env.PUBLIC_SITE_URL ?? Astro.url.origin;
 
-if (configured) {
+if (configured) { 
   const supabase = createServerSupabase(Astro.cookies);
   const {
     data: { user },
@@ -327,6 +327,16 @@ const error = Astro.url.searchParams.get("error");
 
           showAlert("Revisa tu correo para confirmar la cuenta.", "success");
           return;
+        } else {
+          // Login normal, handled below
+          const response = await AuthService.login({ email, password });
+      
+          // 2. Guardar el token en una cookie (Recomendado en Astro SSR)
+          document.cookie = `token=${`response.access_token`}; path=/; max-age=86400; SameSite=Lax`;
+
+          // 3. Redirigir al dashboard
+          window.location.href = "/dashboard";
+        
         }
 
         const { error } = await supabase.auth.signInWithPassword({ email, password });
