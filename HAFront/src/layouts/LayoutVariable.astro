@@ -56,22 +56,22 @@ const { title = "AgroRegistry" } = Astro.props;
       <!-- MENU -->
       <nav class="space-y-1 text-sm mb-4">
 
-        <a class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition">
+        <a href="/productorFinca" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition sidebar-link">
           <span class="material-symbols-outlined text-sm">person</span>
           Productor y finca
         </a>
 
-        <a class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition">
+        <a href="/satelital" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition sidebar-link">
           <span class="material-symbols-outlined text-sm">satellite_alt</span>
           Reporte satelital
         </a>
 
-        <a class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition">
+        <a href="/expedientes" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition sidebar-link">
           <span class="material-symbols-outlined text-sm">folder_open</span>
           Expediente
         </a>
 
-        <a class="flex items-center gap-2 p-2 rounded-lg bg-primary text-white">
+        <a href="/variableDynamic" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container transition sidebar-link">
           <span class="material-symbols-outlined text-sm">settings_input_component</span>
           Campos
         </a>
@@ -103,6 +103,34 @@ const { title = "AgroRegistry" } = Astro.props;
     </main>
 
   </div>
+</div>
+
+  <script>
+    (function(){
+      const links = Array.from(document.querySelectorAll('aside nav a.sidebar-link'));
+      function normalize(p){ return (p||'').replace(/\/+$|^\s+|\s+$/g,'') || '/'; }
+      function updateActive(){
+        const path = normalize(window.location.pathname);
+        links.forEach(a=>{
+          // Remove previous inline styles/classes
+          a.classList.remove('bg-green-600','text-white');
+          a.style.backgroundColor = '';
+          a.style.color = '';
+          const href = a.getAttribute('href') || '';
+          const linkPath = normalize(href);
+          if(linkPath === path){
+            // Apply inline styles so hover doesn't override
+            a.classList.add('bg-green-600','text-white');
+            a.style.backgroundColor = '#16a34a';
+            a.style.color = '#ffffff';
+          }
+        });
+      }
+      updateActive();
+      window.addEventListener('popstate', updateActive);
+      links.forEach(a=> a.addEventListener('click', ()=> setTimeout(updateActive, 50)));
+    })();
+  </script>
 
 </body>
 </html>

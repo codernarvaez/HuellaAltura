@@ -35,7 +35,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
           </h2>
         </div>
 
-        <form class="space-y-5">
+        <form id="variable-form" class="space-y-5">
 
           <!-- Nombre -->
           <div>
@@ -44,9 +44,11 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
             </label>
 
             <input
+              id="variable-name"
               type="text"
               placeholder="Ej. pH del Suelo"
               class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+              required
             />
           </div>
 
@@ -57,12 +59,13 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
             </label>
 
             <select
+              id="variable-module"
               class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option>Módulo de Biodiversidad</option>
-              <option>Módulo de Carbono</option>
-              <option>Módulo de Recursos Hídricos</option>
-              <option>Módulo de Suelos</option>
+              <option value="Biodiversidad">Módulo de Biodiversidad</option>
+              <option value="Carbono">Módulo de Carbono</option>
+              <option value="Recursos Hídricos">Módulo de Recursos Hídricos</option>
+              <option value="Suelos">Módulo de Suelos</option>
             </select>
           </div>
 
@@ -73,13 +76,14 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
             </label>
 
             <select
+              id="variable-type"
               class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option>Numérico (Decimal/Entero)</option>
-              <option>Texto</option>
-              <option>Booleano (Sí / No)</option>
-              <option>Fecha</option>
-              <option>Porcentaje (%)</option>
+              <option value="FLOAT">Numérico (Decimal/Entero)</option>
+              <option value="STRING">Texto</option>
+              <option value="BOOLEAN">Booleano (Sí / No)</option>
+              <option value="DATE">Fecha</option>
+              <option value="FLOAT">Porcentaje (%)</option>
             </select>
           </div>
 
@@ -90,6 +94,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
             </label>
 
             <input
+              id="variable-default"
               type="text"
               placeholder="Opcional"
               class="w-full h-12 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
@@ -103,159 +108,198 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
             Crear Variable
           </button>
 
+          <p id="variable-message" class="text-sm text-error mt-2 hidden"></p>
+
         </form>
 
       </div>
 
       <!-- TABLA DE VARIABLES -->
-<div
-  class="lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm"
->
-
-  <!-- HEADER TABLA -->
-  <div class="p-5 border-b border-outline-variant flex justify-between items-center bg-surface-container">
-
-    <h2 class="font-semibold text-lg">
-      Variables Activas
-    </h2>
-
-    <span
-      class="text-xs px-3 py-1 rounded-full bg-secondary-container text-secondary font-medium"
-    >
-      8 Variables
-    </span>
-
-  </div>
-
-  <!-- TABLA -->
-  <div class="overflow-x-auto">
-
-    <table class="w-full">
-
-      <thead
-        class="bg-surface-container text-on-surface-variant uppercase tracking-wider text-xs"
+      <div
+        class="lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm"
       >
-        <tr>
 
-          <th class="px-5 py-4 text-left font-semibold">
-            Variable
-          </th>
+        <!-- HEADER TABLA -->
+        <div class="p-5 border-b border-outline-variant flex justify-between items-center bg-surface-container">
 
-          <th class="px-5 py-4 text-left font-semibold">
-            Módulo
-          </th>
+          <h2 class="font-semibold text-lg">
+            Variables Activas
+          </h2>
 
-          <th class="px-5 py-4 text-left font-semibold">
-            Tipo
-          </th>
+          <span
+            id="variable-count"
+            class="text-xs px-3 py-1 rounded-full bg-secondary-container text-secondary font-medium"
+          >
+            0 Variables
+          </span>
 
-          <th class="px-5 py-4 text-right font-semibold">
-            Acciones
-          </th>
+        </div>
 
-        </tr>
-      </thead>
+        <!-- TABLA -->
+        <div class="overflow-x-auto">
 
-      <tbody class="divide-y divide-outline-variant text-sm">
+          <table class="w-full">
 
-        <tr class="bg-white hover:bg-surface-container-low transition-colors">
+            <thead
+              class="bg-surface-container text-on-surface-variant uppercase tracking-wider text-xs"
+            >
+              <tr>
 
-          <td class="px-5 py-5 font-medium text-on-surface">
-            Conteo de Especies Nativas
-          </td>
+                <th class="px-5 py-4 text-left font-semibold">
+                  Variable
+                </th>
 
-          <td class="px-5 py-5 text-on-surface">
-            Biodiversidad
-          </td>
+                <th class="px-5 py-4 text-left font-semibold">
+                  Tipo
+                </th>
 
-          <td class="px-5 py-5 text-on-surface">
-            Integer
-          </td>
+                <th class="px-5 py-4 text-left font-semibold">
+                  Valor
+                </th>
 
-          <td class="px-5 py-5 text-right">
-            <button class="text-primary font-medium hover:underline">
-              Editar
-            </button>
-          </td>
+                <th class="px-5 py-4 text-right font-semibold">
+                  Acciones
+                </th>
 
-        </tr>
+              </tr>
+            </thead>
 
-        <tr class="bg-white hover:bg-surface-container-low transition-colors">
+            <tbody id="variables-table-body" class="divide-y divide-outline-variant text-sm">
+              <tr>
+                <td colspan="4" class="p-6 text-center text-on-surface-variant">
+                  Cargando variables...
+                </td>
+              </tr>
+            </tbody>
 
-          <td class="px-5 py-5 font-medium text-on-surface">
-            Tasa de Captura de CO₂
-          </td>
+          </table>
 
-          <td class="px-5 py-5 text-on-surface">
-            Carbono
-          </td>
+        </div>
 
-          <td class="px-5 py-5 text-on-surface">
-            Decimal
-          </td>
-
-          <td class="px-5 py-5 text-right">
-            <button class="text-primary font-medium hover:underline">
-              Editar
-            </button>
-          </td>
-
-        </tr>
-
-        <tr class="bg-white hover:bg-surface-container-low transition-colors">
-
-          <td class="px-5 py-5 font-medium text-on-surface">
-            Ancho de Franja Ribereña
-          </td>
-
-          <td class="px-5 py-5 text-on-surface">
-            Recursos Hídricos
-          </td>
-
-          <td class="px-5 py-5 text-on-surface">
-            Porcentaje
-          </td>
-
-          <td class="px-5 py-5 text-right">
-            <button class="text-primary font-medium hover:underline">
-              Editar
-            </button>
-          </td>
-
-        </tr>
-
-        <tr class="bg-white hover:bg-surface-container-low transition-colors">
-
-          <td class="px-5 py-5 font-medium text-on-surface">
-            pH del Suelo
-          </td>
-
-          <td class="px-5 py-5 text-on-surface">
-            Suelos
-          </td>
-
-          <td class="px-5 py-5 text-on-surface">
-            Decimal
-          </td>
-
-          <td class="px-5 py-5 text-right">
-            <button class="text-primary font-medium hover:underline">
-              Editar
-            </button>
-          </td>
-
-        </tr>
-
-      </tbody>
-
-    </table>
-
-  </div>
-
-</div>
+      </div>
 
     </div>
 
   </div>
 
 </DashboardLayout>
+
+<script type="module">
+  import { VariableService } from "../services/variableservices.ts";
+
+  const tableBody = document.getElementById("variables-table-body");
+  const countBadge = document.getElementById("variable-count");
+  const messageBox = document.getElementById("variable-message");
+  const form = document.getElementById("variable-form");
+
+  const queryParams = new URLSearchParams(window.location.search);
+  const datoId = queryParams.get("dato_id") || "REEMPLAZAR_POR_DATO_ID";
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  const token = getCookie("token");
+
+  function showMessage(text, isError = false) {
+    if (!messageBox) return;
+    messageBox.textContent = text;
+    messageBox.classList.remove("hidden");
+    messageBox.classList.toggle("text-error", isError);
+    messageBox.classList.toggle("text-success", !isError);
+    setTimeout(() => {
+      messageBox.classList.add("hidden");
+    }, 4000);
+  }
+
+  async function loadVariables() {
+    if (!tableBody || !countBadge) return;
+    tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-on-surface-variant">Cargando variables...</td></tr>`;
+    try {
+      const variables = await VariableService.list(datoId, token);
+      if (variables.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-on-surface-variant">No hay variables registradas.</td></tr>`;
+      } else {
+        tableBody.innerHTML = variables
+          .map(
+            (variable) => `
+              <tr class="bg-white hover:bg-surface-container-low transition-colors">
+                <td class="px-5 py-5 font-medium text-on-surface">${variable.nombre}</td>
+                <td class="px-5 py-5 text-on-surface">${variable.tipo_dato}</td>
+                <td class="px-5 py-5 text-on-surface">${variable.valor}</td>
+                <td class="px-5 py-5 text-right">
+                  <button data-id="${variable.id}" class="delete-variable text-error font-medium hover:underline">Eliminar</button>
+                </td>
+              </tr>
+            `
+          )
+          .join("");
+      }
+      countBadge.textContent = `${variables.length} Variables`;
+    } catch (error) {
+      tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-error">${error instanceof Error ? error.message : "Error al cargar variables."}</td></tr>`;
+      countBadge.textContent = `0 Variables`;
+    }
+  }
+
+  async function createVariable(event) {
+    event.preventDefault();
+    const nombre = document.getElementById("variable-name").value.trim();
+    const tipo_dato = document.getElementById("variable-type").value;
+    const valor = document.getElementById("variable-default").value.trim();
+
+    if (!nombre) {
+      showMessage("El nombre de la variable es obligatorio.", true);
+      return;
+    }
+
+    try {
+      await VariableService.create(datoId, {
+        nombre,
+        valor: valor || "",
+        tipo_dato,
+      }, token);
+      showMessage("Variable creada correctamente.");
+      form.reset();
+      loadVariables();
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "No se pudo crear la variable.", true);
+    }
+  }
+
+  async function deleteVariable(id) {
+    try {
+      await VariableService.delete(datoId, Number(id), token);
+      showMessage("Variable eliminada correctamente.");
+      loadVariables();
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "No se pudo eliminar la variable.", true);
+    }
+  }
+
+  if (form) {
+    form.addEventListener("submit", createVariable);
+  }
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const id = target.dataset.id;
+    if (!id) return;
+
+    if (target.classList.contains("delete-variable")) {
+      if (!confirm("¿Eliminar esta variable?")) return;
+      deleteVariable(id);
+    }
+  });
+
+  if (!token) {
+    showMessage("Token no encontrado. Inicia sesión para usar este módulo.", true);
+    if (tableBody) {
+      tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-error">Inicia sesión para ver las variables.</td></tr>`;
+    }
+  } else {
+    loadVariables();
+  }
+</script>
