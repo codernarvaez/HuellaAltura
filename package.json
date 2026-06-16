@@ -34,5 +34,8 @@
   },
   "devDependencies": {
     "turbo": "^2.9.0"
+  },
+  "dependencies": {
+    "ofetch": "^1.5.1"
   }
 }

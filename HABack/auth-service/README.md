@@ -101,3 +101,9 @@ auth-service/
 ├── schema.prisma        # Definición central de modelos de datos
 └── .env                 # Parámetros de configuración
 ```
+
+User de prueba: 
+
+
+Email: admin@huelladealtura.com
+Password: admin123
