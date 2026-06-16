@@ -6,7 +6,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "astro dev",
+    "dev": "node ../node_modules/astro/bin/astro.mjs dev",
     "build": "astro build",
     "check": "astro check",
     "lint": "astro check",
@@ -19,13 +19,13 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
     "@tailwindcss/vite": "^4.3.0",
-    "astro": "^6.4.5",
     "tailwindcss": "^4.3.0",
     "viem": "^2.52.2"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@types/node": "^25.9.2",
+    "astro": "^6.4.7",
     "typescript": "^6.0.3"
   }
 }
