@@ -1,0 +1,204 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+
+const variablesAmbientales = [
+  {
+    nombre: "Índice de Biodiversidad (Shannon-Wiener)",
+    valor: "2.56",
+  },
+  {
+    nombre: "Índice de Biodiversidad (Simpson)",
+    valor: "0.89",
+  },
+  {
+    nombre: "Uso de Suelo",
+    valor: "Sistema Agroforestal de Café",
+  },
+  {
+    nombre: "Cobertura Forestal",
+    valor: "Laurel, Aguacate, Pachaco, Naranjo, Guayaba, Cedro",
+  },
+  {
+    nombre: "Sistema de Producción",
+    valor: "Café (Variedad Arábica) asociado con árboles de sombra",
+    fullWidth: true,
+  },
+  {
+    nombre: "Biomasa Aérea de los Árboles (tC/ha)",
+    valor: "35",
+  },
+  {
+    nombre: "Biomasa Aérea del Café (tC/ha)",
+    valor: "5",
+  },
+  {
+    nombre: "Hojarasca y Mantillo (tC/ha)",
+    valor: "4",
+  },
+  {
+    nombre: "Carbono Orgánico del Suelo (tC/ha)",
+    valor: "70",
+  },
+  {
+    nombre: "Total Stock de Carbono (tC/ha)",
+    valor: "114",
+    fullWidth: true,
+    destacado: true,
+  },
+];
+---
+
+<DashboardLayout title="Información Agroambiental">
+
+  <div class="space-y-6">
+
+    <!-- HEADER -->
+    <section>
+      <h1 class="text-3xl font-bold text-primary">
+        Información Agroambiental
+      </h1>
+
+      <p class="text-on-surface-variant mt-2 max-w-3xl">
+        Registro de variables ambientales complementarias asociadas a la finca
+        y configuración dinámica definida por el administrador.
+      </p>
+    </section>
+
+    <!-- INFORMACIÓN AGROAMBIENTAL -->
+    <section
+      class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden"
+    >
+
+      <div
+        class="px-6 py-4 border-b border-outline-variant flex items-center gap-3"
+      >
+        <span class="material-symbols-outlined text-primary">
+          eco
+        </span>
+
+        <h2 class="text-xl font-semibold text-primary">
+          Información Agroambiental y Campos Dinámicos
+        </h2>
+      </div>
+
+      <div class="p-6">
+
+        <p class="text-on-surface-variant mb-6">
+          Los campos a continuación corresponden a variables ambientales
+          complementarias configuradas por el administrador.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {variablesAmbientales.map((variable) => (
+
+            <div class={variable.fullWidth ? "md:col-span-2" : ""}>
+
+              <label
+                class={`block mb-2 text-sm ${
+                  variable.destacado
+                    ? "font-semibold text-primary"
+                    : "font-medium text-on-surface-variant"
+                }`}
+              >
+                {variable.nombre}
+              </label>
+
+              <input
+                type="text"
+                value={variable.valor}
+                readonly
+                class:list={[
+                  "w-full h-14 px-4 rounded-xl border transition-all",
+                  variable.destacado
+                    ? "bg-primary text-white border-primary font-bold"
+                    : "bg-surface-container-low border-outline-variant text-on-surface",
+                ]}
+              />
+
+            </div>
+
+          ))}
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- PUNTO GEOGRÁFICO -->
+    <section
+      class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden"
+    >
+
+      <div
+        class="px-6 py-4 border-b border-outline-variant flex items-center gap-3"
+      >
+        <span class="material-symbols-outlined text-primary">
+          location_on
+        </span>
+
+        <h2 class="text-xl font-semibold text-primary">
+          Linderos / Punto Geográfico
+        </h2>
+      </div>
+
+      <div class="p-6">
+
+        <!-- MAPA -->
+        <div
+          class="h-[450px] rounded-xl overflow-hidden border border-outline-variant mb-6"
+        >
+          <img
+            src="/images/mapa-demo.jpg"
+            alt="Mapa de finca"
+            class="w-full h-full object-cover"
+          />
+        </div>
+
+        <!-- COORDENADAS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <div>
+
+            <label
+              class="block mb-2 text-sm font-medium text-on-surface-variant"
+            >
+              Latitud (WGS84)
+            </label>
+
+            <input
+              type="text"
+              value="-0.512021"
+              readonly
+              class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
+            />
+
+          </div>
+
+          <div>
+
+            <label
+              class="block mb-2 text-sm font-medium text-on-surface-variant"
+            >
+              Longitud (WGS84)
+            </label>
+
+            <input
+              type="text"
+              value="-78.376812"
+              readonly
+              class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
+            />
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
+</DashboardLayout>
