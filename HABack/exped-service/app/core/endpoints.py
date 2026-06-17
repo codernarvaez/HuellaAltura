@@ -1,4 +1,4 @@
-"""Centralized API endpoint paths."""
+"""Centralized API endpoint paths for exped-service."""
 
 API_V1_PREFIX = "/api/v1"
 
