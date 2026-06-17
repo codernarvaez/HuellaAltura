@@ -1,0 +1,59 @@
+---
+interface Props {
+  signerName: string;
+  platform: string;
+  integrityHash: string;
+}
+
+const { signerName, platform, integrityHash } = Astro.props;
+---
+
+<footer class="mt-auto pt-lg">
+  <div class="flex justify-between items-end">
+
+    <!-- Signature Block -->
+    <div class="w-64">
+      <p class="font-label-sm text-label-sm text-outline uppercase mb-xs">
+        Firma del Operador Autorizado
+      </p>
+      <div class="h-16 flex items-center border-b border-outline-variant mb-xs">
+        <span
+          class="font-headline-md italic text-primary opacity-80"
+          style="font-family: serif;"
+        >
+          {signerName}
+        </span>
+      </div>
+      <p class="font-label-sm text-label-sm text-on-surface-variant">
+        Verificado por {platform}
+      </p>
+    </div>
+
+    <!-- Compliance Seal -->
+    <div class="flex flex-col items-center">
+      <div
+        class="w-24 h-24 border-2 border-dashed border-primary rounded-full flex flex-col items-center justify-center p-2 text-center"
+      >
+        <span class="material-symbols-outlined text-primary text-2xl">workspace_premium</span>
+        <p class="text-[9px] font-bold text-primary leading-none uppercase mt-1">
+          Sello de Cumplimiento
+        </p>
+        <p class="text-[7px] text-primary mt-0.5">CONVENIO UE</p>
+      </div>
+    </div>
+
+    <!-- Integrity Hash + Barcode -->
+    <div class="text-right">
+      <div class="barcode ml-auto mb-xs"></div>
+      <p class="font-label-sm text-label-sm text-outline uppercase mb-1">
+        Verificación Integridad SHA256
+      </p>
+      <p
+        class="font-label-sm text-label-sm text-on-surface-variant break-all max-w-[240px] font-mono leading-tight"
+      >
+        {integrityHash}
+      </p>
+    </div>
+
+  </div>
+</footer>

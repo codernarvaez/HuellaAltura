@@ -1,0 +1,54 @@
+---
+interface Props {
+  area: string;
+  landRegime: string;
+  lat: string;
+  lon: string;
+  analysisDate: string;
+}
+
+const { area, landRegime, lat, lon, analysisDate } = Astro.props;
+---
+
+<section class="bg-surface-container-low p-md rounded-xl border border-outline-variant mb-xl">
+  <div class="grid grid-cols-3 gap-md">
+    <!-- Area -->
+    <div>
+      <p class="font-label-sm text-label-sm text-outline uppercase mb-1">Área Registrada</p>
+      <p class="font-headline-md text-headline-md text-on-surface">{area}</p>
+      <p class="font-label-sm text-label-sm text-on-surface-variant italic">
+        Régimen: {landRegime}
+      </p>
+    </div>
+
+    <!-- Geolocation -->
+    <div>
+      <p class="font-label-sm text-label-sm text-outline uppercase mb-1">
+        Geolocalización (WGS84)
+      </p>
+      <div class="font-body-md text-body-md text-on-surface space-y-0.5">
+        <p><span class="font-bold opacity-70">Lat:</span> {lat}</p>
+        <p><span class="font-bold opacity-70">Lon:</span> {lon}</p>
+      </div>
+    </div>
+
+    <!-- Satellite Validation -->
+    <div class="border-l border-outline-variant pl-md">
+      <p class="font-label-sm text-label-sm text-outline uppercase mb-1">
+        Validación Satelital (GEE)
+      </p>
+      <div class="flex items-center gap-xs text-primary mb-1">
+        <span
+          class="material-symbols-outlined text-xl"
+          style="font-variation-settings: 'FILL' 1;"
+        >
+          check_circle
+        </span>
+        <span class="font-label-md text-label-md font-bold tracking-tight">CERO DEFORESTACIÓN</span>
+      </div>
+      <p class="font-label-sm text-label-sm text-outline">
+        Analizado el: {analysisDate}
+      </p>
+    </div>
+  </div>
+</section>
