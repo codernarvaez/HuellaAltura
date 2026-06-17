@@ -19,6 +19,16 @@ def obtener_datos(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene todos los registros técnicos agroambientales asociados a un expediente.
+
+    **Lógica de Negocio:**
+    - Devuelve métricas como biodiversidad (Shannon/Simpson), uso de suelo y stock de carbono.
+    - Incluye las variables dinámicas asociadas a cada registro.
+
+    **Relaciones:**
+    - Requiere un `expediente_id` obtenido de `GET /expedientes/`.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     return db.dato.find_many(where={"expediente_id": expediente_id}, include={"variables": True})
@@ -39,6 +49,17 @@ def crear_datos(
         require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
     ),
 ):
+    """
+    Registra nueva información técnica para un expediente.
+
+    **Lógica de Negocio:**
+    - Crea un registro de `DatoAgroambiental`.
+    - Opcionalmente crea `variables` dinámicas asociadas al registro.
+    - Registra automáticamente el evento en el historial del expediente.
+
+    **Relaciones:**
+    - El `dato_id` generado aquí es necesario para gestionar `variables` dinámicas individualmente.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     variables = data.variables or []
@@ -74,6 +95,12 @@ def actualizar_datos(
         require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
     ),
 ):
+    """
+    Actualiza un registro agroambiental existente.
+
+    **Lógica de Negocio:**
+    - Permite corregir métricas técnicas del registro especificado por `dato_id`.
+    """
     dato = db.dato.find_first(where={"id": dato_id, "expediente_id": expediente_id})
     if not dato:
         raise HTTPException(status_code=404, detail="Dato agroambiental no encontrado")
@@ -94,6 +121,12 @@ def resumen_carbono(
         require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
     ),
 ):
+    """
+    Obtiene un resumen comparativo del stock de carbono de todas las fincas con datos registrados.
+
+    **Lógica de Negocio:**
+    - Útil para dashboards y reportes de sostenibilidad de alto nivel.
+    """
     datos = db.dato.find_many(include={"expediente": {"include": {"finca": True}}})
     return [
         {

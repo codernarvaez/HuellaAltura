@@ -1,0 +1,58 @@
+---
+interface Props {
+  organization: string;
+  country: string;
+  producer: string;
+  cedula: string;
+  farm: string;
+  location: string;
+}
+
+const { organization, country, producer, cedula, farm, location } = Astro.props;
+---
+
+<div class="grid grid-cols-2 gap-xl mb-lg">
+  <!-- Column 1: Operator Identity -->
+  <div class="space-y-sm">
+    <h3
+      class="font-label-md text-label-md text-primary border-b border-outline-variant pb-xs flex items-center gap-xs"
+    >
+      1. IDENTIFICACIÓN DEL OPERADOR
+    </h3>
+    <div class="grid grid-cols-1 gap-md py-xs">
+      <div>
+        <p class="font-label-sm text-label-sm text-outline uppercase">Organización/Tenant</p>
+        <p class="font-body-md text-body-md font-bold text-on-surface">{organization}</p>
+      </div>
+      <div>
+        <p class="font-label-sm text-label-sm text-outline uppercase">País de Producción</p>
+        <p class="font-body-md text-body-md font-bold text-on-surface">{country}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Column 2: Farm Details -->
+  <div class="space-y-sm">
+    <h3 class="font-label-md text-label-md text-primary border-b border-outline-variant pb-xs">
+      2. DETALLES DE PRODUCCIÓN Y FINCA
+    </h3>
+    <div class="grid grid-cols-2 gap-md py-xs">
+      <div>
+        <p class="font-label-sm text-label-sm text-outline uppercase">Productor</p>
+        <p class="font-body-md text-body-md font-bold text-on-surface">{producer}</p>
+      </div>
+      <div>
+        <p class="font-label-sm text-label-sm text-outline uppercase">Cédula Identidad</p>
+        <p class="font-body-md text-body-md font-bold text-on-surface">{cedula}</p>
+      </div>
+      <div>
+        <p class="font-label-sm text-label-sm text-outline uppercase">Finca de Origen</p>
+        <p class="font-body-md text-body-md font-bold text-on-surface">{farm}</p>
+      </div>
+      <div>
+        <p class="font-label-sm text-label-sm text-outline uppercase">Ubicación Finca</p>
+        <p class="font-body-md text-body-md text-on-surface-variant">{location}</p>
+      </div>
+    </div>
+  </div>
+</div>

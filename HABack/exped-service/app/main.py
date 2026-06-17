@@ -26,9 +26,35 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="GeoGuard EUDR — Expedientes",
-    description="API para Gestión de Expedientes, Trazabilidad e Información Agroambiental",
+    description="""
+## API para Gestión de Expedientes, Trazabilidad e Información Agroambiental
+
+Esta API es el núcleo del sistema **GeoGuard EUDR**, encargada de gestionar el ciclo de vida completo de los expedientes de productores, su información agroambiental y los procesos de certificación para el cumplimiento de la normativa EUDR (European Union Deforestation Regulation).
+
+### Flujo de Entidades y Relaciones:
+1.  **Expediente**: Es la entidad principal que consolida la información del productor y la finca.
+    *   Genera un identificador único global (`eudr_id`) para trazabilidad internacional.
+2.  **Datos Agroambientales**: Cada expediente puede tener múltiples registros técnicos sobre biodiversidad, uso de suelo y stock de carbono.
+3.  **Variables Dinámicas**: Permiten extender la información técnica de los datos agroambientales sin modificar el esquema fijo. Relación: `Dato -> Variable`.
+4.  **Auditoría GEE (Google Earth Engine)**: Proceso de validación satelital. Es un requisito previo para la certificación.
+5.  **Certificado DDS (Due Diligence Statement)**: Documento final de cumplimiento generado tras una auditoría exitosa.
+
+### Seguridad:
+*   La autenticación es gestionada de forma centralizada por el `auth-service`.
+*   Se requiere un token JWT válido para todas las operaciones.
+*   El acceso a endpoints de escritura está restringido por roles (`SUPER_ADMIN`, `TENANT_ADMIN`, `TECNICO_CAMPO`, `AUDITOR_INTERNO`).
+""",
     version=settings.app_version,
+    contact={
+        "name": "GeoGuard Support",
+        "email": "support@geoguard.com",
+    },
+    license_info={
+        "name": "Proprietary",
+    },
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url="/docs",
 )
 
 app.add_middleware(

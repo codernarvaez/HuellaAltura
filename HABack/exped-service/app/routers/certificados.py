@@ -16,6 +16,9 @@ def listar_certificados(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")),
 ):
+    """
+    Lista todos los certificados de debida diligencia (DDS) emitidos.
+    """
     return db.certificado.find_many()
 
 
@@ -31,6 +34,17 @@ def generar_certificado(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")),
 ):
+    """
+    Emite un nuevo certificado DDS para un expediente.
+
+    **Lógica de Negocio:**
+    - **Validación Crítica:** El expediente debe tener al menos una auditoría GEE con resultado 'APROBADO'.
+    - Genera un código de certificado único basado en el año y un UUID.
+    - Registra el evento en el historial del expediente.
+
+    **Relaciones:**
+    - Requiere un `expediente_id` que haya pasado el proceso de auditoría.
+    """
     if not db.expediente.find_first(where={"id": data.expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
 
@@ -71,6 +85,9 @@ def certificados_por_expediente(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene todos los certificados emitidos para un expediente específico.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     return db.certificado.find_many(where={"expediente_id": expediente_id})
@@ -86,6 +103,9 @@ def obtener_certificado(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene los detalles de un certificado específico.
+    """
     certificado = db.certificado.find_first(where={"id": certificado_id})
     if not certificado:
         raise HTTPException(status_code=404, detail="Certificado no encontrado")
@@ -103,6 +123,12 @@ def revocar_certificado(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
 ):
+    """
+    Cambia el estado de un certificado a 'REVOCADO'.
+
+    **Lógica de Negocio:**
+    - Un certificado revocado ya no es válido para trámites de exportación.
+    """
     if not db.certificado.find_first(where={"id": certificado_id}):
         raise HTTPException(status_code=404, detail="Certificado no encontrado")
     return db.certificado.update(where={"id": certificado_id}, data={"estado": "REVOCADO"})
