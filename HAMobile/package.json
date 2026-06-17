@@ -5,10 +5,14 @@
   "dependencies": {
     "@expo/log-box": "~56.0.13",
     "@op-engineering/op-sqlite": "^16.2.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "^12.0.1",
     "@react-navigation/bottom-tabs": "^7.18.0",
     "@react-navigation/native": "^7.3.1",
     "@react-navigation/native-stack": "^7.17.3",
     "@rnmapbox/maps": "^10.3.1",
+    "@turf/turf": "^7.3.5",
+    "crypto-js": "^4.2.0",
     "drizzle-orm": "^0.45.2",
     "expo": "~56.0.12",
     "expo-application": "~56.0.3",
@@ -17,7 +21,10 @@
     "expo-linear-gradient": "^56.0.4",
     "expo-location": "~56.0.18",
     "expo-status-bar": "~56.0.4",
+    "jwt-decode": "^4.0.0",
     "lucide-react-native": "^1.18.0",
+    "quickselect": "^3.0.0",
+    "rbush": "^4.0.1",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-dotenv": "^3.4.11",
@@ -33,7 +40,16 @@
     "web": "expo start --web"
   },
   "private": true,
+  "overrides": {
+    "ws": "^8.21.0",
+    "esbuild": "^0.28.1",
+    "uuid": "^11.1.1"
+  },
   "devDependencies": {
-    "drizzle-kit": "^0.31.10"
+    "@types/crypto-js": "^4.2.2",
+    "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.1",
+    "uuid": "^11.1.1",
+    "ws": "^8.21.0"
   }
 }

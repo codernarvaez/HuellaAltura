@@ -6,38 +6,49 @@
 **Stack:** FastAPI · Prisma (PostgreSQL/Neon) · JWT HS256 · bcrypt  
 **Deployado en:** https://geoguard-exped.onrender.com  
 
----
+## Documentación Interactiva
 
-## Tabla de Contenidos
-
-1. [Descripción General](#1-descripción-general)
-2. [Arquitectura](#2-arquitectura)
-3. [Estructura del Proyecto](#3-estructura-del-proyecto)
-4. [Modelos de Datos](#4-modelos-de-datos)
-5. [Autenticación y Autorización](#5-autenticación-y-autorización)
-6. [Endpoints de la API](#6-endpoints-de-la-api)
-   - [Expedientes](#61-expedientes)
-   - [Datos Agroambientales](#62-datos-agroambientales)
-   - [Usuarios](#63-usuarios)
-   - [Roles](#64-roles)
-   - [Fincas](#65-fincas)
-   - [Auditoría GEE](#66-auditoría-gee)
-   - [Certificados DDS](#67-certificados-dds)
-7. [Enums y Valores Permitidos](#7-enums-y-valores-permitidos)
-8. [Lógica de Negocio](#8-lógica-de-negocio)
-9. [Configuración del Entorno](#9-configuración-del-entorno)
-10. [Instalación y Puesta en Marcha](#10-instalación-y-puesta-en-marcha)
-11. [Dependencias](#11-dependencias)
+- **Swagger UI:** https://geoguard-exped.onrender.com/docs
+- **ReDoc:** https://geoguard-exped.onrender.com/redoc
 
 ---
+
+## 🏗️ Arquitectura de Datos y Relaciones
+
+El sistema se basa en una jerarquía de entidades que fluyen desde la creación del expediente hasta la certificación final.
+
+### 1. Flujo de Identificadores (ID Flow)
+Para operar correctamente con la API, sigue este orden de jerarquía:
+
+1.  **Expediente (`expediente_id`)**: Creado mediante `POST /expedientes/`. 
+    - Al crearse, genera un `eudr_id` (Identificador EUDR).
+    - El `expediente_id` es el ancla para todo lo demás.
+2.  **Dato Agroambiental (`dato_id`)**: Asociado a un `expediente_id`. 
+    - Se crea vía `POST /agroambiental/{expediente_id}`.
+    - Contiene métricas de biodiversidad y stock de carbono.
+3.  **Variable Dinámica (`variable_id`)**: Asociada a un `dato_id`.
+    - Se crea vía `POST /variables/{dato_id}`.
+    - Permite agregar campos personalizados sin cambiar el esquema.
+
+### 2. Ciclo de Certificación
+Un expediente debe cumplir con un proceso de validación antes de obtener su certificado:
+
+1.  **Registro**: Se crea el expediente y se cargan sus datos técnicos.
+2.  **Auditoría GEE**: Se ejecuta un análisis satelital (`POST /auditoria/`).
+    - Si el resultado es **APROBADO**, el estado del expediente cambia a `APROBADO`.
+3.  **Certificación**: Solo los expedientes con una auditoría aprobada pueden generar un certificado DDS (`POST /certificados/`).
+
+---
+
+## 🛠️ Tecnologías Utilizadas
+
+- **Framework:** FastAPI (Python)
+- **ORM:** Prisma Client Python
+- **Base de Datos:** PostgreSQL
+- **Documentación:** OpenAPI (Swagger/Redoc)
+- **Autenticación:** Integración con `auth-service` vía JWT y Roles.
 
 ## 1. Descripción General
-
-GeoGuard EUDR es un sistema de trazabilidad agroambiental que permite gestionar expedientes de productores agrícolas para el cumplimiento del Reglamento Europeo de Deforestación (EUDR). El backend expone una API REST que cubre el ciclo de vida completo de un expediente:
-
-```
-Registro del productor → Datos agroambientales → Auditoría GEE → Certificado DDS
-```
 
 El sistema se integra con un módulo externo de autenticación (`auth-service`) mediante tokens JWT. La validación del token es **local** (sin llamadas HTTP por petición), usando una clave secreta compartida (HS256).
 
@@ -57,8 +68,12 @@ El sistema se integra con un módulo externo de autenticación (`auth-service`) 
 │  │Expedientes│ │Auditoria │ │Certific. │ │Usuarios   │  │
 │  └──────────┘ └──────────┘ └──────────┘ └───────────┘  │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐                 │
-│  │Agroamb.  │ │ Fincas   │ │  Roles   │                 │
+│  │Agroamb.  │ │Productores│ │Fincas    │                 │
 │  └──────────┘ └──────────┘ └──────────┘                 │
+│  ┌──────────┐                                            │
+│  │ Variables │                                            │
+│  │ Dinámicas│                                            │
+│  └──────────┘                                            │
 │                                                         │
 │  ┌─────────────────────────────────────────────────┐    │
 │  │  security.py — JWT local (HS256) + RBAC         │    │
@@ -71,7 +86,7 @@ El sistema se integra con un módulo externo de autenticación (`auth-service`) 
 
 ┌─────────────────────────────────────────────────────────┐
 │  auth-service (externo) — emite tokens JWT HS256        │
-│  https://auth-service-w3lo.onrender.com                 │
+│  https://huellaaltura.onrender.com                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1563,4 +1578,4 @@ python test_api.py
 
 ---
 
-*Documentación generada para GeoGuard EUDR Backend v2.0.0*
+*Documentación actualizada para GeoGuard EUDR Backend v2.1.0 (PostgreSQL/Neon, Productor independiente, Variables Dinámicas)*

@@ -29,6 +29,7 @@ USERS_PREFIX = "/users"
 USERS_LIST = "/"
 USERS_UPDATE = "/{user_id}"
 USERS_SUSPEND = "/{user_id}/suspend"
+USERS_AUDIT = "/{user_id}/audit"
 
 # Internal (S2S)
 INTERNAL_PREFIX = "/internal"

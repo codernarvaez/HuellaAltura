@@ -129,6 +129,49 @@ const { title = "Huella de Altura" } = Astro.props;
       .hover-lift:hover {
         transform: translateY(-4px) scale(1.01);
       }
+      .a4-container {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 20mm;
+      margin: 2rem auto;
+      background: white;
+      box-shadow:
+        0 10px 25px -5px rgba(0, 0, 0, 0.1),
+        0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 8rem;
+      color: rgba(13, 92, 58, 0.03);
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 0;
+      font-weight: 800;
+    }
+    .document-border {
+      position: absolute;
+      inset: 10mm;
+      border: 2px solid #004328;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .barcode {
+      background: repeating-linear-gradient(
+        90deg, #141b2b, #141b2b 2px, transparent 2px, transparent 4px
+      );
+      height: 40px;
+      width: 180px;
+    }
+    @media print {
+      body { background: white; margin: 0; }
+      .a4-container { box-shadow: none; margin: 0; }
+      .no-print { display: none; }
+    }
     </style>
   </head>
   <body class="bg-surface font-body-md text-on-surface antialiased">

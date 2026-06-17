@@ -21,6 +21,13 @@ def listar_fincas(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Lista las fincas registradas en el sistema.
+
+    **Lógica de Negocio:**
+    - Permite filtrar por provincia y cantón.
+    - Esta entidad es complementaria a los expedientes y permite una gestión independiente de predios.
+    """
     where: dict = {}
     if provincia:
         where["provincia"] = provincia
@@ -41,8 +48,16 @@ def crear_finca(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Registra un nuevo predio o finca.
+
+    **Lógica de Negocio:**
+    - Verifica que el productor asociado exista.
+    - Genera automáticamente un `eudr_id` único.
+    """
     if not db.productor.find_first(where={"id": data.productor_id}):
         raise HTTPException(status_code=404, detail="Productor no encontrado")
+        
     payload = data.model_dump()
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
@@ -54,6 +69,9 @@ def obtener_finca(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene el detalle de una finca por su ID interno.
+    """
     finca = db.finca.find_first(where={"id": finca_id})
     if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
@@ -70,10 +88,21 @@ def actualizar_finca(
     finca_id: str,
     data: FincaUpdate,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO")),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")),
 ):
-    if not db.finca.find_first(where={"id": finca_id}):
+    """
+    Actualiza la información geográfica o administrativa de una finca.
+
+    **Seguridad:**
+    - Si el usuario es `PRODUCTOR`, solo puede editar si la finca le pertenece.
+    """
+    finca = db.finca.find_first(where={"id": finca_id})
+    if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
+
+    if current_user.get("role") == "PRODUCTOR" and finca.productor_id != current_user.get("sub"):
+        raise HTTPException(status_code=403, detail="No tienes permiso para editar esta finca")
+
     return db.finca.update(where={"id": finca_id}, data=data.model_dump(exclude_unset=True))
 
 
@@ -87,6 +116,9 @@ def eliminar_finca(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
 ):
+    """
+    Elimina permanentemente el registro de una finca.
+    """
     if not db.finca.find_first(where={"id": finca_id}):
         raise HTTPException(status_code=404, detail="Finca no encontrada")
     db.finca.delete(where={"id": finca_id})

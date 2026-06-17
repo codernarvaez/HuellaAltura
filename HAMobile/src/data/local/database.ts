@@ -2,6 +2,7 @@ import { open } from '@op-engineering/op-sqlite';
 import { drizzle } from 'drizzle-orm/op-sqlite';
 import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
+import * as schema from './esquema';
 
 /**
  * Gestión de la base de datos cifrada (RS-SEC-004)
@@ -27,7 +28,7 @@ export class DatabaseManager {
       encryptionKey: encryptionKey,
     });
 
-    this.db = drizzle(sqlite);
+    this.db = drizzle(sqlite, { schema });
     return this.db;
   }
 

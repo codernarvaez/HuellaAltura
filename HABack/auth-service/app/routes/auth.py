@@ -19,7 +19,7 @@ from app.security import (
 from app.utils.email import send_password_reset_email
 from app.config import settings
 from app.limiter import limiter
-from app.core import endpoints
+from app.core import endpoints, roles
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=endpoints.AUTH_PREFIX, tags=["Autenticación"])
@@ -28,17 +28,20 @@ router = APIRouter(prefix=endpoints.AUTH_PREFIX, tags=["Autenticación"])
     endpoints.AUTH_REGISTER, 
     response_model=UserOut, 
     status_code=status.HTTP_201_CREATED, 
-    dependencies=[Depends(require_manage_users)],
     summary="Registrar Usuario",
-    description="Crea una nueva cuenta de usuario. Requiere permisos de gestión de usuarios (ADMIN o Gerencia)."
+    description="Crea una nueva cuenta de usuario. Abierto al público con validaciones de seguridad."
 )
 @limiter.limit("5/minute")
 async def register(request: Request, user_in: UserCreate, db: Annotated[Prisma, Depends(get_db)]):
     try:
+        # 1. Validaciones básicas de seguridad
+        if len(user_in.password) < 8:
+            raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres")
+
         # Normalizar email
         email_lower = user_in.email.lower()
         
-        # 1. Verificar Email
+        # 2. Verificar duplicados
         user_exists = await db.user.find_unique(where={"email": email_lower})
         if user_exists:
             raise HTTPException(status_code=400, detail="El email ya está registrado")
@@ -53,9 +56,24 @@ async def register(request: Request, user_in: UserCreate, db: Annotated[Prisma, 
             if phone_exists:
                 raise HTTPException(status_code=400, detail="El número de teléfono ya está registrado")
         
-        role = await db.role.find_unique(where={"name": user_in.role_name})
+        # 3. Gestión de Roles (Seguridad)
+        # Por defecto, registros públicos son TECNICO_CAMPO.
+        # Solo se permite registrarse con roles no administrativos si se especifica.
+        target_role_name = user_in.role_name or roles.DEFAULT_ROLE
+        
+        # Lista blanca de roles para registro público
+        public_roles = [roles.TECNICO_CAMPO, roles.AUDITOR_INTERNO]
+        
+        if target_role_name not in public_roles:
+            logger.warning(f"Intento de registro con rol restringido: {target_role_name} desde {request.client.host}")
+            target_role_name = roles.DEFAULT_ROLE
+
+        role = await db.role.find_unique(where={"name": target_role_name})
         if not role:
-            raise HTTPException(status_code=400, detail="Rol inválido")
+            # Fallback seguro si el rol no existe en DB
+            role = await db.role.find_first(where={"name": roles.DEFAULT_ROLE})
+            if not role:
+                 raise HTTPException(status_code=500, detail="Error de configuración de roles en el sistema")
         
         return await db.user.create(
             data={
@@ -68,7 +86,7 @@ async def register(request: Request, user_in: UserCreate, db: Annotated[Prisma, 
                 "genero": user_in.genero.name if user_in.genero else None,
                 "password_hash": get_password_hash(user_in.password),
                 "role_id": role.id,
-                "status": user_in.status if user_in.status else "ACTIVO"
+                "status": "ACTIVO" # O "PENDIENTE" si se requiere aprobación
             },
             include={"role": True}
         )

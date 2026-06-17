@@ -2,24 +2,31 @@ import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 
 /**
  * Tabla de Fincas (Fincas) - RF-MOB-002 / SRS 3.4.1
+ * Actualizada para soportar sincronización offline masiva.
  */
 export const fincas = sqliteTable('fincas', {
-  id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull(),
-  productorId: text('productor_id').notNull(),
+  id: text('id').primaryKey(), // UUID v4 generado localmente
   nombre: text('nombre').notNull(),
+  productorId: text('productor_id'), // Puede ser nulo si el productor se crea en el mismo paquete
   
-  // Geometría y Área (SRS 3.4.1)
-  geometriaGeoJson: text('geometria_geojson', { mode: 'json' }).notNull(), 
-  areaGeodesicaHectareas: real('area_geodesica_ha').notNull(),
+  // Geografía
+  provincia: text('provincia').notNull(),
+  canton: text('canton'),
+  parroquia: text('parroquia'),
+  barrioSector: text('barrio_sector'),
   
-  // Metadatos de Captura
-  tipoCaptura: text('tipo_captura', { enum: ['GPS_CAMINATA', 'DIBUJO_MANUAL', 'PUNTO_BUFFER'] }).notNull(),
-  precisionGpsMetros: real('precision_gps_metros'),
+  // Áreas
+  areaTotalHa: real('area_total_ha').notNull(),
+  areaCultivoHa: real('area_cultivo_ha'),
+  tenenciaTierra: text('tenencia_tierra'),
   
-  // Flex-Core (RF-WEB-002)
-  datosPersonalizados: text('datos_personalizados', { mode: 'json' }).notNull(), 
+  // Geometría
+  geometriaGeoJson: text('geometria_geojson').notNull(), 
+  latitudCentro: real('latitud_centro'),
+  longitudCentro: real('longitud_centro'),
+  
+  // Sincronización
+  syncStatus: text('sync_status', { enum: ['pending', 'synced'] }).notNull().default('pending'),
   
   creadoEn: integer('creado_en', { mode: 'timestamp' }).notNull(),
-  actualizadoEn: integer('actualizado_en', { mode: 'timestamp' }).notNull(),
 });

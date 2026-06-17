@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8031";
+const API_URL = "https://geoguard-exped.onrender.com";
 const VARIABLES_BASE = `${API_URL}/api/v1/variables`;
 
 export interface VariableDinamicaCreate {
@@ -41,6 +41,34 @@ export class VariableService {
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.detail || "Error al listar variables dinámicas");
+    }
+
+    return data;
+  }
+
+  static async listAll(token: string): Promise<VariableDinamicaOut[]> {
+    const response = await fetch(`${VARIABLES_BASE}/`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || "Error al listar todas las variables dinámicas");
+    }
+
+    return data;
+  }
+
+  static async getById(variableId: number, token: string): Promise<VariableDinamicaOut> {
+    const response = await fetch(`${VARIABLES_BASE}/detalle/${variableId}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || "Error al obtener la variable dinámica");
     }
 
     return data;

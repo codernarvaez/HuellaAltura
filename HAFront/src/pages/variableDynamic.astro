@@ -185,7 +185,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 </DashboardLayout>
 
 <script type="module">
-  import { VariableService } from "../services/variableservices.ts";
+  import { VariableService } from "/src/services/variableservices.ts";
 
   const tableBody = document.getElementById("variables-table-body");
   const countBadge = document.getElementById("variable-count");
@@ -193,7 +193,10 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
   const form = document.getElementById("variable-form");
 
   const queryParams = new URLSearchParams(window.location.search);
-  const datoId = queryParams.get("dato_id") || "REEMPLAZAR_POR_DATO_ID";
+  const datoId = queryParams.get("dato_id");
+  const variableId = queryParams.get("variable_id");
+  let currentVariableId = variableId ? Number(variableId) : null;
+  let editDatoId = datoId;
 
   function getCookie(name) {
     const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -217,7 +220,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     if (!tableBody || !countBadge) return;
     tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-on-surface-variant">Cargando variables...</td></tr>`;
     try {
-      const variables = await VariableService.list(datoId, token);
+      const variables = datoId
+        ? await VariableService.list(datoId, token)
+        : await VariableService.listAll(token);
       if (variables.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-on-surface-variant">No hay variables registradas.</td></tr>`;
       } else {
@@ -228,8 +233,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                 <td class="px-5 py-5 font-medium text-on-surface">${variable.nombre}</td>
                 <td class="px-5 py-5 text-on-surface">${variable.tipo_dato}</td>
                 <td class="px-5 py-5 text-on-surface">${variable.valor}</td>
-                <td class="px-5 py-5 text-right">
-                  <button data-id="${variable.id}" class="delete-variable text-error font-medium hover:underline">Eliminar</button>
+                <td class="px-5 py-5 text-right space-x-3">
+                  <button data-id="${variable.id}" data-dato-id="${variable.dato_id}" class="edit-variable text-primary font-medium hover:underline">Editar</button>
+                  <button data-id="${variable.id}" data-dato-id="${variable.dato_id}" class="delete-variable text-error font-medium hover:underline">Eliminar</button>
                 </td>
               </tr>
             `
@@ -240,6 +246,22 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     } catch (error) {
       tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-error">${error instanceof Error ? error.message : "Error al cargar variables."}</td></tr>`;
       countBadge.textContent = `0 Variables`;
+    }
+  }
+
+  async function loadVariableById(variableId) {
+    try {
+      const variable = await VariableService.getById(variableId, token);
+      editDatoId = variable.dato_id;
+      currentVariableId = variable.id;
+      document.getElementById("variable-name").value = variable.nombre;
+      document.getElementById("variable-type").value = variable.tipo_dato;
+      document.getElementById("variable-default").value = variable.valor || "";
+      const submitButton = form?.querySelector("button[type='submit']");
+      if (submitButton) submitButton.textContent = "Actualizar Variable";
+      showMessage("Editando variable cargada por ID.");
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Error al cargar variable por ID.", true);
     }
   }
 
@@ -255,22 +277,48 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     }
 
     try {
-      await VariableService.create(datoId, {
-        nombre,
-        valor: valor || "",
-        tipo_dato,
-      }, token);
-      showMessage("Variable creada correctamente.");
-      form.reset();
+      if (currentVariableId) {
+        if (!editDatoId) {
+          throw new Error("No se encontró dato_id para actualizar la variable.");
+        }
+        await VariableService.update(editDatoId, currentVariableId, {
+          nombre,
+          valor: valor || "",
+          tipo_dato,
+        }, token);
+        showMessage("Variable actualizada correctamente.");
+      } else {
+        if (!datoId) {
+          throw new Error("Debe proporcionar dato_id para crear una variable.");
+        }
+        await VariableService.create(datoId, {
+          nombre,
+          valor: valor || "",
+          tipo_dato,
+        }, token);
+        showMessage("Variable creada correctamente.");
+      }
+
+      if (form) {
+        form.reset();
+        const submitButton = form.querySelector("button[type='submit']");
+        if (submitButton) submitButton.textContent = "Crear Variable";
+      }
+      currentVariableId = null;
+      editDatoId = datoId;
       loadVariables();
     } catch (error) {
-      showMessage(error instanceof Error ? error.message : "No se pudo crear la variable.", true);
+      showMessage(error instanceof Error ? error.message : "No se pudo guardar la variable.", true);
     }
   }
 
-  async function deleteVariable(id) {
+  async function deleteVariable(id, datoIdentifier) {
     try {
-      await VariableService.delete(datoId, Number(id), token);
+      const datoToUse = datoIdentifier || datoId;
+      if (!datoToUse) {
+        throw new Error("No se encontró dato_id para eliminar la variable.");
+      }
+      await VariableService.delete(datoToUse, Number(id), token);
       showMessage("Variable eliminada correctamente.");
       loadVariables();
     } catch (error) {
@@ -286,11 +334,18 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const id = target.dataset.id;
+    const datoIdAttr = target.dataset.datoId;
     if (!id) return;
 
     if (target.classList.contains("delete-variable")) {
       if (!confirm("¿Eliminar esta variable?")) return;
-      deleteVariable(id);
+      deleteVariable(id, datoIdAttr || datoId);
+    }
+
+    if (target.classList.contains("edit-variable")) {
+      currentVariableId = Number(id);
+      editDatoId = datoIdAttr || datoId;
+      loadVariableById(currentVariableId);
     }
   });
 
@@ -301,5 +356,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     }
   } else {
     loadVariables();
+    if (currentVariableId) {
+      loadVariableById(currentVariableId);
+    }
   }
 </script>

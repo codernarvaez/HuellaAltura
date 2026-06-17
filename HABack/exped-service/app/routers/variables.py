@@ -13,7 +13,7 @@ from app.schemas.schemas import (
 
 router = APIRouter()
 
-_editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO"))
+_editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO", "PRODUCTOR"))
 
 
 @router.get(
@@ -81,6 +81,12 @@ def listar_variables(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Lista todas las variables dinámicas asociadas a un registro agroambiental.
+
+    **Relaciones:**
+    - Requiere un `dato_id` obtenido de los datos agroambientales de un expediente.
+    """
     if not db.dato.find_first(where={"id": dato_id}):
         raise HTTPException(status_code=404, detail="Dato agroambiental no encontrado")
     return db.variabledinamica.find_many(where={"dato_id": dato_id})
@@ -99,6 +105,13 @@ def crear_variable(
     db: Prisma = Depends(get_db),
     current_user: dict = _editor,
 ):
+    """
+    Crea una nueva variable dinámica vinculada a un registro agroambiental.
+
+    **Lógica de Negocio:**
+    - Permite extender la información técnica de un registro sin cambiar el esquema de base de datos.
+    - Útil para capturar datos específicos de una región o cultivo que no están en el formulario base.
+    """
     if not db.dato.find_first(where={"id": dato_id}):
         raise HTTPException(status_code=404, detail="Dato agroambiental no encontrado")
     return db.variabledinamica.create(data={"dato_id": dato_id, **data.model_dump()})
@@ -115,8 +128,11 @@ def actualizar_variable(
     variable_id: int,
     data: VariableDinamicaUpdate,
     db: Prisma = Depends(get_db),
-    current_user: dict = _editor,
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ):
+    """
+    Actualiza el nombre o valor de una variable dinámica existente.
+    """
     if not db.variabledinamica.find_first(where={"id": variable_id, "dato_id": dato_id}):
         raise HTTPException(status_code=404, detail="Variable no encontrada")
     return db.variabledinamica.update(
@@ -134,8 +150,11 @@ def eliminar_variable(
     dato_id: str,
     variable_id: int,
     db: Prisma = Depends(get_db),
-    current_user: dict = _editor,
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ):
+    """
+    Elimina permanentemente una variable dinámica.
+    """
     if not db.variabledinamica.find_first(where={"id": variable_id, "dato_id": dato_id}):
         raise HTTPException(status_code=404, detail="Variable no encontrada")
     db.variabledinamica.delete(where={"id": variable_id})

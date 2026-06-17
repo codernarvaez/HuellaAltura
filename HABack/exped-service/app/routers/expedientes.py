@@ -29,6 +29,16 @@ def listar_expedientes(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene una lista de todos los expedientes registrados en el sistema.
+
+    **Lógica de Negocio:**
+    - Permite filtrar por estado (PENDIENTE, APROBADO, etc.) y por organización inquilina.
+    - Devuelve la información básica del expediente junto con sus datos agroambientales y el historial de cambios.
+
+    **Relaciones:**
+    - Los `id` de estos expedientes son necesarios para consultar detalles, agregar datos agroambientales o ejecutar auditorías.
+    """
     where: dict = {}
     if estado:
         where["estado"] = estado
@@ -47,9 +57,21 @@ def listar_expedientes(
 def crear_expediente(
     data: ExpedienteCreate,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO")),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")),
 ):
-    productor = db.productor.find_first(where={"id": data.productor_id})
+    """
+    Registra un nuevo expediente en el sistema.
+
+    **Lógica de Negocio:**
+    - Verifica la existencia del productor y la finca vinculados.
+    - Si el usuario es un `PRODUCTOR`, se fuerza que el `productor_id` sea el suyo propio.
+    - Registra un evento inicial en el historial de trazabilidad.
+    """
+    productor_id = data.productor_id
+    if current_user.get("role") == "PRODUCTOR":
+        productor_id = current_user.get("sub")
+
+    productor = db.productor.find_first(where={"id": productor_id})
     if not productor:
         raise HTTPException(status_code=404, detail="Productor no encontrado")
 
@@ -100,6 +122,12 @@ def buscar_por_eudr(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Busca un expediente utilizando el identificador internacional EUDR ID de la finca asociada.
+
+    **Relaciones:**
+    - Útil para sistemas externos que solo conocen el `eudr_id` de la finca y no el UUID interno del expediente.
+    """
     finca = db.finca.find_first(where={"eudr_id": eudr_id})
     if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
@@ -115,6 +143,12 @@ def obtener_expediente(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene el detalle completo de un expediente específico.
+
+    **Relaciones:**
+    - Devuelve el `expediente_id` interno y la lista de `datos_agroambientales` con sus propios IDs (`dato_id`).
+    """
     exp = db.expediente.find_first(where={"id": expediente_id}, include=_INCLUDE)
     if not exp:
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
@@ -133,6 +167,13 @@ def actualizar_expediente(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO")),
 ):
+    """
+    Actualiza campos específicos de un expediente.
+
+    **Lógica de Negocio:**
+    - Registra automáticamente una entrada en el historial detallando los campos modificados.
+    - Solo actualiza los campos enviados en el cuerpo de la petición.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     cambios = data.model_dump(exclude_unset=True)
@@ -156,6 +197,11 @@ def eliminar_expediente(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
 ):
+    """
+    Elimina un expediente y toda su información relacionada (Cascading Delete).
+
+    **Advertencia:** Esta acción no se puede deshacer.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     db.expediente.delete(where={"id": expediente_id})
@@ -172,6 +218,12 @@ def ver_historial(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Retorna la lista de eventos ocurridos sobre un expediente.
+
+    **Relaciones:**
+    - Requiere un `expediente_id` válido.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     return db.historial.find_many(where={"expediente_id": expediente_id})
@@ -190,6 +242,12 @@ def agregar_historial(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO")),
 ):
+    """
+    Registra un evento manual en el historial de un expediente.
+
+    **Lógica de Negocio:**
+    - Permite registrar acciones externas o hitos importantes que no son capturados automáticamente por el sistema.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     payload = data.model_dump()

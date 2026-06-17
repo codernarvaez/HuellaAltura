@@ -20,6 +20,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     </div>
 
     <button
+      id="guardar-registro"
       class="flex items-center justify-center gap-2 px-6 h-12 bg-primary text-white rounded-xl shadow-sm hover:opacity-90 transition"
     >
       <span class="material-symbols-outlined">
@@ -29,6 +30,21 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
       Guardar Registro
     </button>
 
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 items-end">
+    <div class="md:col-span-2">
+      <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+        Seleccionar productor existente
+      </label>
+      <select id="productor-select" class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary">
+        <option value="">Cargando productores...</option>
+      </select>
+    </div>
+
+    <div class="text-right">
+      <p id="productor-message" class="text-sm text-on-surface-variant"></p>
+    </div>
   </div>
 
   <!-- PRODUCTOR -->
@@ -56,6 +72,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="productor-nombre"
           type="text"
           value="José Miguel Mosquera"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
@@ -68,6 +85,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="productor-cedula"
           type="text"
           value="1100433455"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
@@ -80,6 +98,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="productor-organizacion"
           type="text"
           value="Asociación Agroartesanal de Productores"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
@@ -92,6 +111,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="productor-celular"
           type="text"
           value="+5939532692"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
@@ -104,10 +124,11 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <select
+          id="productor-genero"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         >
-          <option>Masculino</option>
-          <option>Femenino</option>
+          <option value="Masculino">Masculino</option>
+          <option value="Femenino">Femenino</option>
         </select>
       </div>
 
@@ -117,6 +138,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="productor-edad"
           type="number"
           value="56"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
@@ -310,3 +332,114 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 </div>
 
 </DashboardLayout>
+
+<script type="module">
+import { ProductorService } from "/src/services/productorServices.ts";
+
+  const selectProductor = document.getElementById("productor-select");
+  const message = document.getElementById("productor-message");
+  const buttonGuardar = document.getElementById("guardar-registro");
+
+  const inputNombre = document.getElementById("productor-nombre");
+  const inputCedula = document.getElementById("productor-cedula");
+  const inputOrganizacion = document.getElementById("productor-organizacion");
+  const inputCelular = document.getElementById("productor-celular");
+  const selectGenero = document.getElementById("productor-genero");
+  const inputEdad = document.getElementById("productor-edad");
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  const token = getCookie("token");
+
+  function showMessage(text, isError = false) {
+    if (!message) return;
+    message.textContent = text;
+    message.classList.remove("text-error", "text-success");
+    message.classList.add(isError ? "text-error" : "text-success");
+  }
+
+  async function cargarProductores() {
+    if (!selectProductor) return;
+    selectProductor.innerHTML = `<option value="">Cargando productores...</option>`;
+    try {
+      const productores = await ProductorService.list(token);
+      if (productores.length === 0) {
+        selectProductor.innerHTML = `<option value="">No hay productores registrados</option>`;
+        return;
+      }
+      selectProductor.innerHTML = `
+        <option value="">Selecciona un productor</option>
+        ${productores
+          .map(
+            (productor) => `
+              <option value="${productor.id}">${productor.nombre_completo} — ${productor.cedula_id}</option>
+            `
+          )
+          .join("")}
+      `;
+      showMessage("Productores cargados correctamente.");
+    } catch (error) {
+      selectProductor.innerHTML = `<option value="">Error al cargar productores</option>`;
+      showMessage(error instanceof Error ? error.message : "Error al cargar productores.", true);
+    }
+  }
+
+  async function cargarProductor(productorId) {
+    if (!productorId) return;
+    try {
+      const productor = await ProductorService.getById(productorId, token);
+      if (inputNombre) inputNombre.value = productor.nombre_completo || "";
+      if (inputCedula) inputCedula.value = productor.cedula_id || "";
+      if (inputOrganizacion) inputOrganizacion.value = productor.organizacion || "";
+      if (inputCelular) inputCelular.value = productor.celular || "";
+      if (selectGenero) selectGenero.value = productor.genero || "Masculino";
+      if (inputEdad) inputEdad.value = productor.edad?.toString() || "";
+      showMessage("Productor cargado correctamente.");
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Error al obtener productor.", true);
+    }
+  }
+
+  async function guardarProductor() {
+    if (!inputNombre || !inputCedula) {
+      showMessage("Nombre y cédula son obligatorios.", true);
+      return;
+    }
+
+    const payload = {
+      nombre_completo: inputNombre.value.trim(),
+      cedula_id: inputCedula.value.trim(),
+      organizacion: inputOrganizacion?.value.trim() || "",
+      celular: inputCelular?.value.trim() || "",
+      genero: selectGenero?.value || "",
+      edad: inputEdad?.value ? Number(inputEdad.value) : undefined,
+    };
+
+    try {
+      await ProductorService.create(payload, token);
+      showMessage("Productor guardado correctamente.");
+      cargarProductores();
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Error al guardar productor.", true);
+    }
+  }
+
+  if (selectProductor) {
+    selectProductor.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLSelectElement)) return;
+      if (target.value) {
+        cargarProductor(target.value);
+      }
+    });
+  }
+
+  if (buttonGuardar) {
+    buttonGuardar.addEventListener("click", guardarProductor);
+  }
+
+  cargarProductores();
+</script>
