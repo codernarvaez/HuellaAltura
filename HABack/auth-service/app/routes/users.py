@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr
 from app.database import get_db
 from app.dependencies import require_manage_users, log_user_action
 from app.schemas.user import UserOut, UserStatus, Genero
+from app.schemas.audit import AuditLogOut
 from app.core import endpoints
 from app.security import get_password_hash
 
@@ -20,6 +21,8 @@ class UserUpdate(BaseModel):
     phone_number: Optional[str] = None
     identifier: Optional[str] = None
     password: Optional[str] = None
+    edad: Optional[int] = None
+    genero: Optional[Genero] = None
 
 @router.get(
     endpoints.USERS_LIST, 
@@ -140,3 +143,36 @@ async def update_user(
     except Exception as e:
         logger.error(f"Error inesperado al actualizar usuario: {str(e)}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@router.get(
+    endpoints.USERS_AUDIT,
+    response_model=List[AuditLogOut],
+    summary="Listar Auditoría de Usuario",
+    description="Devuelve el historial de acciones realizadas por un usuario específico.",
+    responses={
+        404: {"description": "Usuario no encontrado"},
+        403: {"description": "Permisos insuficientes"},
+        500: {"description": "Error interno"}
+    }
+)
+async def get_user_audit(
+    user_id: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    _ = Depends(require_manage_users)
+):
+    """Obtiene todos los logs de auditoría asociados a un usuario."""
+    try:
+        # Verificar que el usuario existe
+        user = await db.user.find_unique(where={"id": user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        return await db.auditlog.find_many(
+            where={"user_id": user_id},
+            order={"created_at": "desc"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al recuperar auditoría del usuario {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al recuperar los logs de auditoría")
