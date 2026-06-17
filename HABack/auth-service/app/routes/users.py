@@ -140,7 +140,3 @@ async def update_user(
     except Exception as e:
         logger.error(f"Error inesperado al actualizar usuario: {str(e)}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
-se de datos")
-    except Exception as e:
-        logger.error(f"Error inesperado al actualizar usuario: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor")
