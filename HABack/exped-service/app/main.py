@@ -52,7 +52,7 @@ Esta API es el núcleo del sistema **GeoGuard EUDR**, encargada de gestionar el 
     version=settings.app_version,
     contact={
         "name": "GeoGuard Support",
-        "email": "support@geoguard.com",
+        "email": "jaimedavidmendoza1506@gmail.com",
     },
     license_info={
         "name": "Proprietary",

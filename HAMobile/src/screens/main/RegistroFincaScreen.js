@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   StatusBar,
   KeyboardAvoidingView,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { RepositorioFincas } from '../../data/repositorio/RepositorioFincas';
 import * as Location from 'expo-location';
 import { FarmMapEditor } from '../../components/map/FarmMapEditor';
@@ -52,8 +52,9 @@ const getEncryptionKey = () => {
   }
 };
 
-const RegistroFincaScreen = () => {
+const RegistroFincaScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFullMap, setShowFullMap] = useState(false);
@@ -139,7 +140,7 @@ const RegistroFincaScreen = () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Se necesita acceso a la ubicación.');
+        showAlert('Permiso denegado', 'Se necesita acceso a la ubicación.', 'warning');
         return;
       }
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
@@ -149,7 +150,7 @@ const RegistroFincaScreen = () => {
         setAltitud(Math.round(location.coords.altitude).toString());
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación.');
+      showAlert('Error', 'No se pudo obtener la ubicación.', 'error');
     } finally {
       setLocating(false);
     }
@@ -197,7 +198,7 @@ const RegistroFincaScreen = () => {
 
   const guardarRegistro = async () => {
     if (!nombreFinca || puntos.length < 3 || !cedulaId || !nombreProductor) {
-      Alert.alert('Error', 'Nombre de finca, datos del productor y polígono (mín 3 puntos) son obligatorios.');
+      showAlert('Error', 'Nombre de finca, datos del productor y polígono (mín 3 puntos) son obligatorios.', 'warning');
       return;
     }
 
@@ -300,7 +301,7 @@ const RegistroFincaScreen = () => {
         }
       }
 
-      Alert.alert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.');
+      showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.', 'success', () => navigation.goBack());
       
       // Intentar sincronizar en segundo plano
       const token = await obtenerToken();
@@ -316,7 +317,7 @@ const RegistroFincaScreen = () => {
 
     } catch (error) {
       console.error('Error al guardar local:', error);
-      Alert.alert('Error', 'No se pudo guardar el registro en la base de datos local.');
+      showAlert('Error', 'No se pudo guardar el registro en la base de datos local.', 'error');
     } finally {
       setLoading(false);
     }
