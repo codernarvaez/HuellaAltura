@@ -121,9 +121,9 @@ class HistorialOut(HistorialCreate):
         from_attributes = True
 
 
-# ─── Expediente ──────────────────────────────────────────────
+# ─── Productor ───────────────────────────────────────────────
 
-class ExpedienteBase(BaseModel):
+class ProductorCreate(BaseModel):
     nombre_completo: str = Field(..., example="José Miguel Mosquera")
     cedula_id: str = Field(..., example="1100433455")
     organizacion: Optional[str] = Field(None, example="Asociación APECAEL")
@@ -131,40 +131,19 @@ class ExpedienteBase(BaseModel):
     genero: Optional[GeneroEnum] = None
     edad: Optional[int] = None
 
-    nombre_finca: str = Field(..., example="El Ahuacate")
-    provincia: Optional[str] = Field(None, example="Loja")
-    canton: Optional[str] = Field(None, example="Loja")
-    parroquia: Optional[str] = None
-    barrio_sector: Optional[str] = None
-    area_total_ha: Optional[float] = Field(None, example=3.0)
-    area_cultivada_ha: Optional[float] = None
-    tenencia: Optional[TenenciaEnum] = None
 
-    latitud: Optional[float] = Field(None, example=-4.2625)
-    longitud: Optional[float] = Field(None, example=-79.2231)
-    organizacion_inquilino: Optional[str] = None
+class ProductorUpdate(BaseModel):
+    nombre_completo: Optional[str] = None
+    organizacion: Optional[str] = None
+    celular: Optional[str] = None
+    genero: Optional[GeneroEnum] = None
+    edad: Optional[int] = None
 
 
-class ExpedienteCreate(ExpedienteBase):
-    datos_agroambientales: Optional[DatoAgroambientalCreate] = None
-
-
-class ExpedienteUpdate(BaseModel):
-    estado: Optional[EstadoEnum] = None
-    nombre_finca: Optional[str] = None
-    area_total_ha: Optional[float] = None
-    latitud: Optional[float] = None
-    longitud: Optional[float] = None
-
-
-class ExpedienteOut(ExpedienteBase):
+class ProductorOut(ProductorCreate):
     id: str
-    eudr_id: Optional[str] = None
-    estado: str
     creado_en: datetime
     actualizado_en: datetime
-    datos_agroambientales: List[DatoAgroambientalOut] = []
-    historial: List[HistorialOut] = []
 
     class Config:
         from_attributes = True
@@ -173,21 +152,21 @@ class ExpedienteOut(ExpedienteBase):
 # ─── Finca ───────────────────────────────────────────────────
 
 class FincaCreate(BaseModel):
-    nombre: str
-    eudr_id: Optional[str] = None
-    provincia: Optional[str] = None
-    canton: Optional[str] = None
+    nombre: str = Field(..., example="El Ahuacate")
+    provincia: Optional[str] = Field(None, example="Loja")
+    canton: Optional[str] = Field(None, example="Loja")
     parroquia: Optional[str] = None
-    area_total_ha: Optional[float] = None
+    area_total_ha: Optional[float] = Field(None, example=3.0)
     area_cultivada_ha: Optional[float] = None
     tenencia: Optional[TenenciaEnum] = None
-    latitud: Optional[float] = None
-    longitud: Optional[float] = None
-    productor_id: Optional[str] = None
+    latitud: Optional[float] = Field(None, example=-4.2625)
+    longitud: Optional[float] = Field(None, example=-79.2231)
+    productor_id: str
 
 
 class FincaOut(FincaCreate):
     id: str
+    eudr_id: Optional[str] = None
     creado_en: datetime
 
     class Config:
@@ -204,6 +183,35 @@ class FincaUpdate(BaseModel):
     tenencia: Optional[TenenciaEnum] = None
     latitud: Optional[float] = None
     longitud: Optional[float] = None
+
+
+# ─── Expediente ──────────────────────────────────────────────
+
+class ExpedienteCreate(BaseModel):
+    productor_id: str
+    finca_id: str
+    organizacion_inquilino: Optional[str] = None
+    datos_agroambientales: Optional[DatoAgroambientalCreate] = None
+
+
+class ExpedienteUpdate(BaseModel):
+    estado: Optional[EstadoEnum] = None
+    organizacion_inquilino: Optional[str] = None
+
+
+class ExpedienteOut(BaseModel):
+    id: str
+    estado: str
+    organizacion_inquilino: Optional[str] = None
+    productor: ProductorOut
+    finca: FincaOut
+    creado_en: datetime
+    actualizado_en: datetime
+    datos_agroambientales: List[DatoAgroambientalOut] = []
+    historial: List[HistorialOut] = []
+
+    class Config:
+        from_attributes = True
 
 
 # ─── AuditoriaGEE ────────────────────────────────────────────

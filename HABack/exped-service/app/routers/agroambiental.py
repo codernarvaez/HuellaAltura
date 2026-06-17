@@ -77,11 +77,11 @@ def resumen_carbono(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ):
-    datos = db.dato.find_many(include={"expediente": True})
+    datos = db.dato.find_many(include={"expediente": {"include": {"finca": True}}})
     return [
         {
-            "nombre_finca": d.expediente.nombre_finca,
-            "eudr_id": d.expediente.eudr_id,
+            "nombre_finca": d.expediente.finca.nombre,
+            "eudr_id": d.expediente.finca.eudr_id,
             "total_stock_carbono_tC_ha": d.total_stock_carbono,
         }
         for d in datos

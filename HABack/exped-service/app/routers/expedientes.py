@@ -1,5 +1,4 @@
 from typing import List, Optional
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
@@ -16,11 +15,12 @@ from app.schemas.schemas import (
 
 router = APIRouter()
 
-_INCLUDE = {"datos_agroambientales": {"include": {"variables": True}}, "historial": True}
-
-
-def generar_eudr_id() -> str:
-    return f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}"
+_INCLUDE = {
+    "productor": True,
+    "finca": True,
+    "datos_agroambientales": {"include": {"variables": True}},
+    "historial": True,
+}
 
 
 @router.get("/", response_model=List[ExpedienteOut], summary="Listar todos los expedientes")
@@ -50,13 +50,20 @@ def crear_expediente(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO")),
 ):
+    productor = db.productor.find_first(where={"id": data.productor_id})
+    if not productor:
+        raise HTTPException(status_code=404, detail="Productor no encontrado")
+
+    finca = db.finca.find_first(where={"id": data.finca_id})
+    if not finca:
+        raise HTTPException(status_code=404, detail="Finca no encontrada")
+
     dato_nested = data.datos_agroambientales
     create_data = data.model_dump(exclude={"datos_agroambientales"})
-    create_data["eudr_id"] = generar_eudr_id()
     create_data["historial"] = {
         "create": [{
             "accion": "Expediente creado",
-            "descripcion": f"Registro inicial del productor {data.nombre_completo} - Finca {data.nombre_finca}",
+            "descripcion": f"Registro inicial del productor {productor.nombre_completo} - Finca {finca.nombre}",
             "usuario": current_user.get("sub", "sistema"),
         }]
     }
@@ -79,13 +86,16 @@ def crear_expediente(
     return expediente
 
 
-@router.get("/eudr/{eudr_id}", response_model=ExpedienteOut, summary="Buscar por EUDR ID")
+@router.get("/eudr/{eudr_id}", response_model=ExpedienteOut, summary="Buscar por EUDR ID de la finca")
 def buscar_por_eudr(
     eudr_id: str,
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    exp = db.expediente.find_first(where={"eudr_id": eudr_id}, include=_INCLUDE)
+    finca = db.finca.find_first(where={"eudr_id": eudr_id})
+    if not finca:
+        raise HTTPException(status_code=404, detail="Finca no encontrada")
+    exp = db.expediente.find_first(where={"finca_id": finca.id}, include=_INCLUDE)
     if not exp:
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     return exp

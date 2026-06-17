@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
@@ -8,6 +9,10 @@ from app.dependencies import get_current_user, require_roles, log_user_action
 from app.schemas.schemas import FincaCreate, FincaOut, FincaUpdate
 
 router = APIRouter()
+
+
+def generar_eudr_id() -> str:
+    return f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}"
 
 
 @router.get("/", response_model=List[FincaOut], summary="Listar fincas")
@@ -37,9 +42,10 @@ def crear_finca(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    if not db.productor.find_first(where={"id": data.productor_id}):
+        raise HTTPException(status_code=404, detail="Productor no encontrado")
     payload = data.model_dump()
-    if not payload.get("productor_id"):
-        payload["productor_id"] = current_user.get("sub")
+    payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
 
 

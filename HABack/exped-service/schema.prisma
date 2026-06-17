@@ -10,30 +10,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Productor {
+  id              String   @id @default(uuid())
+  nombre_completo String
+  cedula_id       String   @unique
+  organizacion    String?
+  celular         String?
+  genero          String?
+  edad            Int?
+  creado_en       DateTime @default(now())
+  actualizado_en  DateTime @updatedAt
+
+  fincas          Finca[]
+  expedientes     Expediente[]
+
+  @@map("productores")
+}
+
 model Expediente {
-  id                     String  @id @default(uuid())
-  eudr_id                String? @unique
-  nombre_completo        String
-  cedula_id              String
-  organizacion           String?
-  celular                String?
-  genero                 String?
-  edad                   Int?
-  nombre_finca           String
-  provincia              String?
-  canton                 String?
-  parroquia              String?
-  barrio_sector          String?
-  area_total_ha          Float?
-  area_cultivada_ha      Float?
-  tenencia               String?
-  latitud                Float?
-  longitud               Float?
+  id                     String   @id @default(uuid())
+  productor_id           String
+  finca_id               String
   estado                 String   @default("PENDIENTE")
   organizacion_inquilino String?
   creado_en              DateTime @default(now())
   actualizado_en         DateTime @updatedAt
 
+  productor              Productor     @relation(fields: [productor_id], references: [id])
+  finca                  Finca         @relation(fields: [finca_id], references: [id])
   datos_agroambientales  Dato[]
   historial              Historial[]
   auditorias             Auditoria[]
@@ -99,9 +103,11 @@ model Finca {
   tenencia          String?
   latitud           Float?
   longitud          Float?
-  /// ID del usuario en auth-service (sin FK — identidad centralizada)
-  productor_id      String?
+  productor_id      String
   creado_en         DateTime @default(now())
+
+  productor         Productor    @relation(fields: [productor_id], references: [id])
+  expedientes       Expediente[]
 
   @@map("fincas")
 }
