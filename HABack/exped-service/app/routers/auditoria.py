@@ -14,6 +14,9 @@ def listar_auditorias(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")),
 ):
+    """
+    Lista todos los resultados de auditorías satelitales ejecutadas.
+    """
     return db.auditoria.find_many()
 
 
@@ -29,6 +32,17 @@ def crear_auditoria(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")),
 ):
+    """
+    Registra el resultado de un análisis de deforestación vía Google Earth Engine.
+
+    **Lógica de Negocio:**
+    - Al registrar una auditoría, el estado del expediente se actualiza automáticamente a APROBADO o RECHAZADO según el resultado.
+    - Se registra automáticamente el evento en el historial del expediente.
+
+    **Relaciones:**
+    - Requiere un `expediente_id`.
+    - Un resultado APROBADO es **mandatorio** para poder generar un Certificado DDS.
+    """
     if not db.expediente.find_first(where={"id": data.expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
 
@@ -64,6 +78,9 @@ def auditorias_por_expediente(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene el historial de auditorías GEE de un expediente específico.
+    """
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     return db.auditoria.find_many(where={"expediente_id": expediente_id})
@@ -75,6 +92,9 @@ def obtener_auditoria(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """
+    Obtiene el detalle de un registro de auditoría específico.
+    """
     auditoria = db.auditoria.find_first(where={"id": auditoria_id})
     if not auditoria:
         raise HTTPException(status_code=404, detail="Auditoría no encontrada")
