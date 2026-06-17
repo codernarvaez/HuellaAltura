@@ -1,0 +1,465 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+---
+
+<DashboardLayout title="Gestión de Usuarios">
+
+  <div class="space-y-6">
+
+    <!-- HEADER -->
+    <section class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+
+      <div>
+        <h1 class="text-3xl font-bold text-primary">
+          Gestión de Usuarios
+        </h1>
+
+        <p class="text-on-surface-variant mt-2">
+          Administra el acceso y los permisos de los usuarios en la plataforma.
+        </p>
+      </div>
+
+      <button
+        id="new-user-button"
+        class="bg-primary text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:opacity-90 transition-all"
+        type="button"
+      >
+        <span class="material-symbols-outlined">
+          person_add
+        </span>
+
+        Nuevo Usuario
+      </button>
+
+      <div id="new-user-overlay" class="fixed inset-0 z-40 hidden bg-black/40"></div>
+      <div id="new-user-panel" class="fixed inset-y-0 right-0 z-50 hidden w-full max-w-md overflow-auto border-l border-outline-variant bg-surface p-6 shadow-2xl transition-transform duration-300 transform translate-x-full">
+        <div class="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-2xl font-semibold text-on-surface">Registrar nuevo usuario</h2>
+            <p class="text-on-surface-variant mt-1 text-sm">Crea una cuenta para un nuevo colaborador o gestor.</p>
+          </div>
+          <button id="close-user-panel" type="button" class="text-on-surface-variant hover:text-on-surface">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <form id="new-user-form" class="grid gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Nombre</span>
+              <input id="user-first-name" type="text" class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </label>
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Apellido</span>
+              <input id="user-last-name" type="text" class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Email</span>
+              <input id="user-email" type="email" required class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </label>
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Cédula/ID</span>
+              <input id="user-identifier" type="text" class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Rol</span>
+              <select id="user-role" class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="TENANT_ADMIN">Administrador</option>
+                <option value="SUPER_ADMIN">Super Admin</option>
+                <option value="TECNICO_CAMPO">Técnico</option>
+                <option value="AUDITOR_INTERNO">Auditor</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Estado</span>
+              <select id="user-status" class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="ACTIVO">ACTIVO</option>
+                <option value="INACTIVO">INACTIVO</option>
+                <option value="SUSPENDIDO">SUSPENDIDO</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Teléfono</span>
+              <input id="user-phone" type="text" class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </label>
+            <label class="block">
+              <span class="text-sm text-on-surface-variant">Contraseña</span>
+              <input id="user-password" type="password" required class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </label>
+          </div>
+
+          <div class="flex flex-col gap-3 pt-3 border-t border-outline-variant">
+            <p id="new-user-form-message" class="text-sm text-error hidden"></p>
+            <div class="flex flex-col md:flex-row md:justify-between gap-3">
+              <button id="cancel-user-button" type="button" class="w-full md:w-auto px-6 py-3 rounded-xl border border-outline-variant hover:bg-surface-container-high transition">Cancelar</button>
+              <button id="submit-user-button" type="submit" class="w-full md:w-auto bg-primary text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition">Guardar usuario</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+    </section>
+
+    <!-- TABLA -->
+    <section
+      class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden"
+    >
+
+      <!-- Toolbar -->
+      <div
+        class="p-6 border-b border-outline-variant flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between"
+      >
+
+        <div class="relative w-full lg:w-[380px]">
+
+          <span
+            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+          >
+            search
+          </span>
+
+          <input
+            id="users-search"
+            type="text"
+            placeholder="Buscar por nombre o ID..."
+            class="w-full pl-10 pr-4 h-12 rounded-xl border border-outline-variant bg-white focus:ring-2 focus:ring-primary focus:outline-none"
+          />
+
+        </div>
+
+        <div class="flex gap-2">
+
+          <button
+            class="h-12 w-12 rounded-xl border border-outline-variant hover:bg-surface-container-high transition"
+          >
+            <span class="material-symbols-outlined">
+              filter_list
+            </span>
+          </button>
+
+          <button
+            class="h-12 w-12 rounded-xl border border-outline-variant hover:bg-surface-container-high transition"
+          >
+            <span class="material-symbols-outlined">
+              download
+            </span>
+          </button>
+
+        </div>
+
+      </div>
+
+      <!-- Tabla -->
+      <div class="overflow-x-auto">
+
+        <table class="w-full">
+
+          <thead
+            class="bg-surface-container-high text-on-surface-variant uppercase text-xs tracking-wider"
+          >
+            <tr>
+              <th class="px-6 py-4 text-left">Nombre</th>
+              <th class="px-6 py-4 text-left">Email</th>
+              <th class="px-6 py-4 text-left">Rol</th>
+              <th class="px-6 py-4 text-left">Estado</th>
+              <th class="px-6 py-4 text-left">Identificador</th>
+              <th class="px-6 py-4 text-right">Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody id="users-table-body" class="divide-y divide-outline-variant text-sm">
+            <tr>
+              <td colspan="6" class="p-6 text-center text-on-surface-variant">
+                Cargando usuarios...
+              </td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+      <!-- Footer -->
+      <div
+        class="p-4 border-t border-outline-variant flex items-center justify-between"
+      >
+
+        <p id="users-total-text" class="text-sm text-on-surface-variant">
+          Mostrando 0 usuarios
+        </p>
+
+        <div class="flex gap-2">
+
+          <button
+            class="w-10 h-10 border border-outline-variant rounded-lg"
+          >
+            <span class="material-symbols-outlined">
+              chevron_left
+            </span>
+          </button>
+
+          <button
+            class="w-10 h-10 border border-outline-variant rounded-lg"
+          >
+            <span class="material-symbols-outlined">
+              chevron_right
+            </span>
+          </button>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
+</DashboardLayout>
+
+<script type="module">
+  import { UserService } from "/src/services/user.service.ts";
+
+  const tableBody = document.getElementById("users-table-body");
+  const totalText = document.getElementById("users-total-text");
+  const searchInput = document.getElementById("users-search");
+  const messageBox = document.getElementById("user-message");
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  const token = getCookie("token");
+
+  function showMessage(text, isError = false) {
+    if (!messageBox) return;
+    messageBox.textContent = text;
+    messageBox.classList.remove("text-error", "text-success");
+    messageBox.classList.add(isError ? "text-error" : "text-success");
+  }
+
+  function renderUsers(users) {
+    if (!tableBody || !totalText) return;
+
+    if (!users.length) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="p-6 text-center text-on-surface-variant">
+            No se encontraron usuarios.
+          </td>
+        </tr>
+      `;
+      totalText.textContent = `Mostrando 0 usuarios`;
+      return;
+    }
+
+    tableBody.innerHTML = users
+      .map((user) => {
+        const initials = `${user.first_name ?? ""}${user.last_name ?? ""}`.trim().slice(0, 2).toUpperCase() || "U";
+        const roleName = user.role?.name ?? "Sin rol";
+        const statusLabel = user.status === "ACTIVO"
+          ? `<span class="flex items-center gap-2 text-primary text-sm font-medium"><span class="w-2 h-2 rounded-full bg-primary"></span>Activo</span>`
+          : `<span class="flex items-center gap-2 text-on-surface-variant text-sm"><span class="w-2 h-2 rounded-full bg-on-surface-variant"></span>${user.status}</span>`;
+
+        return `
+          <tr class="border-t border-outline-variant hover:bg-surface-container-high/30 transition-colors">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center">
+                  ${initials}
+                </div>
+                <span class="font-medium text-on-surface">
+                  ${user.first_name ?? ""} ${user.last_name ?? ""}
+                </span>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-on-surface-variant">${user.email}</td>
+            <td class="px-6 py-4"><span class="px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-sm">${roleName}</span></td>
+            <td class="px-6 py-4">${statusLabel}</td>
+            <td class="px-6 py-4 font-mono text-on-surface-variant">${user.identifier ?? "-"}</td>
+            <td class="px-6 py-4">
+              <div class="flex justify-end gap-2">
+                <button class="w-10 h-10 rounded-lg hover:bg-primary/10 text-primary transition" type="button" data-user-id="${user.id}" data-action="edit">
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button class="w-10 h-10 rounded-lg hover:bg-surface-container-high transition" type="button" data-user-id="${user.id}" data-action="refresh">
+                  <span class="material-symbols-outlined">sync_alt</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    totalText.textContent = `Mostrando ${users.length} usuarios`;
+  }
+
+  async function loadUsers() {
+    if (!tableBody) return;
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="p-6 text-center text-on-surface-variant">Cargando usuarios...</td>
+      </tr>
+    `;
+
+    try {
+      const users = await UserService.list(token);
+      renderUsers(users);
+      return users;
+    } catch (error) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="p-6 text-center text-error">${error instanceof Error ? error.message : "Error al cargar usuarios."}</td>
+        </tr>
+      `;
+      showMessage(error instanceof Error ? error.message : "Error al cargar usuarios.", true);
+      return [];
+    }
+  }
+
+  function filterUsers(users) {
+    const query = searchInput?.value.toLowerCase().trim() || "";
+    if (!query) return users;
+    return users.filter((user) => {
+      const fullName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.toLowerCase();
+      return fullName.includes(query) || user.identifier?.toLowerCase().includes(query) || user.email.toLowerCase().includes(query);
+    });
+  }
+
+  let cachedUsers = [];
+  const newUserButton = document.getElementById("new-user-button");
+  const newUserOverlay = document.getElementById("new-user-overlay");
+  const newUserPanel = document.getElementById("new-user-panel");
+  const closeUserPanel = document.getElementById("close-user-panel");
+  const cancelUserButton = document.getElementById("cancel-user-button");
+  const newUserForm = document.getElementById("new-user-form");
+  const newUserFormMessage = document.getElementById("new-user-form-message");
+
+  function openNewUserPanel() {
+    if (newUserOverlay) {
+      newUserOverlay.classList.remove("hidden");
+    }
+    if (newUserPanel) {
+      newUserPanel.classList.remove("translate-x-full", "hidden");
+      newUserPanel.classList.add("translate-x-0");
+    }
+  }
+
+  function closeNewUserPanel() {
+    if (newUserPanel) {
+      newUserPanel.classList.add("translate-x-full");
+      newUserPanel.classList.remove("translate-x-0");
+    }
+    if (newUserOverlay) {
+      newUserOverlay.classList.add("hidden");
+    }
+    if (newUserForm) {
+      newUserForm.reset();
+    }
+    if (newUserFormMessage) {
+      newUserFormMessage.textContent = "";
+      newUserFormMessage.classList.add("hidden");
+    }
+  }
+
+  function showNewUserMessage(text, isError = false) {
+    if (!newUserFormMessage) return;
+    newUserFormMessage.textContent = text;
+    newUserFormMessage.classList.remove("hidden", "text-error", "text-success");
+    newUserFormMessage.classList.add(isError ? "text-error" : "text-success");
+  }
+
+  if (newUserButton) {
+    newUserButton.addEventListener("click", openNewUserPanel);
+  }
+
+  if (newUserOverlay) {
+    newUserOverlay.addEventListener("click", closeNewUserPanel);
+  }
+
+  if (closeUserPanel) {
+    closeUserPanel.addEventListener("click", closeNewUserPanel);
+  }
+
+  if (cancelUserButton) {
+    cancelUserButton.addEventListener("click", closeNewUserPanel);
+  }
+
+  if (newUserForm) {
+    newUserForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const firstName = document.getElementById("user-first-name")?.value.trim();
+      const lastName = document.getElementById("user-last-name")?.value.trim();
+      const email = document.getElementById("user-email")?.value.trim();
+      const identifier = document.getElementById("user-identifier")?.value.trim();
+      const role = document.getElementById("user-role")?.value;
+      const status = document.getElementById("user-status")?.value;
+      const phone = document.getElementById("user-phone")?.value.trim();
+      const password = document.getElementById("user-password")?.value;
+
+      if (!email || !password || !role) {
+        showNewUserMessage("Email, contraseña y rol son obligatorios.", true);
+        return;
+      }
+
+      try {
+        await UserService.create({
+          email,
+          password,
+          role_name: role,
+          first_name: firstName || undefined,
+          last_name: lastName || undefined,
+          identifier: identifier || undefined,
+          phone_number: phone || undefined,
+          status: status || undefined,
+        }, token);
+
+        showNewUserMessage("Usuario creado correctamente.");
+        await loadUsers();
+        setTimeout(closeNewUserPanel, 1200);
+      } catch (error) {
+        showNewUserMessage(error instanceof Error ? error.message : "Error al crear usuario.", true);
+      }
+    });
+  }
+
+  document.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest("button[data-action]");
+    if (!button) return;
+
+    const action = button.getAttribute("data-action");
+    if (!action) return;
+
+    if (action === "refresh") {
+      cachedUsers = await loadUsers();
+    }
+
+    if (action === "edit") {
+      showMessage("Funcionalidad de edición pendiente.");
+    }
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      renderUsers(filterUsers(cachedUsers));
+    });
+  }
+
+  loadUsers().then((users) => {
+    if (Array.isArray(users)) {
+      cachedUsers = users;
+    }
+  });
+</script>
