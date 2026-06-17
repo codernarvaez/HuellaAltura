@@ -2,8 +2,9 @@
 
 **Módulo:** Backend de Gestión de Expedientes EUDR  
 **Autor:** Kevin Sarango  
-**Versión:** 2.0.0  
-**Stack:** FastAPI · Prisma (SQLite) · JWT HS256 · bcrypt  
+**Versión:** 2.1.0  
+**Stack:** FastAPI · Prisma (PostgreSQL/Neon) · JWT HS256 · bcrypt  
+**Deployado en:** https://geoguard-exped.onrender.com  
 
 ---
 
@@ -64,7 +65,7 @@ El sistema se integra con un módulo externo de autenticación (`auth-service`) 
 │  └─────────────────────────────────────────────────┘    │
 │                                                         │
 │  ┌─────────────────────────────────────────────────┐    │
-│  │  Prisma ORM (sync) — SQLite (geoguard.db)       │    │
+│  │  Prisma ORM (sync) — PostgreSQL (Neon)          │    │
 │  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
 
@@ -76,8 +77,9 @@ El sistema se integra con un módulo externo de autenticación (`auth-service`) 
 
 **Decisiones de diseño clave:**
 - ORM: **Prisma** (sync interface) en lugar de SQLAlchemy — genera el cliente Python desde `schema.prisma`.
-- BD: **SQLite** en desarrollo (`file:./geoguard.db`). SQLite no soporta enums nativos en Prisma, por lo que todos los campos de tipo enum se almacenan como `String`; la validación la realiza Pydantic.
+- BD: **PostgreSQL en Neon** (serverless) — soporta nativamente transacciones, cascadas y relaciones complejas.
 - Auth: validación **local** del JWT — la aplicación no llama al `auth-service` en cada petición, solo verifica la firma con la `SECRET_KEY` compartida.
+- Deployment: **Render** (PaaS) — auto-redeploy en cada push a main, prisma db push en build.
 
 ---
 
@@ -119,37 +121,65 @@ backend-kevin-sarango/
 
 ## 4. Modelos de Datos
 
-El schema completo está definido en `schema.prisma`. A continuación se describe cada tabla:
+El schema completo está definido en `schema.prisma`. Arquitectura: **Productor → Finca → Expediente**.
 
-### Expediente → tabla `expedientes`
-Registro principal del productor y su finca.
+### Productor → tabla `productores`
+Información personal del productor agrícola.
 
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `id` | String (UUID) | Clave primaria |
-| `eudr_id` | String (único) | Código EUDR generado automáticamente (`uuidv4-XXXXXXXX-XXXXX`) |
-| `nombre_completo` | String | Nombre del productor |
-| `cedula_id` | String | Número de cédula/ID |
-| `organizacion` | String? | Organización a la que pertenece |
+| `nombre_completo` | String | Nombre completo |
+| `cedula_id` | String (único) | Número de cédula/ID |
+| `organizacion` | String? | Organización/cooperativa |
 | `celular` | String? | Teléfono de contacto |
 | `genero` | String? | `MASCULINO` / `FEMENINO` |
-| `edad` | Int? | Edad del productor |
-| `nombre_finca` | String | Nombre de la finca |
+| `edad` | Int? | Edad |
+| `creado_en` | DateTime | Fecha de creación (automático) |
+| `actualizado_en` | DateTime | Última actualización (automático) |
+
+**Relaciones:** tiene muchas `Finca` y `Expediente` (cascade delete).
+
+---
+
+### Finca → tabla `fincas`
+Propiedad agrícola vinculada a un Productor.
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | String (UUID) | Clave primaria |
+| `nombre` | String | Nombre de la finca |
+| `eudr_id` | String (único) | Código EUDR generado (`uuidv4-XXXXXXXX-XXXXX`) |
+| `productor_id` | String | FK a `productores` |
 | `provincia` | String? | Provincia |
 | `canton` | String? | Cantón |
 | `parroquia` | String? | Parroquia |
 | `barrio_sector` | String? | Barrio o sector |
-| `area_total_ha` | Float? | Área total en hectáreas |
-| `area_cultivada_ha` | Float? | Área cultivada en hectáreas |
+| `area_total_ha` | Float? | Área total (hectáreas) |
+| `area_cultivada_ha` | Float? | Área cultivada (hectáreas) |
 | `tenencia` | String? | `PROPIA` / `POSESION` / `ARRENDAMIENTO` |
-| `latitud` | Float? | Coordenada geográfica |
-| `longitud` | Float? | Coordenada geográfica |
-| `estado` | String | `PENDIENTE` / `EN_PROCESO` / `APROBADO` / `RECHAZADO` |
-| `organizacion_inquilino` | String? | Organización del inquilino (multi-tenant) |
-| `creado_en` | DateTime | Fecha de creación (automático) |
-| `actualizado_en` | DateTime | Fecha de última actualización (automático) |
+| `latitud` | Float? | Coordenada |
+| `longitud` | Float? | Coordenada |
+| `creado_en` | DateTime | Fecha de creación |
 
-**Relaciones:** tiene muchos `Dato`, `Historial`, `Auditoria`, `Certificado` (todos con `onDelete: Cascade`).
+**Relaciones:** pertenece a `Productor`, tiene muchos `Expediente` (cascade delete).
+
+---
+
+### Expediente → tabla `expedientes`
+Solicitud de cumplimiento EUDR para una Finca.
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | String (UUID) | Clave primaria |
+| `productor_id` | String | FK a `productores` |
+| `finca_id` | String | FK a `fincas` |
+| `estado` | String | `PENDIENTE` / `EN_PROCESO` / `APROBADO` / `RECHAZADO` |
+| `organizacion_inquilino` | String? | Inquilino (multi-tenant) |
+| `creado_en` | DateTime | Fecha de creación (automático) |
+| `actualizado_en` | DateTime | Última actualización (automático) |
+
+**Relaciones:** vincula `Productor` + `Finca`, tiene muchos `Dato`, `Historial`, `Auditoria`, `Certificado` (cascade delete).
 
 ---
 
@@ -1126,6 +1156,260 @@ Revoca un certificado (cambia estado a `REVOCADO`).
 
 ---
 
+### 6.8 Variables Dinámicas
+
+**Prefijo:** `/api/v1/variables`
+
+Variables configurables por sección (módulo) del formulario agroambiental. Cada variable puede tener tipo de dato: STRING, NUMBER, DATE, BOOLEAN.
+
+#### `GET /`
+Lista todas las variables dinámicas (sin filtro — para panel administrativo).
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Lista de todas las variables |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso (solo admin) |
+| `500 Internal Server Error` | Error interno |
+
+---
+
+#### `GET /search/por-nombre?nombre=xxx`
+Busca variables por nombre (case-insensitive).
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN
+
+**Query params:**
+- `nombre` — texto a buscar en el nombre (requerido)
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Lista de variables coincidentes |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `422 Unprocessable Entity` | Query param `nombre` faltante |
+
+---
+
+#### `GET /search/por-tipo?tipo=NUMBER`
+Busca variables por tipo de dato.
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN
+
+**Query params:**
+- `tipo` — STRING, NUMBER, DATE, BOOLEAN (requerido)
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Lista de variables del tipo especificado |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `422 Unprocessable Entity` | `tipo` inválido |
+
+---
+
+#### `GET /search/por-seccion?seccion=Biodiversidad`
+Busca variables por sección/módulo (case-insensitive).
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN
+
+**Query params:**
+- `seccion` — nombre del módulo (ej: "Biodiversidad", "Carbono") (requerido)
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Lista de variables de la sección |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `422 Unprocessable Entity` | `seccion` faltante |
+
+---
+
+#### `GET /{dato_id}`
+Lista variables dinámicas de un registro agroambiental específico.
+
+**Auth:** cualquier token autenticado
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Lista de variables del dato |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin token válido |
+| `404 Not Found` | Dato agroambiental no encontrado |
+
+---
+
+#### `POST /{dato_id}`
+Agrega una variable dinámica a un registro agroambiental.
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO
+
+**Body:**
+```json
+{
+  "nombre": "Índice de Biodiversidad (Shannon-Wiener)",
+  "tipo_dato": "NUMBER",
+  "seccion": "Módulo de Biodiversidad",
+  "valor": 2.5
+}
+```
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `201 Created` | Variable creada |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `404 Not Found` | Dato no encontrado |
+| `422 Unprocessable Entity` | `nombre` o `tipo_dato` faltantes |
+
+---
+
+#### `PATCH /{dato_id}/{variable_id}`
+Actualiza una variable dinámica.
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Variable actualizada |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `404 Not Found` | Variable no encontrada |
+| `500 Internal Server Error` | Error al actualizar |
+
+---
+
+#### `DELETE /{dato_id}/{variable_id}`
+Elimina una variable dinámica.
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | `{"message": "Variable eliminada correctamente"}` |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `404 Not Found` | Variable no encontrada |
+| `500 Internal Server Error` | Error al eliminar |
+
+---
+
+### 6.9 Productores
+
+**Prefijo:** `/api/v1/productores`
+
+CRUD para gestionar productores agrícolas (entidad independiente).
+
+#### `GET /`
+Lista todos los productores.
+
+**Auth:** cualquier token autenticado
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Lista de productores |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin token válido |
+
+---
+
+#### `POST /`
+Crea un nuevo productor.
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO
+
+**Body:**
+```json
+{
+  "nombre_completo": "José Miguel Moosquera",
+  "cedula_id": "1100433455",
+  "organizacion": "Asociación Agroecológica",
+  "celular": "+593992345678",
+  "genero": "MASCULINO",
+  "edad": 45
+}
+```
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `201 Created` | Productor creado |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `409 Conflict` | Cédula ID ya existe |
+| `422 Unprocessable Entity` | Campo requerido faltante |
+
+---
+
+#### `GET /{productor_id}`
+Obtiene un productor por ID.
+
+**Auth:** cualquier token autenticado
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Datos del productor |
+| `401 Unauthorized` | Token ausente o inválido |
+| `404 Not Found` | Productor no encontrado |
+
+---
+
+#### `PATCH /{productor_id}`
+Actualiza datos del productor.
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | Productor actualizado |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `404 Not Found` | Productor no encontrado |
+| `409 Conflict` | Nueva cédula ya existe |
+
+---
+
+#### `DELETE /{productor_id}`
+Elimina un productor (cascade deletes todas sus fincas y expedientes).
+
+**Auth:** SUPER_ADMIN, TENANT_ADMIN
+
+**Códigos de respuesta:**
+
+| Código | Descripción |
+|---|---|
+| `200 OK` | `{"message": "Productor eliminado"}` |
+| `401 Unauthorized` | Token ausente o inválido |
+| `403 Forbidden` | Sin permiso |
+| `404 Not Found` | Productor no encontrado |
+
+---
+
 ## 7. Enums y Valores Permitidos
 
 Todos los valores deben enviarse en **MAYÚSCULAS**.
@@ -1197,20 +1481,24 @@ Los usuarios no se eliminan físicamente. El endpoint `DELETE /usuarios/{id}` so
 
 ## 9. Configuración del Entorno
 
-Crear un archivo `.env` en la raíz del proyecto con base en `.env.example`:
+Crear un archivo `.env` en la raíz del proyecto:
 
 ```env
-# Base de datos
-DATABASE_URL=file:./geoguard.db
+# Base de datos PostgreSQL (Neon serverless)
+DATABASE_URL="postgresql://usuario:password@host/neondb?sslmode=require&channel_binding=require"
 
-# JWT — clave compartida con auth-service para validación local (HS256)
-SECRET_KEY="EUDR-Auth-2026-v1-xK9mPqRz2wL7nBv4Jd8Sf3Gh5Tq1Wx0Zy"
+# JWT — clave compartida con auth-service (HS256)
+SECRET_KEY="stgc-Auth-2026-v1-xK9mPqRz2wL7nBv4Jd8Sf3Gh5Tq1Wx0Zy"
 
-# Comunicación interna entre microservicios (S2S)
-INTERNAL_API_KEY="EUDR-Audit-Internal-9f8d7c6b5a4e3w2q1o0pLKmJnHgBfDcSa"
+# Comunicación S2S con auth-service
+INTERNAL_API_KEY="STGC-Audit-Internal-9f8d7c6b5a4e3w2q1o0pLKmJnHgBfDcSa"
+
+# Validación de sesión contra auth-service
+AUTH_SERVICE_URL=https://huellaaltura.onrender.com
+SESSION_VALIDATION_ENABLED=true
 ```
 
-> **IMPORTANTE:** el archivo `.env` nunca debe subirse al repositorio. Está en `.gitignore`.
+> **IMPORTANTE:** `.env` nunca se sube al repositorio (`.gitignore`).
 
 ---
 
@@ -1265,12 +1553,13 @@ python test_api.py
 |---|---|---|
 | `fastapi` | 0.111.0 | Framework web principal |
 | `uvicorn[standard]` | 0.29.0 | Servidor ASGI |
-| `prisma` | 0.13.1 | ORM — cliente Python generado desde `schema.prisma` |
-| `python-dotenv` | 1.0.1 | Carga de variables de entorno desde `.env` |
-| `pydantic` | 2.7.1 | Validación de datos y serialización |
-| `bcrypt` | 4.1.3 | Hash de contraseñas |
-| `python-jose[cryptography]` | 3.3.0 | Validación local de tokens JWT (HS256) |
-| `psycopg2-binary` | 2.9.9 | Driver PostgreSQL (para migración futura a producción) |
+| `prisma` | 0.13.1 | ORM — cliente Python para PostgreSQL |
+| `python-dotenv` | 1.2.2 | Carga de `.env` |
+| `pydantic` | 2.7.1 | Validación de datos |
+| `pydantic-settings` | 2.2.1 | Configuración desde variables de entorno |
+| `python-jose[cryptography]` | 3.3.0 | JWT HS256 (validación local) |
+| `ruff` | >=0.4.0 | Linter (dev) |
+| `pytest` | >=8.0.0 | Testing (dev) |
 
 ---
 
