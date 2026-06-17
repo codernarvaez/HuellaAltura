@@ -21,12 +21,11 @@ import { Mail, Lock, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const LoginScreen = () => {
-  const { signIn } = useAuth();
+const LoginScreen = ({ navigation }) => {
+  const { signIn, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -47,17 +46,18 @@ const LoginScreen = () => {
     ]).start();
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email.includes('@') || password.length < 6) {
       setError('Credenciales inválidas. Por favor, revisa tus datos.');
       return;
     }
     setError('');
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      signIn();
-    }, 1500);
+    
+    const result = await signIn(email, password);
+    
+    if (!result.success) {
+      setError(result.error);
+    }
   };
 
   return (
@@ -172,6 +172,15 @@ const LoginScreen = () => {
                 ) : (
                   <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
                 )}
+              </TouchableOpacity>
+
+              {/* Register Action */}
+              <TouchableOpacity 
+                style={styles.registerButton}
+                onPress={() => navigation.navigate('Registration')}
+                disabled={loading}
+              >
+                <Text style={styles.registerButtonText}>Crear Cuenta nueva</Text>
               </TouchableOpacity>
             </View>
 
@@ -321,6 +330,22 @@ const styles = StyleSheet.create({
     ...theme.typography.labelMd,
     color: theme.colors.onPrimary,
     fontWeight: '700',
+    fontSize: 16,
+  },
+  registerButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 16,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.primaryFixedDim,
+    marginBottom: 16,
+  },
+  registerButtonText: {
+    ...theme.typography.labelMd,
+    color: theme.colors.primaryFixedDim,
+    fontWeight: '600',
     fontSize: 16,
   },
   footer: {

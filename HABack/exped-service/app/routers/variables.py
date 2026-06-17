@@ -13,7 +13,7 @@ from app.schemas.schemas import (
 
 router = APIRouter()
 
-_editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO"))
+_editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO", "PRODUCTOR"))
 
 
 @router.get(
@@ -128,7 +128,7 @@ def actualizar_variable(
     variable_id: int,
     data: VariableDinamicaUpdate,
     db: Prisma = Depends(get_db),
-    current_user: dict = _editor,
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ):
     """
     Actualiza el nombre o valor de una variable dinámica existente.
@@ -150,7 +150,7 @@ def eliminar_variable(
     dato_id: str,
     variable_id: int,
     db: Prisma = Depends(get_db),
-    current_user: dict = _editor,
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ):
     """
     Elimina permanentemente una variable dinámica.

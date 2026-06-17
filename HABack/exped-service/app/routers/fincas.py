@@ -88,13 +88,21 @@ def actualizar_finca(
     finca_id: str,
     data: FincaUpdate,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO")),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")),
 ):
     """
     Actualiza la información geográfica o administrativa de una finca.
+
+    **Seguridad:**
+    - Si el usuario es `PRODUCTOR`, solo puede editar si la finca le pertenece.
     """
-    if not db.finca.find_first(where={"id": finca_id}):
+    finca = db.finca.find_first(where={"id": finca_id})
+    if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
+
+    if current_user.get("role") == "PRODUCTOR" and finca.productor_id != current_user.get("sub"):
+        raise HTTPException(status_code=403, detail="No tienes permiso para editar esta finca")
+
     return db.finca.update(where={"id": finca_id}, data=data.model_dump(exclude_unset=True))
 
 

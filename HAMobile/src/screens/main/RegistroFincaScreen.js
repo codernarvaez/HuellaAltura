@@ -19,6 +19,12 @@ import { RepositorioFincas } from '../../data/repositorio/RepositorioFincas';
 import * as Location from 'expo-location';
 import { FarmMapEditor } from '../../components/map/FarmMapEditor';
 import { GeoLookupService } from '../../data/local/GeoLookupService';
+import { EUDRService } from '../../services/EUDRService';
+import SafeStorage from '../../utils/SafeStorage';
+import CryptoJS from 'crypto-js';
+import * as Application from 'expo-application';
+
+// ... (Rest of imports)
 import { 
   Map as MapIcon, 
   User, 
@@ -36,6 +42,16 @@ import {
 } from 'lucide-react-native';
 import * as Crypto from 'expo-crypto';
 
+// Helper for decryption (needs to match AuthContext)
+const getEncryptionKey = () => {
+  try {
+    const hardwareId = Application.getAndroidId() || 'ha_fallback_id_safe';
+    return CryptoJS.SHA256(`ha_mobile_v1_${hardwareId}`).toString();
+  } catch (e) {
+    return 'ha_emergency_key_js_only';
+  }
+};
+
 const RegistroFincaScreen = () => {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
@@ -45,11 +61,18 @@ const RegistroFincaScreen = () => {
   // --- ESTADO DEL FORMULARIO ---
   
   // Paso 1: Información del Productor
-  const [nombreProductor, setNombreProductor] = useState(user?.name || '');
+  const [nombreProductor, setNombreProductor] = useState(user?.first_name ? `${user.first_name} ${user.last_name}` : '');
+  const [cedulaId, setCedulaId] = useState(user?.identifier || '');
+  
+  // Extraer nombres para la vista densa
+  const [firstName, ...lastNameParts] = nombreProductor.split(' ');
+  const lastName = lastNameParts.join(' ') || '';
+
+  const [emailProductor, setEmailProductor] = useState(user?.email || '');
   const [organizacion, setOrganizacion] = useState('');
-  const [celular, setCelular] = useState('');
-  const [genero, setGenero] = useState('');
-  const [edad, setEdad] = useState('');
+  const [celular, setCelular] = useState(user?.phone_number || '');
+  const [genero, setGenero] = useState(user?.genero || '');
+  const [edad, setEdad] = useState(user?.edad ? String(user.edad) : '');
 
   // Paso 2: Información de la Finca
   const [nombreFinca, setNombreFinca] = useState('');
@@ -81,9 +104,6 @@ const RegistroFincaScreen = () => {
   const [totalStockCarbono, setTotalStockCarbono] = useState('114.0');
   
   const [camposDinamicos, setCamposDinamicos] = useState([]);
-
-  // Repositorio
-  const repo = useMemo(() => new RepositorioFincas(user?.tenantId || 'default-tenant'), [user]);
 
   // Lógica para generar Plus Code simple basado en coordenadas
   useEffect(() => {
@@ -164,86 +184,139 @@ const RegistroFincaScreen = () => {
     setCamposDinamicos(camposDinamicos.filter(c => c.id !== id));
   };
 
+  const obtenerToken = async () => {
+    try {
+      const encryptedToken = await SafeStorage.getItem('auth_token_enc');
+      if (!encryptedToken) return null;
+      const bytes = CryptoJS.AES.decrypt(encryptedToken, getEncryptionKey());
+      return bytes.toString(CryptoJS.enc.Utf8);
+    } catch (e) {
+      return null;
+    }
+  };
+
   const guardarRegistro = async () => {
-    if (!nombreFinca || puntos.length < 3) {
-      Alert.alert('Error', 'Nombre de finca y polígono (mín 3 puntos) son obligatorios.');
+    if (!nombreFinca || puntos.length < 3 || !cedulaId || !nombreProductor) {
+      Alert.alert('Error', 'Nombre de finca, datos del productor y polígono (mín 3 puntos) son obligatorios.');
       return;
     }
 
     setLoading(true);
     try {
-      const idFinca = Crypto.randomUUID();
+      const sqlite = db();
+      
+      // 1. Generar UUIDs locales (v4)
+      const productorId = Crypto.randomUUID();
+      const fincaId = Crypto.randomUUID();
+      const expedienteId = Crypto.randomUUID();
+      const datoId = Crypto.randomUUID();
+
+      // 2. Preparar Datos de Productor
+      const [firstName, ...lastNameParts] = nombreProductor.split(' ');
+      const lastName = lastNameParts.join(' ') || '';
+
+      await sqlite.insert(require('../../data/local/esquema').productores).values({
+        id: productorId,
+        firstName,
+        lastName,
+        cedulaId: cedulaId,
+        email: emailProductor,
+        phoneNumber: celular,
+        edad: parseInt(edad) || 0,
+        genero,
+        organizacion,
+        syncStatus: 'pending',
+        creadoEn: new Date()
+      });
+
+      // 3. Preparar Geometría
       const coordenadasCerradas = [...puntos];
       if (puntos[0][0] !== puntos[puntos.length - 1][0] || puntos[0][1] !== puntos[puntos.length - 1][1]) {
         coordenadasCerradas.push(puntos[0]);
       }
-
-      const geoJson = {
+      const geoJsonStr = JSON.stringify({
         type: 'Feature',
         geometry: { type: 'Polygon', coordinates: [coordenadasCerradas] },
         properties: { tipo_captura: 'GPS_Wizard', precision_promedio_metros: 2.4 }
-      };
+      });
 
-      const customData = {
-        productor: {
-          organizacion,
-          celular,
-          genero,
-          edad: parseInt(edad) || 0
-        },
-        geografia: {
-          provincia,
-          canton,
-          parroquia,
-          barrio,
-          eudr_id: eudrId
-        },
-        agroambiental: {
-          indice_shannon: parseFloat(indiceShannon),
-          indice_simpson: parseFloat(indiceSimpson),
-          uso_suelo: usoSuelo,
-          cobertura_forestal: coberturaForestal,
-          sistema_produccion: sistemaProduccion,
-          biomasa_aerea_tc_ha: parseFloat(biomasaAerea),
-          cos_tc_ha: parseFloat(carbonoSuelo),
-          total_stock_carbono_tc_ha: parseFloat(totalStockCarbono)
-        },
-        campos_adicionales: camposDinamicos.reduce((acc, curr) => {
-          if (curr.nombre) acc[curr.nombre] = curr.valor;
-          return acc;
-        }, {})
-      };
-
-      const datosFinca = {
-        id: idFinca,
+      // 4. Guardar Finca Localmente (pending)
+      await sqlite.insert(require('../../data/local/esquema').fincas).values({
+        id: fincaId,
         nombre: nombreFinca,
-        productorId: user?.id || 'anon',
-        geometriaGeoJson: geoJson,
-        areaGeodesicaHectareas: parseFloat(areaTotal) || 0,
-        tipoCaptura: 'GPS_WALK',
-        gpsAccuracyMeters: 2.4,
-        coordenadasCentrales: {
-          latitud: parseFloat(latitud),
-          longitud: parseFloat(longitud),
-          altitud: parseFloat(altitud)
-        },
-        datosPersonalizados: customData
-      };
+        productorId: productorId, 
+        provincia,
+        canton,
+        parroquia,
+        barrioSector: barrio,
+        areaTotalHa: parseFloat(areaTotal) || 0,
+        areaCultivoHa: parseFloat(areaCultivada) || 0,
+        tenenciaTierra: tenencia,
+        geometriaGeoJson: geoJsonStr,
+        latitudCentro: parseFloat(latitud),
+        longitudCentro: parseFloat(longitud),
+        syncStatus: 'pending',
+        creadoEn: new Date()
+      });
 
-      const vertices = puntos.map(p => ({
-        latitud: p[1],
-        longitud: p[0],
-        precisionMetros: 2.4
-      }));
+      // 5. Guardar Expediente Localmente (pending)
+      await sqlite.insert(require('../../data/local/esquema').expedientes).values({
+        id: expedienteId,
+        fincaId: fincaId,
+        productorId: productorId,
+        organizacionInquilino: organizacion,
+        syncStatus: 'pending',
+        creadoEn: new Date()
+      });
 
-      await repo.crearConVertices(datosFinca, vertices);
-      Alert.alert('Éxito', 'Registro completado correctamente.');
+      // 6. Guardar Datos Agroambientales (pending)
+      await sqlite.insert(require('../../data/local/esquema').datosAgroambientales).values({
+        id: datoId,
+        expedienteId: expedienteId,
+        indiceShannon: parseFloat(indiceShannon),
+        indiceSimpson: parseFloat(indiceSimpson),
+        usoSuelo: usoSuelo,
+        coberturaForestal: JSON.stringify(coberturaForestal),
+        sistemaProduccion: sistemaProduccion,
+        biomasaAereaTcHa: parseFloat(biomasaAerea),
+        cosTcHa: parseFloat(carbonoSuelo),
+        totalStockCarbono: parseFloat(totalStockCarbono),
+        syncStatus: 'pending',
+        creadoEn: new Date()
+      });
+
+      // 7. Guardar Variables Dinámicas (pending)
+      for (const campo of camposDinamicos) {
+        if (campo.nombre && campo.valor) {
+          await sqlite.insert(require('../../data/local/esquema').variablesDinamicas).values({
+            id: Crypto.randomUUID(),
+            datoId: datoId,
+            nombre: campo.nombre,
+            valor: campo.valor,
+            tipoDato: 'texto',
+            syncStatus: 'pending',
+            creadoEn: new Date()
+          });
+        }
+      }
+
+      Alert.alert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.');
+      
+      // Intentar sincronizar en segundo plano
+      const token = await obtenerToken();
+      if (token) {
+        const { SyncService } = require('../../services/SyncService');
+        SyncService.syncAll(token).catch(e => console.warn('Sync fallido:', e));
+      }
+
       setStep(1);
       setPuntos([]);
       setNombreFinca('');
+      setCamposDinamicos([]);
+
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'No se pudo guardar el registro.');
+      console.error('Error al guardar local:', error);
+      Alert.alert('Error', 'No se pudo guardar el registro en la base de datos local.');
     } finally {
       setLoading(false);
     }
@@ -271,33 +344,52 @@ const RegistroFincaScreen = () => {
   const Step1 = () => (
     <View style={styles.stepContent}>
       <View style={styles.sectionHeader}>
-        <User size={22} color="#fff" />
-        <Text style={styles.sectionTitle}>Información del Productor</Text>
+        <User size={20} color="#fff" />
+        <Text style={styles.sectionTitle}>Perfil del Productor</Text>
       </View>
       
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nombre Completo</Text>
-        <TextInput style={styles.input} value={nombreProductor} onChangeText={setNombreProductor} placeholder="Nombre del productor" />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Organización / Asociación</Text>
-        <TextInput style={styles.input} value={organizacion} onChangeText={setOrganizacion} placeholder="Nombre de la cooperativa" />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Celular de Contacto</Text>
-        <TextInput style={styles.input} value={celular} onChangeText={setCelular} keyboardType="phone-pad" placeholder="099XXXXXXX" />
-      </View>
-
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.label}>Género</Text>
-          <TextInput style={styles.input} value={genero} onChangeText={setGenero} placeholder="M / F / Otro" />
+      <View style={styles.denseForm}>
+        <View style={styles.row}>
+          <View style={[styles.inputGroupDense, { flex: 1, marginRight: 6 }]}>
+            <Text style={styles.labelSmall}>Nombres *</Text>
+            <TextInput style={styles.inputDense} value={firstName} onChangeText={setNombreProductor} placeholder="Nombres" />
+          </View>
+          <View style={[styles.inputGroupDense, { flex: 1 }]}>
+            <Text style={styles.labelSmall}>Apellidos *</Text>
+            <TextInput style={styles.inputDense} value={lastName} onChangeText={(v) => setNombreProductor(`${nombreProductor.split(' ')[0]} ${v}`)} placeholder="Apellidos" />
+          </View>
         </View>
-        <View style={[styles.inputGroup, { flex: 1 }]}>
-          <Text style={styles.label}>Edad</Text>
-          <TextInput style={styles.input} value={edad} onChangeText={setEdad} keyboardType="numeric" placeholder="Años" />
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroupDense, { flex: 1.2, marginRight: 6 }]}>
+            <Text style={styles.labelSmall}>Cédula *</Text>
+            <TextInput style={styles.inputDense} value={cedulaId} onChangeText={setCedulaId} placeholder="Identificación" />
+          </View>
+          <View style={[styles.inputGroupDense, { flex: 1 }]}>
+            <Text style={styles.labelSmall}>Edad</Text>
+            <TextInput style={styles.inputDense} value={edad} onChangeText={setEdad} keyboardType="numeric" placeholder="Años" />
+          </View>
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroupDense, { flex: 1, marginRight: 6 }]}>
+            <Text style={styles.labelSmall}>Género</Text>
+            <TextInput style={styles.inputDense} value={genero} onChangeText={setGenero} placeholder="M / F" />
+          </View>
+          <View style={[styles.inputGroupDense, { flex: 1.5 }]}>
+            <Text style={styles.labelSmall}>Celular</Text>
+            <TextInput style={styles.inputDense} value={celular} onChangeText={setCelular} keyboardType="phone-pad" placeholder="099XXX" />
+          </View>
+        </View>
+
+        <View style={styles.inputGroupDense}>
+          <Text style={styles.labelSmall}>Correo Electrónico</Text>
+          <TextInput style={styles.inputDense} value={emailProductor} onChangeText={setEmailProductor} placeholder="email@ejemplo.com" keyboardType="email-address" autoCapitalize="none" />
+        </View>
+
+        <View style={styles.inputGroupDense}>
+          <Text style={styles.labelSmall}>Organización / Cooperativa</Text>
+          <TextInput style={styles.inputDense} value={organizacion} onChangeText={setOrganizacion} placeholder="Nombre de la asociación" />
         </View>
       </View>
     </View>
@@ -343,8 +435,14 @@ const RegistroFincaScreen = () => {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Código Único (EUDR ID)</Text>
-        <View style={[styles.input, styles.disabledInput]}>
-          <Text style={{ color: '#555' }}>{eudrId || 'Calculando...'}</Text>
+        <View style={styles.eudrIdCard}>
+          <View style={styles.eudrIdIconContainer}>
+            <Layers size={18} color="#fff" />
+          </View>
+          <View style={styles.eudrIdContent}>
+            <Text style={styles.eudrIdCode}>{eudrId || 'CALCULANDO...'}</Text>
+            <Text style={styles.eudrIdLabel}>Sincronizado con Google Plus Code</Text>
+          </View>
         </View>
       </View>
 
@@ -559,10 +657,48 @@ const styles = StyleSheet.create({
   stepContent: { paddingTop: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)', paddingBottom: 8 },
   sectionTitle: { ...theme.typography.labelMd, fontSize: 18, color: '#fff', marginLeft: 10, fontWeight: 'bold' },
+  denseForm: { paddingHorizontal: 2 },
+  inputGroupDense: { marginBottom: 12 },
+  labelSmall: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginBottom: 4, fontWeight: '600' },
+  inputDense: { backgroundColor: '#fff', borderRadius: 8, height: 42, paddingHorizontal: 12, color: '#000', fontSize: 15 },
   inputGroup: { marginBottom: 15 },
   label: { ...theme.typography.labelSm, color: '#fff', marginBottom: 6, fontWeight: '600' },
   input: { backgroundColor: '#fff', borderRadius: 10, height: 50, paddingHorizontal: 15, color: '#000', fontSize: 16 },
   disabledInput: { backgroundColor: '#e0e0e0', justifyContent: 'center' },
+  eudrIdCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  eudrIdIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: theme.colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  eudrIdContent: {
+    flex: 1,
+  },
+  eudrIdCode: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  eudrIdLabel: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
   row: { flexDirection: 'row', marginBottom: 10 },
   locationButton: { backgroundColor: theme.colors.secondary, borderRadius: 10, height: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15 },
   locationButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 5 },

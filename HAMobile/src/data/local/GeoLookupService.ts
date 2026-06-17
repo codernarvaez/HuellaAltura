@@ -1,4 +1,4 @@
-import * as turf from '@turf/turf';
+import { point, booleanPointInPolygon, polygon, centroid } from '@turf/turf';
 import cantonesGeoJson from '../../../assets/geo/EC_Cantones.json';
 import parroquiasLojaGeoJson from '../../../assets/geo/Parroquias_Loja.json';
 
@@ -13,12 +13,12 @@ export class GeoLookupService {
    * Busca la ubicación política (Provincia, Cantón, Parroquia) basada en coordenadas [longitud, latitud].
    */
   static lookupLocation(lng: number, lat: number): GeoLocationData | null {
-    const point = turf.point([lng, lat]);
+    const pt = point([lng, lat]);
     let result: GeoLocationData | null = null;
     
     // 1. Buscar en Cantones (Nivel Nacional)
     for (const feature of (cantonesGeoJson as any).features) {
-      if (turf.booleanPointInPolygon(point, feature)) {
+      if (booleanPointInPolygon(pt, feature)) {
         result = {
           provincia: feature.properties.DPA_DESPRO,
           canton: feature.properties.DPA_DESCAN,
@@ -31,7 +31,7 @@ export class GeoLookupService {
     // 2. Si es Loja, buscar la Parroquia específica
     if (result && result.provincia.toUpperCase() === 'LOJA') {
       for (const feature of (parroquiasLojaGeoJson as any).features) {
-        if (turf.booleanPointInPolygon(point, feature)) {
+        if (booleanPointInPolygon(pt, feature)) {
           result.parroquia = feature.properties.NOMBRE;
           break;
         }
@@ -54,9 +54,9 @@ export class GeoLookupService {
         coords.push(coords[0]);
       }
       
-      const polygon = turf.polygon([coords]);
-      const centroid = turf.centroid(polygon);
-      const [lng, lat] = centroid.geometry.coordinates;
+      const poly = polygon([coords]);
+      const ctr = centroid(poly);
+      const [lng, lat] = ctr.geometry.coordinates;
       
       return this.lookupLocation(lng, lat);
     } catch (error) {

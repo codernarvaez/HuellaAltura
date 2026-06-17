@@ -18,6 +18,7 @@ from app.routers import (
     fincas,
     productores,
     variables,
+    sync,
 )
 
 
@@ -96,9 +97,9 @@ app.include_router(
     tags=["Certificados DDS"],
 )
 app.include_router(
-    variables.router,
-    prefix=endpoints.VARIABLES_PREFIX,
-    tags=["Variables Dinámicas"],
+    sync.router,
+    prefix=f"{API_V1_PREFIX}/sync",
+    tags=["Sincronización Offline"],
 )
 
 

@@ -57,20 +57,21 @@ def listar_expedientes(
 def crear_expediente(
     data: ExpedienteCreate,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO")),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")),
 ):
     """
     Registra un nuevo expediente en el sistema.
 
     **Lógica de Negocio:**
     - Verifica la existencia del productor y la finca vinculados.
+    - Si el usuario es un `PRODUCTOR`, se fuerza que el `productor_id` sea el suyo propio.
     - Registra un evento inicial en el historial de trazabilidad.
-    - Si se incluyen `datos_agroambientales` y `variables`, se crean de forma atómica.
-
-    **Relaciones:**
-    - Esta es la acción principal. Crea el `expediente_id` que será el ancla para todas las demás entidades (Datos, Auditorías, Certificados).
     """
-    productor = db.productor.find_first(where={"id": data.productor_id})
+    productor_id = data.productor_id
+    if current_user.get("role") == "PRODUCTOR":
+        productor_id = current_user.get("sub")
+
+    productor = db.productor.find_first(where={"id": productor_id})
     if not productor:
         raise HTTPException(status_code=404, detail="Productor no encontrado")
 
