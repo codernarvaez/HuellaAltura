@@ -64,6 +64,8 @@ async def register(request: Request, user_in: UserCreate, db: Annotated[Prisma, 
                 "last_name": user_in.last_name,
                 "identifier": user_in.identifier,
                 "phone_number": user_in.phone_number,
+                "edad": user_in.edad,
+                "genero": user_in.genero.name if user_in.genero else None,
                 "password_hash": get_password_hash(user_in.password),
                 "role_id": role.id,
                 "status": user_in.status if user_in.status else "ACTIVO"

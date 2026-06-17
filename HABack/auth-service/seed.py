@@ -20,6 +20,15 @@ ROLES_DATA = [
         "name": "AUDITOR_INTERNO",
         "description": "Analista que revisa expedientes, evalúa la auditoría satelital Copernicus y emite certificados.",
     },
+    {
+        "name": "PRODUCTOR",
+        "description": "Usuario que pertenece a una organizacion .",
+    },
+    {
+        "name": "GENERAL",
+        "description": "Usuario general.",
+    },
+
 ]
 
 

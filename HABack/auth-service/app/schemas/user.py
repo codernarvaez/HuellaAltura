@@ -8,6 +8,11 @@ class UserStatus(str, Enum):
     SUSPENDIDO = "SUSPENDIDO"
     PENDIENTE = "PENDIENTE"
 
+class Gender(str, Enum):
+    MASCULINO = "Masculino"
+    FEMENINO = "Femenino"
+    OTRO = "Prefiero no decirlo"
+
 class RoleOut(BaseModel):
     id: str
     name: str
@@ -25,6 +30,8 @@ class UserCreate(UserBase):
     last_name: Optional[str] = None
     identifier: Optional[str] = None
     phone_number: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[Gender] = None
     status: Optional[UserStatus] = UserStatus.ACTIVO
 
 class UserOut(UserBase):
@@ -35,6 +42,8 @@ class UserOut(UserBase):
     last_name: Optional[str] = None
     identifier: Optional[str] = None
     phone_number: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[Gender] = None
 
     model_config = ConfigDict(from_attributes=True)
 

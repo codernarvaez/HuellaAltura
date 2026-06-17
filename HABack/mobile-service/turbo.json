@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tags": ["backend", "api", "mobile"],
+  "tasks": {
+    "build": {
+      "outputs": ["$TURBO_EXTENDS$"]
+    },
+    "test": {
+      "env": [
+        "AUTH_SERVICE_URL",
+        "INTERNAL_API_KEY"
+      ]
+    }
+  }
+}
