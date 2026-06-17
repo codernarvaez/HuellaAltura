@@ -34,6 +34,8 @@ model User {
   suspended_from  DateTime?
   suspended_until DateTime?
   session_token   String?    @unique
+  edad            Int?
+  genero          Genero?
   // TODO: Agregar lógica de wallets por usuario aquí
   audit_logs      AuditLog[]
   role            Role       @relation(fields: [role_id], references: [id])
@@ -241,6 +243,12 @@ enum UserStatus {
   INACTIVO
   SUSPENDIDO
   PENDIENTE
+}
+
+enum Genero {
+  MASCULINO
+  FEMENINO
+  OTRO
 }
 
 enum calidad_cafe {

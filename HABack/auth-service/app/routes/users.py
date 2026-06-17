@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr
 
 from app.database import get_db
 from app.dependencies import require_manage_users, log_user_action
-from app.schemas.user import UserOut, UserStatus
+from app.schemas.user import UserOut, UserStatus, Genero
 from app.core import endpoints
 from app.security import get_password_hash
 
@@ -116,6 +116,12 @@ async def update_user(
         if user_update.password:
             update_data["password_hash"] = get_password_hash(user_update.password)
 
+        if user_update.edad is not None:
+            update_data["edad"] = user_update.edad
+        
+        if user_update.genero is not None:
+            update_data["genero"] = user_update.genero.name
+
         if not update_data:
             raise HTTPException(status_code=400, detail="No se proporcionaron datos válidos para actualizar")
 
@@ -131,6 +137,10 @@ async def update_user(
     except errors.PrismaError as e:
         logger.error(f"Error de base de datos al actualizar usuario: {str(e)}")
         raise HTTPException(status_code=500, detail="Error al actualizar el usuario en la base de datos")
+    except Exception as e:
+        logger.error(f"Error inesperado al actualizar usuario: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+se de datos")
     except Exception as e:
         logger.error(f"Error inesperado al actualizar usuario: {str(e)}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
