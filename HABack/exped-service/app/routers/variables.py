@@ -1,14 +1,31 @@
 
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
 from app.database import get_db
 from app.dependencies import get_current_user, log_user_action, require_roles
-from app.schemas.schemas import VariableDinamicaCreate, VariableDinamicaOut, VariableDinamicaUpdate
+from app.schemas.schemas import (
+    VariableDinamicaCreate,
+    VariableDinamicaOut,
+    VariableDinamicaUpdate,
+)
 
 router = APIRouter()
 
 _editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO"))
+
+
+@router.get(
+    "/",
+    response_model=List[VariableDinamicaOut],
+    summary="Listar todas las variables dinámicas (administrativo)",
+)
+def listar_todas_variables(
+    db: Prisma = Depends(get_db),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
+):
+    return db.variabledinamica.find_many()
 
 
 @router.get(
