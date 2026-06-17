@@ -6,6 +6,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 import logging
 import sys
+import os
+from pathlib import Path
+import mimetypes
 
 from app.config import settings
 from app.database import db
@@ -13,6 +16,11 @@ from app.dependencies import log_user_action, require_all_access
 from app.routes import auth, roles, users, internal
 from app.limiter import limiter
 from app.core import endpoints
+
+# Directorio base para archivos estáticos
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+mimetypes.add_type('application/javascript', '.js')
 
 # Configuración básica de logging
 logging.basicConfig(
@@ -33,7 +41,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Montar estáticos con ruta absoluta
+if os.path.exists(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+else:
+    logger.warning(f"Static directory not found at {STATIC_DIR}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,11 +56,11 @@ app.add_middleware(
 )
 
 @app.get(endpoints.DOCS, include_in_schema=False)
-async def custom_redoc_html():
+async def custom_redoc_html(request: Request):
     return get_redoc_html(
         openapi_url=app.openapi_url,
         title=f"{app.title} - ReDoc",
-        redoc_js_url="/static/redoc.standalone.js",
+        redoc_js_url=request.url_for("static", path="redoc.standalone.js"),
     )
 
 app.include_router(auth.router, prefix=settings.api_prefix)
