@@ -1,6 +1,6 @@
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
 
 from app.database import get_db
@@ -26,6 +26,49 @@ def listar_todas_variables(
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
 ):
     return db.variabledinamica.find_many()
+
+
+@router.get(
+    "/search/por-nombre",
+    response_model=List[VariableDinamicaOut],
+    summary="Buscar variables dinámicas por nombre",
+)
+def buscar_por_nombre(
+    nombre: str = Query(..., min_length=1),
+    db: Prisma = Depends(get_db),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
+):
+    return db.variabledinamica.find_many(
+        where={"nombre": {"contains": nombre, "mode": "insensitive"}}
+    )
+
+
+@router.get(
+    "/search/por-tipo",
+    response_model=List[VariableDinamicaOut],
+    summary="Buscar variables dinámicas por tipo de dato",
+)
+def buscar_por_tipo(
+    tipo: str = Query(..., min_length=1),
+    db: Prisma = Depends(get_db),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
+):
+    return db.variabledinamica.find_many(where={"tipo_dato": tipo})
+
+
+@router.get(
+    "/search/por-seccion",
+    response_model=List[VariableDinamicaOut],
+    summary="Buscar variables dinámicas por sección/módulo",
+)
+def buscar_por_seccion(
+    seccion: str = Query(..., min_length=1),
+    db: Prisma = Depends(get_db),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
+):
+    return db.variabledinamica.find_many(
+        where={"seccion": {"contains": seccion, "mode": "insensitive"}}
+    )
 
 
 @router.get(
