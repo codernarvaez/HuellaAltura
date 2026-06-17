@@ -95,20 +95,21 @@ const RegistroFincaScreen = () => {
 
   // Autocompletado de ubicación política basado en el polígono
   useEffect(() => {
+    let data = null;
     if (puntos.length >= 3) {
-      const data = GeoLookupService.lookupPolygonLocation(puntos);
-      if (data) {
-        if (data.provincia) setProvincia(data.provincia);
-        if (data.canton) setCanton(data.canton);
-        if (data.parroquia) setParroquia(data.parroquia);
-      }
+      data = GeoLookupService.lookupPolygonLocation(puntos);
     } else if (latitud && longitud) {
-      // Si no hay polígono pero hay punto central
-      const data = GeoLookupService.lookupLocation(parseFloat(longitud), parseFloat(latitud));
-      if (data) {
-        if (data.provincia) setProvincia(data.provincia);
-        if (data.canton) setCanton(data.canton);
-        if (data.parroquia) setParroquia(data.parroquia);
+      data = GeoLookupService.lookupLocation(parseFloat(longitud), parseFloat(latitud));
+    }
+
+    if (data) {
+      if (data.provincia) setProvincia(data.provincia);
+      if (data.canton) setCanton(data.canton);
+      // Solo aplicar parroquia si es Loja, de lo contrario limpiar
+      if (data.provincia && data.provincia.toUpperCase() === 'LOJA') {
+        setParroquia(data.parroquia || '');
+      } else {
+        setParroquia('');
       }
     }
   }, [puntos, latitud, longitud]);
@@ -361,7 +362,13 @@ const RegistroFincaScreen = () => {
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
           <Text style={styles.label}>Parroquia</Text>
-          <TextInput style={styles.input} value={parroquia} onChangeText={setParroquia} placeholder="Ej. El Sagrario" />
+          <TextInput 
+            style={[styles.input, (provincia.toUpperCase() !== 'LOJA') && styles.disabledInput]} 
+            value={parroquia} 
+            onChangeText={setParroquia} 
+            placeholder={provincia.toUpperCase() === 'LOJA' ? "Ej. El Sagrario" : "Solo en Loja"} 
+            editable={provincia.toUpperCase() === 'LOJA'}
+          />
         </View>
         <View style={[styles.inputGroup, { flex: 1 }]}>
           <Text style={styles.label}>Barrio / Sector</Text>

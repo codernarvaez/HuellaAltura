@@ -11,6 +11,10 @@ import Mapbox from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN } from '@env';
 import { theme } from '../../theme/theme';
 
+// Importar divisiones geográficas
+import cantonesGeoJson from '../../../assets/geo/EC_Cantones.json';
+import parroquiasLojaGeoJson from '../../../assets/geo/Parroquias_Loja.json';
+
 Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 import { 
   ChevronLeft,
@@ -61,6 +65,7 @@ const MapViewMemo = React.memo(({
   agregarPunto, 
   renderPolygon, 
   renderPoints, 
+  renderDivisions,
   fullScreen = false 
 }) => {
   // Solo calcular bounds para el minimapa para mantenerlo centrado. 
@@ -86,6 +91,7 @@ const MapViewMemo = React.memo(({
         animationMode="moveTo"
         animationDuration={0}
       />
+      {renderDivisions()}
       {renderPolygon()}
       {fullScreen && renderPoints()}
       {fullScreen && <Mapbox.UserLocation />}
@@ -115,6 +121,41 @@ export const FarmMapEditor = ({
   fullScreen = true
 }) => {
   const insets = useSafeAreaInsets();
+
+  const renderDivisions = React.useCallback(() => {
+    return (
+      <>
+        {/* Capa de Cantones (Nacional) */}
+        <Mapbox.ShapeSource id="cantonesSource" shape={cantonesGeoJson}>
+          <Mapbox.LineLayer 
+            id="cantonesLines" 
+            style={{ 
+              lineColor: 'rgba(255, 255, 255, 0.4)', 
+              lineWidth: 1,
+              lineDasharray: [2, 2]
+            }} 
+          />
+        </Mapbox.ShapeSource>
+
+        {/* Capa de Parroquias (Solo Loja) */}
+        <Mapbox.ShapeSource id="parroquiasLojaSource" shape={parroquiasLojaGeoJson}>
+          <Mapbox.FillLayer 
+            id="parroquiasLojaFill" 
+            style={{ 
+              fillColor: 'rgba(255, 255, 255, 0.05)',
+            }} 
+          />
+          <Mapbox.LineLayer 
+            id="parroquiasLojaLines" 
+            style={{ 
+              lineColor: 'rgba(0, 255, 127, 0.6)', 
+              lineWidth: 1.5,
+            }} 
+          />
+        </Mapbox.ShapeSource>
+      </>
+    );
+  }, []);
 
   const renderPolygon = React.useCallback(() => {
     if (puntos.length < 2) return null;
@@ -148,6 +189,7 @@ export const FarmMapEditor = ({
         agregarPunto={() => {}} 
         renderPolygon={renderPolygon} 
         renderPoints={() => null} 
+        renderDivisions={renderDivisions}
         fullScreen={false}
       />
     );
@@ -165,6 +207,7 @@ export const FarmMapEditor = ({
         agregarPunto={agregarPunto} 
         renderPolygon={renderPolygon} 
         renderPoints={renderPoints} 
+        renderDivisions={renderDivisions}
       />
       
       {/* Overlay Superior: Toolbar de Herramientas Minimalista */}

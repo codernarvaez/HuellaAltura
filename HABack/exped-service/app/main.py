@@ -1,4 +1,8 @@
+import os
 from contextlib import asynccontextmanager
+
+# Forzar compatibilidad de Prisma en entornos de producción (Render)
+os.environ["PRISMA_PY_DEBUG_GENERATOR"] = "1"
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

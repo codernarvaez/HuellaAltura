@@ -1,5 +1,6 @@
 import * as turf from '@turf/turf';
-import cantonesGeoJson from '../../../assets/geo/cantones.json';
+import cantonesGeoJson from '../../../assets/geo/EC_Cantones.json';
+import parroquiasLojaGeoJson from '../../../assets/geo/Parroquias_Loja.json';
 
 export interface GeoLocationData {
   provincia: string;
@@ -9,24 +10,35 @@ export interface GeoLocationData {
 
 export class GeoLookupService {
   /**
-   * Busca la ubicación política (Provincia, Cantón) basada en coordenadas [longitud, latitud].
+   * Busca la ubicación política (Provincia, Cantón, Parroquia) basada en coordenadas [longitud, latitud].
    */
   static lookupLocation(lng: number, lat: number): GeoLocationData | null {
     const point = turf.point([lng, lat]);
+    let result: GeoLocationData | null = null;
     
-    // El archivo cantones.json que descargamos de OCHA tiene niveles de Cantón
-    // Propiedades: DPA_DESPRO (Provincia), DPA_DESCAN (Cantón)
+    // 1. Buscar en Cantones (Nivel Nacional)
     for (const feature of (cantonesGeoJson as any).features) {
       if (turf.booleanPointInPolygon(point, feature)) {
-        return {
+        result = {
           provincia: feature.properties.DPA_DESPRO,
           canton: feature.properties.DPA_DESCAN,
-          parroquia: feature.properties.DPA_DESPAR || '' // Por si el archivo tuviera parroquias
+          parroquia: ''
         };
+        break;
+      }
+    }
+
+    // 2. Si es Loja, buscar la Parroquia específica
+    if (result && result.provincia.toUpperCase() === 'LOJA') {
+      for (const feature of (parroquiasLojaGeoJson as any).features) {
+        if (turf.booleanPointInPolygon(point, feature)) {
+          result.parroquia = feature.properties.NOMBRE;
+          break;
+        }
       }
     }
     
-    return null;
+    return result;
   }
 
   /**
