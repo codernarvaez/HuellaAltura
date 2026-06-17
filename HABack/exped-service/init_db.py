@@ -1,6 +1,7 @@
+import os
 import subprocess
 import sys
-import os
+
 
 def init_db():
     # Añadir el directorio Scripts del venv al PATH para que la CLI de Node

@@ -1,5 +1,6 @@
-from typing import Annotated, Callable
 import logging
+from collections.abc import Callable
+from typing import Annotated
 
 import httpx
 from fastapi import BackgroundTasks, Depends, HTTPException, Request, status

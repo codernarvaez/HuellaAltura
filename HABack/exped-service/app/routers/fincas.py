@@ -1,11 +1,10 @@
-from typing import List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles, log_user_action
+from app.dependencies import get_current_user, log_user_action, require_roles
 from app.schemas.schemas import FincaCreate, FincaOut, FincaUpdate
 
 router = APIRouter()
@@ -15,10 +14,10 @@ def generar_eudr_id() -> str:
     return f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}"
 
 
-@router.get("/", response_model=List[FincaOut], summary="Listar fincas")
+@router.get("/", response_model=list[FincaOut], summary="Listar fincas")
 def listar_fincas(
-    provincia: Optional[str] = Query(None),
-    canton: Optional[str] = Query(None),
+    provincia: str | None = Query(None),
+    canton: str | None = Query(None),
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):

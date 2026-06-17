@@ -1,10 +1,9 @@
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles, log_user_action
+from app.dependencies import get_current_user, log_user_action, require_roles
 from app.schemas.schemas import (
     ExpedienteCreate,
     ExpedienteOut,
@@ -23,10 +22,10 @@ _INCLUDE = {
 }
 
 
-@router.get("/", response_model=List[ExpedienteOut], summary="Listar todos los expedientes")
+@router.get("/", response_model=list[ExpedienteOut], summary="Listar todos los expedientes")
 def listar_expedientes(
-    estado: Optional[str] = Query(None),
-    organizacion: Optional[str] = Query(None),
+    estado: str | None = Query(None),
+    organizacion: str | None = Query(None),
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -60,16 +59,21 @@ def crear_expediente(
 
     dato_nested = data.datos_agroambientales
     create_data = data.model_dump(exclude={"datos_agroambientales"})
+    desc = (
+        f"Registro inicial del productor {productor.nombre_completo} "
+        f"- Finca {finca.nombre}"
+    )
     create_data["historial"] = {
         "create": [{
             "accion": "Expediente creado",
-            "descripcion": f"Registro inicial del productor {productor.nombre_completo} - Finca {finca.nombre}",
+            "descripcion": desc,
             "usuario": current_user.get("sub", "sistema"),
         }]
     }
     variables_pendientes = []
     if dato_nested:
-        create_data["datos_agroambientales"] = {"create": [dato_nested.model_dump(exclude={"variables"})]}
+        dato_data = dato_nested.model_dump(exclude={"variables"})
+        create_data["datos_agroambientales"] = {"create": [dato_data]}
         variables_pendientes = dato_nested.variables or []
 
     expediente = db.expediente.create(data=create_data, include=_INCLUDE)
@@ -86,7 +90,11 @@ def crear_expediente(
     return expediente
 
 
-@router.get("/eudr/{eudr_id}", response_model=ExpedienteOut, summary="Buscar por EUDR ID de la finca")
+@router.get(
+    "/eudr/{eudr_id}",
+    response_model=ExpedienteOut,
+    summary="Buscar por EUDR ID de la finca",
+)
 def buscar_por_eudr(
     eudr_id: str,
     db: Prisma = Depends(get_db),
@@ -154,7 +162,11 @@ def eliminar_expediente(
     return {"message": "Expediente eliminado"}
 
 
-@router.get("/{expediente_id}/historial", response_model=List[HistorialOut], summary="Ver historial de trazabilidad")
+@router.get(
+    "/{expediente_id}/historial",
+    response_model=list[HistorialOut],
+    summary="Ver historial de trazabilidad",
+)
 def ver_historial(
     expediente_id: str,
     db: Prisma = Depends(get_db),

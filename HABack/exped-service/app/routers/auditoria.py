@@ -1,16 +1,15 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles, log_user_action
+from app.dependencies import get_current_user, log_user_action, require_roles
 from app.schemas.schemas import AuditoriaCreate, AuditoriaOut
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[AuditoriaOut], summary="Listar todas las auditorías GEE")
+@router.get("/", response_model=list[AuditoriaOut], summary="Listar todas las auditorías GEE")
 def listar_auditorias(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")),
@@ -42,16 +41,24 @@ def crear_auditoria(
     nuevo_estado = "APROBADO" if data.resultado == "APROBADO" else "RECHAZADO"
     db.expediente.update(where={"id": data.expediente_id}, data={"estado": nuevo_estado})
 
+    desc = (
+        f"Resultado: {data.resultado}. "
+        f"Deforestación detectada: {data.deforestacion_detectada}."
+    )
     db.historial.create(data={
         "expediente_id": data.expediente_id,
         "accion": "Auditoría GEE ejecutada",
-        "descripcion": f"Resultado: {data.resultado}. Deforestación detectada: {data.deforestacion_detectada}.",
+        "descripcion": desc,
         "usuario": current_user.get("sub", "sistema"),
     })
     return auditoria
 
 
-@router.get("/expediente/{expediente_id}", response_model=List[AuditoriaOut], summary="Obtener auditorías de un expediente")
+@router.get(
+    "/expediente/{expediente_id}",
+    response_model=list[AuditoriaOut],
+    summary="Obtener auditorías de un expediente",
+)
 def auditorias_por_expediente(
     expediente_id: str,
     db: Prisma = Depends(get_db),

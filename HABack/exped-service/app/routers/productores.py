@@ -1,18 +1,17 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles, log_user_action
-from app.schemas.schemas import ProductorCreate, ProductorUpdate, ProductorOut
+from app.dependencies import get_current_user, log_user_action, require_roles
+from app.schemas.schemas import ProductorCreate, ProductorOut, ProductorUpdate
 
 router = APIRouter()
 
 _editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO"))
 
 
-@router.get("/", response_model=List[ProductorOut], summary="Listar productores")
+@router.get("/", response_model=list[ProductorOut], summary="Listar productores")
 def listar_productores(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(get_current_user),

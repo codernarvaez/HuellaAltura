@@ -1,18 +1,21 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles, log_user_action
-from app.schemas.schemas import VariableDinamicaCreate, VariableDinamicaUpdate, VariableDinamicaOut
+from app.dependencies import get_current_user, log_user_action, require_roles
+from app.schemas.schemas import VariableDinamicaCreate, VariableDinamicaOut, VariableDinamicaUpdate
 
 router = APIRouter()
 
 _editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO"))
 
 
-@router.get("/{dato_id}", response_model=List[VariableDinamicaOut], summary="Listar variables dinámicas de un dato")
+@router.get(
+    "/{dato_id}",
+    response_model=list[VariableDinamicaOut],
+    summary="Listar variables dinámicas de un dato",
+)
 def listar_variables(
     dato_id: str,
     db: Prisma = Depends(get_db),

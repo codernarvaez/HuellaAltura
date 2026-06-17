@@ -1,16 +1,19 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles, log_user_action
+from app.dependencies import get_current_user, log_user_action, require_roles
 from app.schemas.schemas import DatoAgroambientalCreate, DatoAgroambientalOut
 
 router = APIRouter()
 
 
-@router.get("/{expediente_id}", response_model=List[DatoAgroambientalOut], summary="Obtener datos agroambientales de un expediente")
+@router.get(
+    "/{expediente_id}",
+    response_model=list[DatoAgroambientalOut],
+    summary="Obtener datos agroambientales de un expediente",
+)
 def obtener_datos(
     expediente_id: str,
     db: Prisma = Depends(get_db),
@@ -32,18 +35,25 @@ def crear_datos(
     expediente_id: str,
     data: DatoAgroambientalCreate,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
+    current_user: dict = Depends(
+        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
+    ),
 ):
     if not db.expediente.find_first(where={"id": expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     variables = data.variables or []
-    dato = db.dato.create(data={"expediente_id": expediente_id, **data.model_dump(exclude={"variables"})})
+    dato_data = data.model_dump(exclude={"variables"})
+    dato = db.dato.create(data={"expediente_id": expediente_id, **dato_data})
     for v in variables:
         db.variabledinamica.create(data={"dato_id": dato.id, **v.model_dump()})
+    desc = (
+        "Se registraron índices de biodiversidad, uso de suelo y stock de carbono. "
+        f"Variables dinámicas: {len(variables)}."
+    )
     db.historial.create(data={
         "expediente_id": expediente_id,
         "accion": "Datos agroambientales registrados",
-        "descripcion": f"Se registraron índices de biodiversidad, uso de suelo y stock de carbono. Variables dinámicas: {len(variables)}.",
+        "descripcion": desc,
         "usuario": current_user.get("sub", "sistema"),
     })
     return db.dato.find_first(where={"id": dato.id}, include={"variables": True})
@@ -60,7 +70,9 @@ def actualizar_datos(
     dato_id: str,
     data: DatoAgroambientalCreate,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
+    current_user: dict = Depends(
+        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
+    ),
 ):
     dato = db.dato.find_first(where={"id": dato_id, "expediente_id": expediente_id})
     if not dato:
@@ -72,10 +84,15 @@ def actualizar_datos(
     )
 
 
-@router.get("/resumen/carbono", summary="Resumen de stock de carbono por expediente")
+@router.get(
+    "/resumen/carbono",
+    summary="Resumen de stock de carbono por expediente",
+)
 def resumen_carbono(
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
+    current_user: dict = Depends(
+        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
+    ),
 ):
     datos = db.dato.find_many(include={"expediente": {"include": {"finca": True}}})
     return [

@@ -6,7 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core import endpoints
 from app.database import db
-from app.routers import expedientes, agroambiental, fincas, auditoria, certificados, variables, productores
+from app.routers import (
+    agroambiental,
+    auditoria,
+    certificados,
+    expedientes,
+    fincas,
+    productores,
+    variables,
+)
 
 
 @asynccontextmanager
@@ -31,13 +39,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(expedientes.router, prefix=endpoints.EXPEDIENTES_PREFIX, tags=["Expedientes"])
-app.include_router(agroambiental.router, prefix=endpoints.AGROAMBIENTAL_PREFIX, tags=["Agroambiental"])
-app.include_router(productores.router, prefix=endpoints.PRODUCTORES_PREFIX, tags=["Productores"])
+app.include_router(
+    expedientes.router,
+    prefix=endpoints.EXPEDIENTES_PREFIX,
+    tags=["Expedientes"],
+)
+app.include_router(
+    agroambiental.router,
+    prefix=endpoints.AGROAMBIENTAL_PREFIX,
+    tags=["Agroambiental"],
+)
+app.include_router(
+    productores.router,
+    prefix=endpoints.PRODUCTORES_PREFIX,
+    tags=["Productores"],
+)
 app.include_router(fincas.router, prefix=endpoints.FINCAS_PREFIX, tags=["Fincas"])
-app.include_router(auditoria.router, prefix=endpoints.AUDITORIA_PREFIX, tags=["Auditoría GEE"])
-app.include_router(certificados.router, prefix=endpoints.CERTIFICADOS_PREFIX, tags=["Certificados DDS"])
-app.include_router(variables.router, prefix=endpoints.VARIABLES_PREFIX, tags=["Variables Dinámicas"])
+app.include_router(
+    auditoria.router,
+    prefix=endpoints.AUDITORIA_PREFIX,
+    tags=["Auditoría GEE"],
+)
+app.include_router(
+    certificados.router,
+    prefix=endpoints.CERTIFICADOS_PREFIX,
+    tags=["Certificados DDS"],
+)
+app.include_router(
+    variables.router,
+    prefix=endpoints.VARIABLES_PREFIX,
+    tags=["Variables Dinámicas"],
+)
 
 
 @app.get(endpoints.ROOT)

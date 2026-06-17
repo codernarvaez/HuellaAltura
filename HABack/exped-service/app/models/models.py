@@ -4,37 +4,37 @@
 import enum
 
 
-class TenenciaEnum(str, enum.Enum):
+class TenenciaEnum(enum.StrEnum):
     PROPIA = "PROPIA"
     POSESION = "POSESION"
     ARRENDAMIENTO = "ARRENDAMIENTO"
 
 
-class GeneroEnum(str, enum.Enum):
+class GeneroEnum(enum.StrEnum):
     MASCULINO = "MASCULINO"
     FEMENINO = "FEMENINO"
 
 
-class EstadoExpedienteEnum(str, enum.Enum):
+class EstadoExpedienteEnum(enum.StrEnum):
     PENDIENTE = "PENDIENTE"
     EN_PROCESO = "EN_PROCESO"
     APROBADO = "APROBADO"
     RECHAZADO = "RECHAZADO"
 
 
-class RolNombreEnum(str, enum.Enum):
+class RolNombreEnum(enum.StrEnum):
     SUPER_ADMIN = "SUPER_ADMIN"
     TENANT_ADMIN = "TENANT_ADMIN"
     TECNICO_CAMPO = "TECNICO_CAMPO"
     AUDITOR_INTERNO = "AUDITOR_INTERNO"
 
 
-class ResultadoAuditoriaEnum(str, enum.Enum):
+class ResultadoAuditoriaEnum(enum.StrEnum):
     APROBADO = "APROBADO"
     RECHAZADO = "RECHAZADO"
 
 
-class EstadoCertificadoEnum(str, enum.Enum):
+class EstadoCertificadoEnum(enum.StrEnum):
     VIGENTE = "VIGENTE"
     VENCIDO = "VENCIDO"
     REVOCADO = "REVOCADO"

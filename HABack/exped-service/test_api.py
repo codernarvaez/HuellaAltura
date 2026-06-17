@@ -79,8 +79,10 @@ f = requests.post(
 finca_id = j(f).get("id")
 check("POST finca (SUPER_ADMIN) -> 201", 201, sc(f))
 check("productor_id = sub del token", "admin-user-id", j(f).get("productor_id"))
-check("GET finca (AUDITOR_INTERNO) -> 200", 200, sc(requests.get(f"{BASE}/api/v1/fincas/{finca_id}", headers=H(AUD))))
-check("DELETE finca (AUDITOR_INTERNO) -> 403", 403, sc(requests.delete(f"{BASE}/api/v1/fincas/{finca_id}", headers=H(AUD))))
+get_finca = requests.get(f"{BASE}/api/v1/fincas/{finca_id}", headers=H(AUD))
+check("GET finca (AUDITOR_INTERNO) -> 200", 200, sc(get_finca))
+del_finca = requests.delete(f"{BASE}/api/v1/fincas/{finca_id}", headers=H(AUD))
+check("DELETE finca (AUDITOR_INTERNO) -> 403", 403, sc(del_finca))
 
 print("\n====== EXPEDIENTES ======")
 e = requests.post(
@@ -99,7 +101,8 @@ check("POST expediente (SUPER_ADMIN) -> 201", 201, sc(e))
 check("Estado inicial = PENDIENTE", "PENDIENTE", j(e).get("estado"))
 check("Historial inicial = 1 entrada", 1, len(j(e).get("historial", [])))
 check("Datos agroambientales = 1 registro", 1, len(j(e).get("datos_agroambientales", [])))
-check("GET expediente (AUDITOR_INTERNO) -> 200", 200, sc(requests.get(f"{BASE}/api/v1/expedientes/{exp_id}", headers=H(AUD))))
+get_exp = requests.get(f"{BASE}/api/v1/expedientes/{exp_id}", headers=H(AUD))
+check("GET expediente (AUDITOR_INTERNO) -> 200", 200, sc(get_exp))
 check(
     "POST expediente (AUDITOR_INTERNO) -> 403",
     403,
@@ -111,7 +114,10 @@ check(
         )
     ),
 )
-check("GET expediente inexistente -> 404", 404, sc(requests.get(f"{BASE}/api/v1/expedientes/no-existe", headers=H(ADM))))
+get_not_found = requests.get(
+    f"{BASE}/api/v1/expedientes/no-existe", headers=H(ADM)
+)
+check("GET expediente inexistente -> 404", 404, sc(get_not_found))
 
 print("\n====== AUDITORIA GEE ======")
 a = requests.post(
@@ -136,7 +142,11 @@ check(
     sc(
         requests.post(
             f"{BASE}/api/v1/auditoria/",
-            json={"expediente_id": exp_id, "resultado": "APROBADO", "deforestacion_detectada": False},
+            json={
+                "expediente_id": exp_id,
+                "resultado": "APROBADO",
+                "deforestacion_detectada": False,
+            },
             headers=H(TEC),
         )
     ),
@@ -157,10 +167,13 @@ check(
     403,
     sc(requests.patch(f"{BASE}/api/v1/certificados/{cert_id}/revocar", headers=H(AUD))),
 )
+rev_tnt = requests.patch(
+    f"{BASE}/api/v1/certificados/{cert_id}/revocar", headers=H(TNT)
+)
 check(
     "TENANT_ADMIN puede revocar -> 200",
     "REVOCADO",
-    j(requests.patch(f"{BASE}/api/v1/certificados/{cert_id}/revocar", headers=H(TNT))).get("estado"),
+    j(rev_tnt).get("estado"),
 )
 
 e2 = requests.post(
@@ -169,14 +182,22 @@ e2 = requests.post(
     headers=H(ADM),
 )
 exp2_id = j(e2).get("id")
+cert_no_audit = requests.post(
+    f"{BASE}/api/v1/certificados/",
+    json={"expediente_id": exp2_id},
+    headers=H(ADM),
+)
 check(
     "Certificado sin audit APROBADA -> 400",
     400,
-    sc(requests.post(f"{BASE}/api/v1/certificados/", json={"expediente_id": exp2_id}, headers=H(ADM))),
+    sc(cert_no_audit),
 )
 
 print("\n====== AGROAMBIENTAL ======")
-check("GET agroambiental (TECNICO_CAMPO) -> 200", 200, sc(requests.get(f"{BASE}/api/v1/agroambiental/{exp_id}", headers=H(TEC))))
+get_agroamb = requests.get(
+    f"{BASE}/api/v1/agroambiental/{exp_id}", headers=H(TEC)
+)
+check("GET agroambiental (TECNICO_CAMPO) -> 200", 200, sc(get_agroamb))
 check(
     "GET resumen carbono (AUDITOR_INTERNO) -> 200",
     200,
@@ -190,7 +211,12 @@ check(
     sc(
         requests.post(
             f"{BASE}/api/v1/expedientes/",
-            json={"nombre_completo": "Test M", "cedula_id": "1111111111", "nombre_finca": "F1", "genero": "MASCULINO"},
+            json={
+                "nombre_completo": "Test M",
+                "cedula_id": "1111111111",
+                "nombre_finca": "F1",
+                "genero": "MASCULINO",
+            },
             headers=H(TEC),
         )
     ),
@@ -201,7 +227,12 @@ check(
     sc(
         requests.post(
             f"{BASE}/api/v1/expedientes/",
-            json={"nombre_completo": "Test F", "cedula_id": "2222222222", "nombre_finca": "F2", "genero": "FEMENINO"},
+            json={
+                "nombre_completo": "Test F",
+                "cedula_id": "2222222222",
+                "nombre_finca": "F2",
+                "genero": "FEMENINO",
+            },
             headers=H(TNT),
         )
     ),
@@ -212,7 +243,12 @@ check(
     sc(
         requests.post(
             f"{BASE}/api/v1/expedientes/",
-            json={"nombre_completo": "Test O", "cedula_id": "3333333333", "nombre_finca": "F3", "genero": "OTRO"},
+            json={
+                "nombre_completo": "Test O",
+                "cedula_id": "3333333333",
+                "nombre_finca": "F3",
+                "genero": "OTRO",
+            },
             headers=H(ADM),
         )
     ),

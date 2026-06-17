@@ -1,18 +1,17 @@
 from datetime import datetime
-from typing import List
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles, log_user_action
+from app.dependencies import get_current_user, log_user_action, require_roles
 from app.schemas.schemas import CertificadoCreate, CertificadoOut
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[CertificadoOut], summary="Listar todos los certificados DDS")
+@router.get("/", response_model=list[CertificadoOut], summary="Listar todos los certificados DDS")
 def listar_certificados(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")),
@@ -35,10 +34,14 @@ def generar_certificado(
     if not db.expediente.find_first(where={"id": data.expediente_id}):
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
 
-    if not db.auditoria.find_first(where={"expediente_id": data.expediente_id, "resultado": "APROBADO"}):
+    audit_query = {"expediente_id": data.expediente_id, "resultado": "APROBADO"}
+    if not db.auditoria.find_first(where=audit_query):
         raise HTTPException(
             status_code=400,
-            detail="El expediente requiere una auditoría GEE con resultado APROBADO para emitir el certificado",
+            detail=(
+                "El expediente requiere una auditoría GEE con resultado APROBADO "
+                "para emitir el certificado"
+            ),
         )
 
     generado_por = data.generado_por if data.generado_por else current_user.get("sub", "sistema")
@@ -58,7 +61,11 @@ def generar_certificado(
     return certificado
 
 
-@router.get("/expediente/{expediente_id}", response_model=List[CertificadoOut], summary="Obtener certificados de un expediente")
+@router.get(
+    "/expediente/{expediente_id}",
+    response_model=list[CertificadoOut],
+    summary="Obtener certificados de un expediente",
+)
 def certificados_por_expediente(
     expediente_id: str,
     db: Prisma = Depends(get_db),
@@ -69,7 +76,11 @@ def certificados_por_expediente(
     return db.certificado.find_many(where={"expediente_id": expediente_id})
 
 
-@router.get("/{certificado_id}", response_model=CertificadoOut, summary="Obtener certificado por ID")
+@router.get(
+    "/{certificado_id}",
+    response_model=CertificadoOut,
+    summary="Obtener certificado por ID",
+)
 def obtener_certificado(
     certificado_id: str,
     db: Prisma = Depends(get_db),

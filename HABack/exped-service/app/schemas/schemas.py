@@ -1,42 +1,41 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
+from pydantic import BaseModel, Field
 
 # ─── Enums (valores alineados con Prisma) ────────────────────
 
-class TenenciaEnum(str, Enum):
+class TenenciaEnum(StrEnum):
     PROPIA = "PROPIA"
     POSESION = "POSESION"
     ARRENDAMIENTO = "ARRENDAMIENTO"
 
 
-class GeneroEnum(str, Enum):
+class GeneroEnum(StrEnum):
     MASCULINO = "MASCULINO"
     FEMENINO = "FEMENINO"
 
 
-class EstadoEnum(str, Enum):
+class EstadoEnum(StrEnum):
     PENDIENTE = "PENDIENTE"
     EN_PROCESO = "EN_PROCESO"
     APROBADO = "APROBADO"
     RECHAZADO = "RECHAZADO"
 
 
-class RolNombreEnum(str, Enum):
+class RolNombreEnum(StrEnum):
     SUPER_ADMIN = "SUPER_ADMIN"
     TENANT_ADMIN = "TENANT_ADMIN"
     TECNICO_CAMPO = "TECNICO_CAMPO"
     AUDITOR_INTERNO = "AUDITOR_INTERNO"
 
 
-class ResultadoAuditoriaEnum(str, Enum):
+class ResultadoAuditoriaEnum(StrEnum):
     APROBADO = "APROBADO"
     RECHAZADO = "RECHAZADO"
 
 
-class EstadoCertificadoEnum(str, Enum):
+class EstadoCertificadoEnum(StrEnum):
     VIGENTE = "VIGENTE"
     VENCIDO = "VENCIDO"
     REVOCADO = "REVOCADO"
@@ -44,7 +43,7 @@ class EstadoCertificadoEnum(str, Enum):
 
 # ─── Variable Dinámica ───────────────────────────────────────
 
-class TipoDatoEnum(str, Enum):
+class TipoDatoEnum(StrEnum):
     STRING = "STRING"
     INTEGER = "INTEGER"
     FLOAT = "FLOAT"
@@ -59,9 +58,9 @@ class VariableDinamicaCreate(BaseModel):
 
 
 class VariableDinamicaUpdate(BaseModel):
-    nombre: Optional[str] = None
-    valor: Optional[str] = None
-    tipo_dato: Optional[TipoDatoEnum] = None
+    nombre: str | None = None
+    valor: str | None = None
+    tipo_dato: TipoDatoEnum | None = None
 
 
 class VariableDinamicaOut(BaseModel):
@@ -78,27 +77,27 @@ class VariableDinamicaOut(BaseModel):
 # ─── Agroambiental ───────────────────────────────────────────
 
 class DatoAgroambientalBase(BaseModel):
-    indice_shannon: Optional[float] = None
-    indice_simpson: Optional[float] = None
-    uso_suelo: Optional[str] = None
-    cobertura_forestal: Optional[str] = None
-    sistema_produccion: Optional[str] = None
-    biomasa_arboles: Optional[float] = None
-    biomasa_cafe: Optional[float] = None
-    hojarasca_mantillo: Optional[float] = None
-    carbono_organico_suelo: Optional[float] = None
-    total_stock_carbono: Optional[float] = None
+    indice_shannon: float | None = None
+    indice_simpson: float | None = None
+    uso_suelo: str | None = None
+    cobertura_forestal: str | None = None
+    sistema_produccion: str | None = None
+    biomasa_arboles: float | None = None
+    biomasa_cafe: float | None = None
+    hojarasca_mantillo: float | None = None
+    carbono_organico_suelo: float | None = None
+    total_stock_carbono: float | None = None
 
 
 class DatoAgroambientalCreate(DatoAgroambientalBase):
-    variables: Optional[List["VariableDinamicaCreate"]] = None
+    variables: list["VariableDinamicaCreate"] | None = None
 
 
 class DatoAgroambientalOut(DatoAgroambientalBase):
     id: str
     expediente_id: str
     creado_en: datetime
-    variables: List["VariableDinamicaOut"] = []
+    variables: list["VariableDinamicaOut"] = []
 
     class Config:
         from_attributes = True
@@ -108,8 +107,8 @@ class DatoAgroambientalOut(DatoAgroambientalBase):
 
 class HistorialCreate(BaseModel):
     accion: str
-    descripcion: Optional[str] = None
-    usuario: Optional[str] = None
+    descripcion: str | None = None
+    usuario: str | None = None
 
 
 class HistorialOut(HistorialCreate):
@@ -126,18 +125,18 @@ class HistorialOut(HistorialCreate):
 class ProductorCreate(BaseModel):
     nombre_completo: str = Field(..., example="José Miguel Mosquera")
     cedula_id: str = Field(..., example="1100433455")
-    organizacion: Optional[str] = Field(None, example="Asociación APECAEL")
-    celular: Optional[str] = None
-    genero: Optional[GeneroEnum] = None
-    edad: Optional[int] = None
+    organizacion: str | None = Field(None, example="Asociación APECAEL")
+    celular: str | None = None
+    genero: GeneroEnum | None = None
+    edad: int | None = None
 
 
 class ProductorUpdate(BaseModel):
-    nombre_completo: Optional[str] = None
-    organizacion: Optional[str] = None
-    celular: Optional[str] = None
-    genero: Optional[GeneroEnum] = None
-    edad: Optional[int] = None
+    nombre_completo: str | None = None
+    organizacion: str | None = None
+    celular: str | None = None
+    genero: GeneroEnum | None = None
+    edad: int | None = None
 
 
 class ProductorOut(ProductorCreate):
@@ -153,20 +152,20 @@ class ProductorOut(ProductorCreate):
 
 class FincaCreate(BaseModel):
     nombre: str = Field(..., example="El Ahuacate")
-    provincia: Optional[str] = Field(None, example="Loja")
-    canton: Optional[str] = Field(None, example="Loja")
-    parroquia: Optional[str] = None
-    area_total_ha: Optional[float] = Field(None, example=3.0)
-    area_cultivada_ha: Optional[float] = None
-    tenencia: Optional[TenenciaEnum] = None
-    latitud: Optional[float] = Field(None, example=-4.2625)
-    longitud: Optional[float] = Field(None, example=-79.2231)
+    provincia: str | None = Field(None, example="Loja")
+    canton: str | None = Field(None, example="Loja")
+    parroquia: str | None = None
+    area_total_ha: float | None = Field(None, example=3.0)
+    area_cultivada_ha: float | None = None
+    tenencia: TenenciaEnum | None = None
+    latitud: float | None = Field(None, example=-4.2625)
+    longitud: float | None = Field(None, example=-79.2231)
     productor_id: str
 
 
 class FincaOut(FincaCreate):
     id: str
-    eudr_id: Optional[str] = None
+    eudr_id: str | None = None
     creado_en: datetime
 
     class Config:
@@ -174,15 +173,15 @@ class FincaOut(FincaCreate):
 
 
 class FincaUpdate(BaseModel):
-    nombre: Optional[str] = None
-    provincia: Optional[str] = None
-    canton: Optional[str] = None
-    parroquia: Optional[str] = None
-    area_total_ha: Optional[float] = None
-    area_cultivada_ha: Optional[float] = None
-    tenencia: Optional[TenenciaEnum] = None
-    latitud: Optional[float] = None
-    longitud: Optional[float] = None
+    nombre: str | None = None
+    provincia: str | None = None
+    canton: str | None = None
+    parroquia: str | None = None
+    area_total_ha: float | None = None
+    area_cultivada_ha: float | None = None
+    tenencia: TenenciaEnum | None = None
+    latitud: float | None = None
+    longitud: float | None = None
 
 
 # ─── Expediente ──────────────────────────────────────────────
@@ -190,25 +189,25 @@ class FincaUpdate(BaseModel):
 class ExpedienteCreate(BaseModel):
     productor_id: str
     finca_id: str
-    organizacion_inquilino: Optional[str] = None
-    datos_agroambientales: Optional[DatoAgroambientalCreate] = None
+    organizacion_inquilino: str | None = None
+    datos_agroambientales: DatoAgroambientalCreate | None = None
 
 
 class ExpedienteUpdate(BaseModel):
-    estado: Optional[EstadoEnum] = None
-    organizacion_inquilino: Optional[str] = None
+    estado: EstadoEnum | None = None
+    organizacion_inquilino: str | None = None
 
 
 class ExpedienteOut(BaseModel):
     id: str
     estado: str
-    organizacion_inquilino: Optional[str] = None
+    organizacion_inquilino: str | None = None
     productor: ProductorOut
     finca: FincaOut
     creado_en: datetime
     actualizado_en: datetime
-    datos_agroambientales: List[DatoAgroambientalOut] = []
-    historial: List[HistorialOut] = []
+    datos_agroambientales: list[DatoAgroambientalOut] = []
+    historial: list[HistorialOut] = []
 
     class Config:
         from_attributes = True
@@ -220,10 +219,10 @@ class AuditoriaCreate(BaseModel):
     expediente_id: str
     resultado: ResultadoAuditoriaEnum
     deforestacion_detectada: bool = False
-    fecha_corte: Optional[datetime] = None
-    fuente: Optional[str] = "Google Earth Engine"
-    observaciones: Optional[str] = None
-    ejecutado_por: Optional[str] = None
+    fecha_corte: datetime | None = None
+    fuente: str | None = "Google Earth Engine"
+    observaciones: str | None = None
+    ejecutado_por: str | None = None
 
 
 class AuditoriaOut(BaseModel):
@@ -232,10 +231,10 @@ class AuditoriaOut(BaseModel):
     fecha_auditoria: datetime
     resultado: str
     deforestacion_detectada: bool
-    fecha_corte: Optional[datetime] = None
-    fuente: Optional[str] = None
-    observaciones: Optional[str] = None
-    ejecutado_por: Optional[str] = None
+    fecha_corte: datetime | None = None
+    fuente: str | None = None
+    observaciones: str | None = None
+    ejecutado_por: str | None = None
 
     class Config:
         from_attributes = True
@@ -245,9 +244,9 @@ class AuditoriaOut(BaseModel):
 
 class CertificadoCreate(BaseModel):
     expediente_id: str
-    fecha_vencimiento: Optional[datetime] = None
-    generado_por: Optional[str] = None
-    url_documento: Optional[str] = None
+    fecha_vencimiento: datetime | None = None
+    generado_por: str | None = None
+    url_documento: str | None = None
 
 
 class CertificadoOut(BaseModel):
@@ -255,10 +254,10 @@ class CertificadoOut(BaseModel):
     expediente_id: str
     codigo_certificado: str
     fecha_emision: datetime
-    fecha_vencimiento: Optional[datetime] = None
+    fecha_vencimiento: datetime | None = None
     estado: str
-    generado_por: Optional[str] = None
-    url_documento: Optional[str] = None
+    generado_por: str | None = None
+    url_documento: str | None = None
 
     class Config:
         from_attributes = True
