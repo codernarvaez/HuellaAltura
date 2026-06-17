@@ -1,0 +1,37 @@
+---
+// ActionBar.astro — top nav bar with print controls (hidden on print)
+---
+
+<nav
+  class="max-w-[210mm] mx-auto mt-8 flex justify-between items-center px-sm py-xs bg-surface border border-outline-variant rounded-lg no-print"
+>
+  <div class="flex items-center gap-xs">
+    <span class="material-symbols-outlined text-primary">description</span>
+    <span class="font-label-md text-label-md text-on-surface">
+      Emisor de Certificado de Diligencia Debida (EUDR Art. 4)
+    </span>
+  </div>
+
+  <div class="flex items-center gap-sm">
+    <button
+      id="print-btn"
+      class="flex items-center gap-xs bg-primary-container text-on-primary-container px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity"
+    >
+      <span class="material-symbols-outlined text-sm">print</span>
+      Imprimir / PDF
+    </button>
+    <button class="text-on-surface-variant hover:text-on-surface">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+</nav>
+
+<script>
+  const btn = document.getElementById("print-btn");
+  btn?.addEventListener("click", () => {
+    if (!btn) return;
+    btn.style.opacity = "0.5";
+    setTimeout(() => (btn.style.opacity = "1"), 1000);
+    window.print();
+  });
+</script>
