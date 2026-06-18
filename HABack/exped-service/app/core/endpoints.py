@@ -9,6 +9,7 @@ FINCAS_PREFIX = f"{API_V1_PREFIX}/fincas"
 AUDITORIA_PREFIX = f"{API_V1_PREFIX}/auditoria"
 CERTIFICADOS_PREFIX = f"{API_V1_PREFIX}/certificados"
 VARIABLES_PREFIX = f"{API_V1_PREFIX}/variables"
+SYNC_PREFIX = f"{API_V1_PREFIX}/sync"
 
 HEALTH_CHECK = "/health"
 ROOT = "/"

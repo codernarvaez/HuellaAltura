@@ -98,7 +98,7 @@ app.include_router(
 )
 app.include_router(
     sync.router,
-    prefix=f"{API_V1_PREFIX}/sync",
+    prefix=endpoints.SYNC_PREFIX,
     tags=["Sincronización Offline"],
 )
 
