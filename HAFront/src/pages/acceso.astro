@@ -254,8 +254,19 @@ const error = Astro.url.searchParams.get("error");
       const cedula = String(formData.get("cedula") ?? "");
       const phone = String(formData.get("phone") ?? "");
 
+      const originalLabel = mode === "register" ? "Crear cuenta" : "Iniciar sesión";
+
       try {
         btnEmail.disabled = true;
+        btnEmail.innerHTML = `
+          <span class="inline-flex items-center justify-center gap-2">
+            <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            ${mode === "register" ? "Creando cuenta..." : "Iniciando sesión..."}
+          </span>
+        `;
 
         if (mode === "register") {
           const res = await fetch("/api/auth/register", {
@@ -299,6 +310,7 @@ const error = Astro.url.searchParams.get("error");
         showAlert(error instanceof Error ? error.message : "Error de autenticación.");
       } finally {
         btnEmail.disabled = false;
+        btnEmail.textContent = originalLabel;
       }
     });
   </script>
