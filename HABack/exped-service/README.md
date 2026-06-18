@@ -2,7 +2,8 @@
 
 Backend **FastAPI** para gestión de expedientes EUDR, trazabilidad agroambiental y cumplimiento normativo.
 
-**Endpoint en producción:** https://geoguard-exped.onrender.com
+**Endpoint en producción:** https://geoguard-exped.onrender.com  
+**Última actualización:** 2026-06-17
 
 ---
 
