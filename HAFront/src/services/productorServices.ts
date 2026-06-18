@@ -1,4 +1,4 @@
-const API_URL = "https://geoguard-exped.onrender.com";
+import { API_URL } from "./Api_Base";
 const PRODUCTORES_BASE = `${API_URL}/api/v1/productores`;
 
 export interface ProductorCreate {

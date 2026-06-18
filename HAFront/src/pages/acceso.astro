@@ -387,7 +387,7 @@
           const data = await res.json();
           if (!res.ok) { showAlert(data.message); return; }
           document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
-          window.location.href = "/dashboard";
+          window.location.href = "/productorFinca";
         }
 
     } catch (error) {
