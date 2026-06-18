@@ -1,7 +1,7 @@
 ---
 import "../styles/global.css";
 
-import { isAdminRole } from "../lib/roles";
+import { isAdminRole } from "../services/roles";
 
 const user = Astro.locals.user;
 const userRole = user?.role?.name || Astro.props.userRole || "Usuario";
