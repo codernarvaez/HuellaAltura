@@ -1,12 +1,12 @@
 ---
 import "../styles/global.css";
 
-const {
-  title = "Huella de Altura",
-  userRole = "ADMINISTRADOR",
-} = Astro.props;
+import { isAdminRole } from "../lib/roles";
 
-const isAdmin = userRole === "ADMINISTRADOR";
+const user = Astro.locals.user;
+const userRole = user?.role?.name || Astro.props.userRole || "Usuario";
+const isAdmin = isAdminRole(user?.role?.name);
+const title = Astro.props.title || "Huella de Altura";
 ---
 
 <!DOCTYPE html>
@@ -49,11 +49,11 @@ const isAdmin = userRole === "ADMINISTRADOR";
         <div
           class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold"
         >
-          A
+          {user?.email ? user.email.charAt(0).toUpperCase() : "U"}
         </div>
 
         <div class="hidden md:block">
-          <p class="text-sm font-semibold">Administrador</p>
+          <p class="text-sm font-semibold">{user?.user_metadata?.full_name || "Usuario"}</p>
           <p class="text-xs text-on-surface-variant">
             {userRole}
           </p>
@@ -73,78 +73,76 @@ const isAdmin = userRole === "ADMINISTRADOR";
       <!-- HEADER -->
       <div class="p-5 border-b border-outline-variant">
         <h2 class="font-semibold text-primary">
-          Panel Administrativo
+          Panel de Control
         </h2>
 
         <p class="text-xs text-on-surface-variant mt-1">
-          Gestión del Sistema
+          {isAdmin ? "Administración del Sistema" : "Gestión General"}
         </p>
       </div>
 
       <!-- MENÚ -->
       <nav class="flex-1 p-3 space-y-1">
 
-        <!-- PRODUCTOR -->
-        <a
-          id="link-productor"
-          href="/productorFinca"
-          class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
-        >
-          <span class="material-symbols-outlined">
-            agriculture
-          </span>
+        {
+          !isAdmin && (
+            <>
+              <!-- PRODUCTOR -->
+              <a
+                href="/productorFinca"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  agriculture
+                </span>
 
-          <span>Productor y Finca</span>
-        </a>
+                <span>Productor y Finca</span>
+              </a>
 
-        <!-- SATELITAL -->
-        <a
-          id="link-satelital"
-          href="/satelital"
-          class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition disabled-link"
-        >
-          <span class="material-symbols-outlined">
-            satellite_alt
-          </span>
+              <!-- EXPEDIENTE -->
+              <a
+                href="/expedientes"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  folder_open
+                </span>
 
-          <span>Reporte Satelital</span>
-          <span id="badge-satelital" class="link-badge hidden">Completar Información Agroambiental</span>
-        </a>
+                <span>Expediente</span>
+              </a>
 
-        <!-- EXPEDIENTE -->
-        <a
-          id="link-expediente"
-          href="/expedientes"
-          class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition disabled-link"
-        >
-          <span class="material-symbols-outlined">
-            folder_open
-          </span>
+              <!-- INFORMACIÓN AGROAMBIENTAL -->
+              <a
+                href="/infoAgro"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  eco
+                </span>
 
-          <span>Expediente</span>
-          <span id="badge-expediente" class="link-badge hidden">Completar Productor y Finca</span>
-        </a>
+                <span>Información Agroambiental</span>
+              </a>
 
-        <!-- INFORMACIÓN AGROAMBIENTAL -->
-        <a
-          id="link-infoagro"
-          href="/infoAgro"
-          class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition disabled-link"
-        >
-          <span class="material-symbols-outlined">
-            eco
-          </span>
 
-          <span>Información Agroambiental</span>
-          <span id="badge-infoagro" class="link-badge hidden">Crear Expediente</span>
-        </a>
+              <!-- SATELITAL -->
+              <a
+                href="/satelital"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  satellite_alt
+                </span>
+
+                <span>Reporte Satelital</span>
+              </a>
+            </>
+          )
+        }
 
         <!-- SOLO ADMINISTRADOR -->
         {
           isAdmin && (
             <>
-              <div class="my-4 border-t border-outline-variant"></div>
-
               <p
                 class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant"
               >
@@ -185,7 +183,7 @@ const isAdmin = userRole === "ADMINISTRADOR";
                 </span>
 
                 <span>Variables Dinámicas</span>
-              </a>
+              </a>   
             </>
           )
         }
@@ -208,7 +206,7 @@ const isAdmin = userRole === "ADMINISTRADOR";
         </a>
 
         <a
-          href="/logout"
+          href="/api/logout"
           class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition text-red-600"
         >
           <span class="material-symbols-outlined">
