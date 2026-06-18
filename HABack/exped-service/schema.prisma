@@ -77,7 +77,7 @@ model Finca {
   id                String   @id @default(uuid())
   nombre            String
   eudr_id           String?  @unique
-  usuario_id        String
+  productor_id      String
   provincia         String?
   canton            String?
   parroquia         String?
@@ -86,6 +86,7 @@ model Finca {
   tenencia          String?
   latitud           Float?
   longitud          Float?
+  poligono          Json?
   creado_en         DateTime @default(now())
 
   expedientes       Expediente[]

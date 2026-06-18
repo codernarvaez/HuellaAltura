@@ -10,6 +10,7 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme/theme';
@@ -23,8 +24,7 @@ import { EUDRService } from '../../services/EUDRService';
 import SafeStorage from '../../utils/SafeStorage';
 import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
-
-// ... (Rest of imports)
+import { db } from '../../data/local/database';
 import { 
   Map as MapIcon, 
   User, 
@@ -39,9 +39,16 @@ import {
   PlusCircle,
   XCircle,
   Maximize2,
-  Info
+  Info,
+  GraduationCap,
+  Leaf,
+  Droplets,
+  Cloud,
+  Thermometer
 } from 'lucide-react-native';
 import * as Crypto from 'expo-crypto';
+
+const { width } = Dimensions.get('window');
 
 // Helper for decryption (needs to match AuthContext)
 const getEncryptionKey = () => {
@@ -62,19 +69,15 @@ const RegistroFincaScreen = ({ navigation }) => {
 
   // --- ESTADO DEL FORMULARIO ---
   
-  // Paso 1: Información del Productor
-  const [nombreProductor, setNombreProductor] = useState(user?.first_name ? `${user.first_name} ${user.last_name}` : '');
+  // Paso 1: Información del Productor (Lectura)
+  const [nombreProductor, setNombreProductor] = useState(user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '');
   const [cedulaId, setCedulaId] = useState(user?.identifier || '');
-  
-  // Extraer nombres para la vista densa
-  const [firstName, ...lastNameParts] = nombreProductor.split(' ');
-  const lastName = lastNameParts.join(' ') || '';
-
   const [emailProductor, setEmailProductor] = useState(user?.email || '');
   const [organizacion, setOrganizacion] = useState('');
   const [celular, setCelular] = useState(user?.phone_number || '');
   const [genero, setGenero] = useState(user?.genero || '');
   const [edad, setEdad] = useState(user?.edad ? String(user.edad) : '');
+  const [nivelEducativo, setNivelEducativo] = useState(user?.nivel_educativo || '');
 
   // Paso 2: Información de la Finca
   const [nombreFinca, setNombreFinca] = useState('');
@@ -95,16 +98,20 @@ const RegistroFincaScreen = ({ navigation }) => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [locating, setLocating] = useState(false);
 
-  // Paso 3: Agroambiental & Dinámicos
+  // Paso 3: Agroambiental
   const [indiceShannon, setIndiceShannon] = useState('2.56');
   const [indiceSimpson, setIndiceSimpson] = useState('0.84');
   const [usoSuelo, setUsoSuelo] = useState('Sistema Agroforestal de Café');
   const [coberturaForestal, setCoberturaForestal] = useState(['Laurel', 'Aguacate']);
-  const [sistemaProduccion, setSistemaProduccion] = useState('');
-  const [biomasaAerea, setBiomasaAerea] = useState('45.2');
-  const [carbonoSuelo, setCarbonoSuelo] = useState('68.8');
-  const [totalStockCarbono, setTotalStockCarbono] = useState('114.0');
+  const [sistemaProduccion, setSistemaProduccion] = useState('Sostenible');
   
+  // Nuevos campos Biomasa/Carbono
+  const [biomasaArboles, setBiomasaArboles] = useState('32.5');
+  const [biomasaCafe, setBiomasaCafe] = useState('12.7');
+  const [hojarascaMantillo, setHojarascaMantillo] = useState('5.4');
+  const [carbonoSuelo, setCarbonoSuelo] = useState('68.8');
+  const [totalStockCarbono, setTotalStockCarbono] = useState('119.4');
+
   const [camposDinamicos, setCamposDinamicos] = useState([]);
 
   // Actualizar datos del productor automáticamente desde el perfil logueado
@@ -116,6 +123,7 @@ const RegistroFincaScreen = ({ navigation }) => {
       setCelular(user.phone_number || '');
       setGenero(user.genero || '');
       setEdad(user.edad ? String(user.edad) : '');
+      setNivelEducativo(user.nivel_educativo || '');
       if (user.organizacion) setOrganizacion(user.organizacion);
     }
   }, [user]);
@@ -140,7 +148,6 @@ const RegistroFincaScreen = ({ navigation }) => {
     if (data) {
       if (data.provincia) setProvincia(data.provincia);
       if (data.canton) setCanton(data.canton);
-      // Solo aplicar parroquia si es Loja, de lo contrario limpiar
       if (data.provincia && data.provincia.toUpperCase() === 'LOJA') {
         setParroquia(data.parroquia || '');
       } else {
@@ -203,7 +210,13 @@ const RegistroFincaScreen = ({ navigation }) => {
     try {
       const encryptedToken = await SafeStorage.getItem('auth_token_enc');
       if (!encryptedToken) return null;
-      const bytes = CryptoJS.AES.decrypt(encryptedToken, getEncryptionKey());
+      // Usar la misma lógica de descifrado que AuthContext
+      const key = getEncryptionKey();
+      const CRYPTO_CONFIG = {
+        iv: CryptoJS.enc.Hex.parse('101112131415161718191a1b1c1d1e1f'),
+        salt: CryptoJS.enc.Hex.parse('0001020304050607')
+      };
+      const bytes = CryptoJS.AES.decrypt(encryptedToken, key, CRYPTO_CONFIG);
       return bytes.toString(CryptoJS.enc.Utf8);
     } catch (e) {
       return null;
@@ -221,83 +234,68 @@ const RegistroFincaScreen = ({ navigation }) => {
       const sqlite = db();
       
       // 1. Generar UUIDs locales (v4)
-      const productorId = Crypto.randomUUID();
       const fincaId = Crypto.randomUUID();
       const expedienteId = Crypto.randomUUID();
       const datoId = Crypto.randomUUID();
 
-      // 2. Preparar Datos de Productor
-      const [firstName, ...lastNameParts] = nombreProductor.split(' ');
-      const lastName = lastNameParts.join(' ') || '';
+      // 2. Usar ID del productor logueado (ya está en DB local por el login)
+      const productorId = user.id;
 
-      await sqlite.insert(require('../../data/local/esquema').productores).values({
-        id: productorId,
-        first_name: firstName,
-        last_name: lastName,
-        cedula_id: cedulaId,
-        email: emailProductor,
-        phone_number: celular,
-        edad: parseInt(edad) || 0,
-        genero,
-        organizacion,
-        sync_status: 'pending',
-        creado_en: new Date()
-      });
-
-      // 3. Preparar Geometría
+      // 3. Preparar Geometría (Formato GeoJSON para el polígono)
       const coordenadasCerradas = [...puntos];
       if (puntos[0][0] !== puntos[puntos.length - 1][0] || puntos[0][1] !== puntos[puntos.length - 1][1]) {
         coordenadasCerradas.push(puntos[0]);
       }
-      const geoJsonStr = JSON.stringify({
-        type: 'Feature',
-        geometry: { type: 'Polygon', coordinates: [coordenadasCerradas] },
-        properties: { tipo_captura: 'GPS_Wizard', precision_promedio_metros: 2.4 }
-      });
+      const geoJsonPoligono = {
+        type: 'Polygon',
+        coordinates: [coordenadasCerradas]
+      };
 
       // 4. Guardar Finca Localmente (pending)
       await sqlite.insert(require('../../data/local/esquema').fincas).values({
         id: fincaId,
         nombre: nombreFinca,
-        productorId: productorId, 
+        productor_id: productorId, 
         provincia,
         canton,
         parroquia,
-        barrioSector: barrio,
-        areaTotalHa: parseFloat(areaTotal) || 0,
-        areaCultivoHa: parseFloat(areaCultivada) || 0,
-        tenenciaTierra: tenencia,
-        geometriaGeoJson: geoJsonStr,
-        latitudCentro: parseFloat(latitud),
-        longitudCentro: parseFloat(longitud),
-        syncStatus: 'pending',
-        creadoEn: new Date()
+        barrio_sector: barrio,
+        area_total_ha: parseFloat(areaTotal) || 0,
+        area_cultivada_ha: parseFloat(areaCultivada) || 0,
+        tenencia: (tenencia || 'PROPIA').toUpperCase(),
+        geometria_geojson: JSON.stringify(geoJsonPoligono),
+        latitud_centro: parseFloat(latitud),
+        longitud_centro: parseFloat(longitud),
+        sync_status: 'pending',
+        creado_en: new Date()
       });
 
       // 5. Guardar Expediente Localmente (pending)
       await sqlite.insert(require('../../data/local/esquema').expedientes).values({
         id: expedienteId,
-        fincaId: fincaId,
-        productorId: productorId,
-        organizacionInquilino: organizacion,
-        syncStatus: 'pending',
-        creadoEn: new Date()
+        finca_id: fincaId,
+        productor_id: productorId,
+        organizacion_inquilino: organizacion,
+        sync_status: 'pending',
+        creado_en: new Date()
       });
 
       // 6. Guardar Datos Agroambientales (pending)
       await sqlite.insert(require('../../data/local/esquema').datosAgroambientales).values({
         id: datoId,
-        expedienteId: expedienteId,
-        indiceShannon: parseFloat(indiceShannon),
-        indiceSimpson: parseFloat(indiceSimpson),
-        usoSuelo: usoSuelo,
-        coberturaForestal: JSON.stringify(coberturaForestal),
-        sistemaProduccion: sistemaProduccion,
-        biomasaAereaTcHa: parseFloat(biomasaAerea),
-        cosTcHa: parseFloat(carbonoSuelo),
-        totalStockCarbono: parseFloat(totalStockCarbono),
-        syncStatus: 'pending',
-        creadoEn: new Date()
+        expediente_id: expedienteId,
+        indice_shannon: parseFloat(indiceShannon) || 0,
+        indice_simpson: parseFloat(indiceSimpson) || 0,
+        uso_suelo: usoSuelo,
+        cobertura_forestal: JSON.stringify(coberturaForestal),
+        sistema_produccion: sistemaProduccion,
+        biomasa_arboles: parseFloat(biomasaArboles) || 0,
+        biomasa_cafe: parseFloat(biomasaCafe) || 0,
+        hojarasca_mantillo: parseFloat(hojarascaMantillo) || 0,
+        carbono_organico_suelo: parseFloat(carbonoSuelo) || 0,
+        total_stock_carbono: parseFloat(totalStockCarbono) || 0,
+        sync_status: 'pending',
+        creado_en: new Date()
       });
 
       // 7. Guardar Variables Dinámicas (pending)
@@ -305,18 +303,18 @@ const RegistroFincaScreen = ({ navigation }) => {
         if (campo.nombre && campo.valor) {
           await sqlite.insert(require('../../data/local/esquema').variablesDinamicas).values({
             id: Crypto.randomUUID(),
-            datoId: datoId,
+            dato_id: datoId,
             nombre: campo.nombre,
             valor: campo.valor,
-            tipoDato: 'texto',
-            syncStatus: 'pending',
-            creadoEn: new Date()
+            tipo_dato: 'STRING',
+            sync_status: 'pending',
+            creado_en: new Date()
           });
         }
       }
 
       showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.', 'success', () => navigation.goBack());
-      
+
       // Intentar sincronizar en segundo plano
       const token = await obtenerToken();
       if (token) {
@@ -343,7 +341,7 @@ const RegistroFincaScreen = ({ navigation }) => {
     <View style={styles.progressContainer}>
       {[1, 2, 3].map((s) => (
         <View key={s} style={styles.stepIndicatorWrapper}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.stepCircle, step >= s && styles.stepCircleActive]}
             onPress={() => setStep(s)}
             activeOpacity={0.7}
@@ -362,16 +360,16 @@ const RegistroFincaScreen = ({ navigation }) => {
         <User size={20} color="#fff" />
         <Text style={styles.sectionTitle}>Perfil del Productor (Lectura)</Text>
       </View>
-      
+
       <View style={styles.denseForm}>
         <View style={styles.row}>
           <View style={[styles.inputGroupDense, { flex: 1, marginRight: 6 }]}>
             <Text style={styles.labelSmall}>Nombres</Text>
-            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={firstName} editable={false} />
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={nombreProductor.split(' ')[0]} editable={false} />
           </View>
           <View style={[styles.inputGroupDense, { flex: 1 }]}>
             <Text style={styles.labelSmall}>Apellidos</Text>
-            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={lastName} editable={false} />
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={nombreProductor.split(' ').slice(1).join(' ')} editable={false} />
           </View>
         </View>
 
@@ -394,6 +392,14 @@ const RegistroFincaScreen = ({ navigation }) => {
           <View style={[styles.inputGroupDense, { flex: 1.5 }]}>
             <Text style={styles.labelSmall}>Celular</Text>
             <TextInput style={[styles.inputDense, styles.inputDisabled]} value={celular} editable={false} />
+          </View>
+        </View>
+
+        <View style={styles.inputGroupDense}>
+          <Text style={styles.labelSmall}>Nivel Educativo</Text>
+          <View style={styles.disabledInputRow}>
+            <GraduationCap size={16} color="rgba(255,255,255,0.5)" style={{ marginRight: 8 }} />
+            <TextInput style={[styles.inputDense, styles.inputDisabled, { flex: 1 }]} value={nivelEducativo} editable={false} />
           </View>
         </View>
 
@@ -428,11 +434,11 @@ const RegistroFincaScreen = ({ navigation }) => {
           <Maximize2 size={18} color="#fff" style={{ marginLeft: 'auto' }} />
         </View>
         <View style={styles.miniMapWrapper}>
-          <FarmMapEditor 
+          <FarmMapEditor
             fullScreen={false}
-            latitud={latitud} 
-            longitud={longitud} 
-            puntos={puntos} 
+            latitud={latitud}
+            longitud={longitud}
+            puntos={puntos}
           />
         </View>
       </TouchableOpacity>
@@ -542,45 +548,59 @@ const RegistroFincaScreen = ({ navigation }) => {
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Sistema de Producción</Text>
         <TextInput 
-          style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]} 
+          style={[styles.input, { height: 60, textAlignVertical: 'top' }]} 
           value={sistemaProduccion} 
           onChangeText={setSistemaProduccion} 
           multiline 
-          placeholder="Descripción detallada..."
+          placeholder="Ej. Agroforestal"
         />
       </View>
 
       <View style={styles.sectionHeader}>
-        <Layers size={22} color="#fff" />
-        <Text style={styles.sectionTitle}>Stocks de Carbono</Text>
+        <Leaf size={22} color="#fff" />
+        <Text style={styles.sectionTitle}>Biomasa y Carbono</Text>
       </View>
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.label}>Biomasa Aérea</Text>
-          <TextInput style={styles.input} value={biomasaAerea} onChangeText={setBiomasaAerea} keyboardType="numeric" />
+          <Text style={styles.label}>Biomasa Árboles</Text>
+          <TextInput style={styles.input} value={biomasaArboles} onChangeText={setBiomasaArboles} keyboardType="numeric" />
         </View>
         <View style={[styles.inputGroup, { flex: 1 }]}>
-          <Text style={styles.label}>COS (tC/ha)</Text>
+          <Text style={styles.label}>Biomasa Café</Text>
+          <TextInput style={styles.input} value={biomasaCafe} onChangeText={setBiomasaCafe} keyboardType="numeric" />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.label}>Hojarasca</Text>
+          <TextInput style={styles.input} value={hojarascaMantillo} onChangeText={setHojarascaMantillo} keyboardType="numeric" />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1 }]}>
+          <Text style={styles.label}>Carbono Suelo</Text>
           <TextInput style={styles.input} value={carbonoSuelo} onChangeText={setCarbonoSuelo} keyboardType="numeric" />
         </View>
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Total Carbono Stock (tC/ha)</Text>
-        <TextInput style={styles.input} value={totalStockCarbono} onChangeText={setTotalStockCarbono} keyboardType="numeric" />
+        <View style={styles.totalStockBox}>
+           <Cloud size={20} color={theme.colors.onSecondaryFixedVariant} />
+           <Text style={styles.totalStockValue}>{totalStockCarbono} tC/ha</Text>
+        </View>
       </View>
 
       <View style={styles.sectionHeader}>
         <PlusCircle size={22} color="#fff" />
-        <Text style={styles.sectionTitle}>Campos Personalizados</Text>
+        <Text style={styles.sectionTitle}>Variables Dinámicas</Text>
       </View>
 
       {camposDinamicos.map((campo) => (
         <View key={campo.id} style={styles.dynamicFieldRow}>
           <TextInput 
             style={[styles.input, { flex: 1, marginRight: 5, height: 40 }]} 
-            placeholder="Nombre" 
+            placeholder="Nombre (ej. pH)" 
             value={campo.nombre}
             onChangeText={(v) => actualizarCampoDinamico(campo.id, 'nombre', v)}
           />
@@ -598,7 +618,7 @@ const RegistroFincaScreen = ({ navigation }) => {
 
       <TouchableOpacity style={styles.addFieldButton} onPress={agregarCampoDinamico}>
         <PlusCircle size={18} color={theme.colors.primary} />
-        <Text style={styles.addFieldText}>Añadir Campo</Text>
+        <Text style={styles.addFieldText}>Añadir Variable</Text>
       </TouchableOpacity>
     </View>
   );
@@ -681,6 +701,7 @@ const styles = StyleSheet.create({
   labelSmall: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginBottom: 4, fontWeight: '600' },
   inputDense: { backgroundColor: '#fff', borderRadius: 8, height: 42, paddingHorizontal: 12, color: '#000', fontSize: 15 },
   inputDisabled: { backgroundColor: '#eee', color: '#666' },
+  disabledInputRow: { flexDirection: 'row', alignItems: 'center' },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -699,6 +720,21 @@ const styles = StyleSheet.create({
   label: { ...theme.typography.labelSm, color: '#fff', marginBottom: 6, fontWeight: '600' },
   input: { backgroundColor: '#fff', borderRadius: 10, height: 50, paddingHorizontal: 15, color: '#000', fontSize: 16 },
   disabledInput: { backgroundColor: '#e0e0e0', justifyContent: 'center' },
+  totalStockBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.secondaryFixed,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.secondary,
+  },
+  totalStockValue: {
+    ...theme.typography.headlineMd,
+    color: theme.colors.onSecondaryFixedVariant,
+    marginLeft: 10,
+    fontWeight: '700',
+  },
   eudrIdCard: {
     flexDirection: 'row',
     alignItems: 'center',

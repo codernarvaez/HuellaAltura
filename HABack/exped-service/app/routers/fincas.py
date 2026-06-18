@@ -54,6 +54,7 @@ def crear_finca(
     **Lógica de Negocio:**
     - Verifica que el productor asociado exista.
     - Genera automáticamente un `eudr_id` único.
+    - Permite guardar el polígono de la finca (GeoJSON o lista de coordenadas) enviado desde dispositivos móviles.
     """
     if not db.productor.find_first(where={"id": data.productor_id}):
         raise HTTPException(status_code=404, detail="Productor no encontrado")

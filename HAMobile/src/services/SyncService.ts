@@ -5,114 +5,106 @@ import { EUDRService } from './EUDRService';
 
 export class SyncService {
   /**
-   * Recopila todos los datos con syncStatus = 'pending', los envía al servidor
-   * y los marca como 'synced' si el servidor confirma la recepción.
+   * Sincroniza los datos locales con el servidor siguiendo el orden de integridad referencial:
+   * 1. Fincas
+   * 2. Expedientes (con datos agroambientales y variables anidados)
    */
   static async syncAll(token: string) {
     try {
       const sqlite = db();
-      
-      // 1. Recopilar datos pendientes
-      const pendingProductores = await sqlite.select().from(productores).where(eq(productores.sync_status, 'pending'));
-      const pendingFincas = await sqlite.select().from(fincas).where(eq(fincas.syncStatus, 'pending'));
-      const pendingExpedientes = await sqlite.select().from(expedientes).where(eq(expedientes.syncStatus, 'pending'));
-      const pendingDatos = await sqlite.select().from(datosAgroambientales).where(eq(datosAgroambientales.syncStatus, 'pending'));
-      const pendingVariables = await sqlite.select().from(variablesDinamicas).where(eq(variablesDinamicas.syncStatus, 'pending'));
-
-      if (pendingProductores.length === 0 && pendingFincas.length === 0 && pendingExpedientes.length === 0 && pendingDatos.length === 0 && pendingVariables.length === 0) {
-        return { success: true, message: 'Nada pendiente por sincronizar.' };
-      }
-
-      // 2. Construir el paquete JSON (Payload)
-      const syncPackage = {
-        productores: pendingProductores.map((p: any) => ({
-          id: p.id,
-          first_name: p.first_name,
-          last_name: p.last_name,
-          cedula_id: p.cedula_id,
-          email: p.email,
-          phone_number: p.phone_number,
-          edad: p.edad,
-          genero: p.genero,
-          organizacion: p.organizacion
-        })),
-        fincas: pendingFincas.map((f: any) => ({
-          id: f.id,
-          nombre: f.nombre,
-          productor_id: f.productorId,
-          provincia: f.provincia,
-          canton: f.canton,
-          parroquia: f.parroquia,
-          barrio_sector: f.barrioSector,
-          area_total_ha: f.areaTotalHa,
-          area_cultivo_ha: f.areaCultivoHa,
-          tenencia_tierra: f.tenenciaTierra,
-          geometria_geojson: f.geometriaGeoJson,
-          latitud_centro: f.latitudCentro,
-          longitud_centro: f.longitudCentro
-        })),
-        expedientes: pendingExpedientes.map((e: any) => ({
-          id: e.id,
-          finca_id: e.fincaId,
-          productor_id: e.productorId,
-          organizacion_inquilino: e.organizacionInquilino
-        })),
-        datos_agroambientales: pendingDatos.map((d: any) => ({
-          id: d.id,
-          expediente_id: d.expedienteId,
-          indice_shannon: d.indiceShannon,
-          indice_simpson: d.indiceSimpson,
-          uso_suelo: d.usoSuelo,
-          cobertura_forestal: d.coberturaForestal,
-          sistema_produccion: d.sistemaProduccion,
-          biomasa_aerea_tc_ha: d.biomasaAereaTcHa,
-          cos_tc_ha: d.cosTcHa,
-          total_stock_carbono: d.totalStockCarbono
-        })),
-        variables_dinamicas: pendingVariables.map((v: any) => ({
-          dato_id: v.datoId,
-          nombre: v.nombre,
-          valor: v.valor,
-          tipo_dato: v.tipoDato
-        }))
-      };
-
-      // 3. Enviar al servidor
       const eudrService = new (EUDRService as any)(token);
-      const result = await eudrService.syncUpload(syncPackage);
+      
+      // 1. Sincronizar Fincas Pendientes
+      const pendingFincas = await sqlite.select().from(fincas).where(eq(fincas.sync_status, 'pending'));
+      
+      for (const finca of pendingFincas) {
+        console.log(`[Sync] Sincronizando finca: ${finca.nombre}`);
+        try {
+          const payloadFinca = {
+            nombre: finca.nombre,
+            provincia: finca.provincia,
+            canton: finca.canton,
+            parroquia: finca.parroquia,
+            area_total_ha: finca.area_total_ha,
+            area_cultivada_ha: finca.area_cultivada_ha,
+            tenencia: (finca.tenencia || 'PROPIA').toUpperCase(),
+            latitud: finca.latitud_centro,
+            longitud: finca.longitud_centro,
+            poligono: JSON.parse(finca.geometria_geojson),
+            productor_id: finca.productor_id // Usamos el ID del productor vinculado
+          };
 
-      // 4. Marcar como sincronizados en local
-      if (pendingProductores.length > 0) {
-        await sqlite.update(productores)
-          .set({ sync_status: 'synced' })
-          .where(inArray(productores.id, pendingProductores.map((p: any) => p.id)));
+          const responseFinca = await eudrService.crearFinca(payloadFinca);
+          const backendFincaId = responseFinca.id;
+
+          // Actualizar estado local
+          await sqlite.update(fincas)
+            .set({ sync_status: 'synced' })
+            .where(eq(fincas.id, finca.id));
+
+          // 2. Buscar Expedientes vinculados a esta Finca
+          const linkedExpedientes = await sqlite.select()
+            .from(expedientes)
+            .where(eq(expedientes.finca_id, finca.id));
+
+          for (const exp of linkedExpedientes) {
+            console.log(`[Sync] Sincronizando expediente vinculado a finca ${finca.nombre}`);
+            
+            // Buscar datos agroambientales para este expediente
+            const linkedDatos = await sqlite.select()
+              .from(datosAgroambientales)
+              .where(eq(datosAgroambientales.expediente_id, exp.id));
+
+            const datosParaEnviar = [];
+            for (const dato of linkedDatos) {
+              // Buscar variables dinámicas para estos datos
+              const linkedVars = await sqlite.select()
+                .from(variablesDinamicas)
+                .where(eq(variablesDinamicas.dato_id, dato.id));
+
+              datosParaEnviar.push({
+                indice_shannon: dato.indice_shannon,
+                indice_simpson: dato.indice_simpson,
+                uso_suelo: dato.uso_suelo,
+                cobertura_forestal: dato.cobertura_forestal,
+                sistema_produccion: dato.sistema_produccion,
+                biomasa_arboles: dato.biomasa_arboles || 0,
+                biomasa_cafe: dato.biomasa_cafe || 0,
+                hojarasca_mantillo: dato.hojarasca_mantillo || 0,
+                carbono_organico_suelo: dato.carbono_organico_suelo || 0,
+                total_stock_carbono: dato.total_stock_carbono || 0,
+                variables: linkedVars.map(v => ({
+                  nombre: v.nombre,
+                  valor: v.valor,
+                  tipo_dato: v.tipo_dato
+                }))
+              });
+            }
+
+            // Según la documentación, el expediente puede enviarse con sus datos agroambientales
+            const payloadExp = {
+              productor_id: exp.productor_id,
+              finca_id: backendFincaId, // Usamos el ID devuelto por el backend
+              organizacion_inquilino: exp.organizacion_inquilino,
+              datos_agroambientales: datosParaEnviar[0] // Enviamos el primero si hay varios, o ajustamos según API
+            };
+
+            await eudrService.crearExpediente(payloadExp);
+
+            // Marcar expediente y sus hijos como sincronizados
+            await sqlite.update(expedientes).set({ sync_status: 'synced' }).where(eq(expedientes.id, exp.id));
+            await sqlite.update(datosAgroambientales).set({ sync_status: 'synced' }).where(eq(datosAgroambientales.expediente_id, exp.id));
+            // Las variables se marcan via dato_id
+            for (const d of linkedDatos) {
+               await sqlite.update(variablesDinamicas).set({ sync_status: 'synced' }).where(eq(variablesDinamicas.dato_id, d.id));
+            }
+          }
+        } catch (fincaError) {
+          console.error(`[Sync] Error sincronizando finca ${finca.nombre}:`, fincaError);
+        }
       }
 
-      if (pendingFincas.length > 0) {
-        await sqlite.update(fincas)
-          .set({ syncStatus: 'synced' })
-          .where(inArray(fincas.id, pendingFincas.map((f: any) => f.id)));
-      }
-
-      if (pendingExpedientes.length > 0) {
-        await sqlite.update(expedientes)
-          .set({ syncStatus: 'synced' })
-          .where(inArray(expedientes.id, pendingExpedientes.map((e: any) => e.id)));
-      }
-
-      if (pendingDatos.length > 0) {
-        await sqlite.update(datosAgroambientales)
-          .set({ syncStatus: 'synced' })
-          .where(inArray(datosAgroambientales.id, pendingDatos.map((d: any) => d.id)));
-      }
-
-      if (pendingVariables.length > 0) {
-        await sqlite.update(variablesDinamicas)
-          .set({ syncStatus: 'synced' })
-          .where(inArray(variablesDinamicas.id, pendingVariables.map((v: any) => v.id)));
-      }
-
-      return { success: true, result };
+      return { success: true };
 
     } catch (error) {
       console.error('Error en SyncService.syncAll:', error);

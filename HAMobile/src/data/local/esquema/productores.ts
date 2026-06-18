@@ -9,6 +9,7 @@ export const productores = sqliteTable('productores', {
   phone_number: text('phone_number'),
   edad: integer('edad'),
   genero: text('genero'),
+  nivel_educativo: text('nivel_educativo'),
   organizacion: text('organizacion'),
   
   sync_status: text('sync_status', { enum: ['pending', 'synced'] }).notNull().default('pending'),

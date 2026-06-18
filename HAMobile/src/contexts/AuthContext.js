@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }) => {
         phone_number: userData.phone_number,
         edad: userData.edad,
         genero: userData.genero,
+        nivel_educativo: userData.nivel_educativo,
         organizacion: userData.organizacion,
         sync_status: 'synced', // Ya viene del servidor
         creado_en: new Date(),

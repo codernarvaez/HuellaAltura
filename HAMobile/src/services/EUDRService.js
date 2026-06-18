@@ -12,24 +12,17 @@ export class EUDRService {
   async checkResponse(response) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('[EUDRService] Error Response:', errorData);
       throw new Error(errorData.detail || errorData.message || `HTTP Error ${response.status}`);
     }
     return response.json();
   }
 
-  // 1. Crear Productor
-  async crearProductor(productorData) {
-    const response = await fetch(`${API_BASE_URL}/v1/productores/`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(productorData)
-    });
-    return this.checkResponse(response);
-  }
-
-  // 2. Crear Finca
+  // 1. Registro de Finca
   async crearFinca(fincaData) {
-    const response = await fetch(`${API_BASE_URL}/v1/fincas/`, {
+    const url = `${API_BASE_URL}/v1/fincas/`;
+    console.log('[EUDRService] Creando finca en:', url);
+    const response = await fetch(url, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify(fincaData)
@@ -37,9 +30,11 @@ export class EUDRService {
     return this.checkResponse(response);
   }
 
-  // 3. Crear Expediente
+  // 2. Crear nuevo expediente (incluye datos agroambientales y variables)
   async crearExpediente(expedienteData) {
-    const response = await fetch(`${API_BASE_URL}/v1/expedientes/`, {
+    const url = `${API_BASE_URL}/v1/expedientes/`;
+    console.log('[EUDRService] Creando expediente en:', url);
+    const response = await fetch(url, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify(expedienteData)
@@ -47,7 +42,19 @@ export class EUDRService {
     return this.checkResponse(response);
   }
 
-  // 4. Sincronización Masiva Offline
+  // 3. Agregar datos agroambientales a un expediente existente
+  async agregarDatosAgroambientales(expedienteId, datosData) {
+    const url = `${API_BASE_URL}/v1/expedientes/${expedienteId}/datos-agroambientales`;
+    console.log('[EUDRService] Agregando datos a expediente:', url);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(datosData)
+    });
+    return this.checkResponse(response);
+  }
+
+  // 4. Sincronización Masiva Offline (Mantiene compatibilidad si existe el endpoint)
   async syncUpload(syncPackage) {
     const response = await fetch(`${API_BASE_URL}/v1/sync/upload`, {
       method: 'POST',
