@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000";
+import { API_URL } from "./Api_Base";
 const AGROAMBIENTAL_BASE = `${API_URL}/api/v1/agroambiental`;
 
 export interface VariableDinamicaCreate {

@@ -292,7 +292,7 @@ const error = Astro.url.searchParams.get("error");
           console.log("Usuario autenticado:", me?.email, "Rol:", roleName);
           const isAdmin = ["ADMIN", "ADMINISTRADOR", "SUPER_ADMIN"].includes(roleName);
 
-          window.location.href = isAdmin ? "/expedientes" : "/dashboard";
+          window.location.href = isAdmin ? "/expedientes" : "/productorFinca";
         }
 
       } catch (error) {

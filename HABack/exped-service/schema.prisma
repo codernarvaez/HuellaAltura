@@ -10,34 +10,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Productor {
-  id              String   @id @default(uuid())
-  nombre_completo String
-  cedula_id       String   @unique
-  organizacion    String?
-  celular         String?
-  genero          String?
-  edad            Int?
-  creado_en       DateTime @default(now())
-  actualizado_en  DateTime @updatedAt
-
-  fincas          Finca[]
-  expedientes     Expediente[]
-
-  @@map("productores")
-}
-
 model Expediente {
   id                     String   @id @default(uuid())
-  productor_id           String
   finca_id               String
   estado                 String   @default("PENDIENTE")
   organizacion_inquilino String?
   creado_en              DateTime @default(now())
   actualizado_en         DateTime @updatedAt
 
-  productor              Productor     @relation(fields: [productor_id], references: [id])
-  finca                  Finca         @relation(fields: [finca_id], references: [id])
+  finca                  Finca         @relation(fields: [finca_id], references: [id], onDelete: Cascade)
   datos_agroambientales  Dato[]
   historial              Historial[]
   auditorias             Auditoria[]
@@ -73,6 +54,7 @@ model VariableDinamica {
   nombre    String
   valor     String
   tipo_dato String
+  seccion   String?
   dato      Dato   @relation(fields: [dato_id], references: [id], onDelete: Cascade)
 
   @@map("variables_dinamicas")
@@ -95,6 +77,7 @@ model Finca {
   id                String   @id @default(uuid())
   nombre            String
   eudr_id           String?  @unique
+  usuario_id        String
   provincia         String?
   canton            String?
   parroquia         String?
@@ -103,10 +86,8 @@ model Finca {
   tenencia          String?
   latitud           Float?
   longitud          Float?
-  productor_id      String
   creado_en         DateTime @default(now())
 
-  productor         Productor    @relation(fields: [productor_id], references: [id])
   expedientes       Expediente[]
 
   @@map("fincas")

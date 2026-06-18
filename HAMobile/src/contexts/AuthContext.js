@@ -4,11 +4,21 @@ import SafeStorage from '../utils/SafeStorage';
 import { jwtDecode } from 'jwt-decode';
 import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
+import { DatabaseManager, db } from '../data/local/database';
+import { productores } from '../data/local/esquema/productores';
+import { eq } from 'drizzle-orm';
 
 const AuthContext = createContext();
 
 const TOKEN_KEY = 'auth_token_enc';
 const USER_KEY = 'user_data';
+
+// Configuración fija para evitar el error de "Native crypto module" en React Native
+// Al proporcionar IV y Salt manuales, CryptoJS no intenta generar valores aleatorios
+const CRYPTO_CONFIG = {
+  iv: CryptoJS.enc.Hex.parse('101112131415161718191a1b1c1d1e1f'),
+  salt: CryptoJS.enc.Hex.parse('0001020304050607')
+};
 
 const getEncryptionKey = () => {
   try {
@@ -28,37 +38,91 @@ export const AuthProvider = ({ children }) => {
     loadSession();
   }, []);
 
+  const saveUserToLocalDB = async (userData) => {
+    try {
+      const sqlite = db();
+      
+      // Mapear campos de API a Esquema de BD local (snake_case consistente)
+      const productorData = {
+        id: userData.id,
+        first_name: userData.first_name || 'Usuario',
+        last_name: userData.last_name || '',
+        cedula_id: userData.identifier || '0000000000',
+        email: userData.email,
+        phone_number: userData.phone_number,
+        edad: userData.edad,
+        genero: userData.genero,
+        organizacion: userData.organizacion,
+        sync_status: 'synced', // Ya viene del servidor
+        creado_en: new Date(),
+      };
+
+      // Verificar si ya existe para hacer upsert manual (SQLite op-sqlite compatibility)
+      const existing = await sqlite.select().from(productores).where(eq(productores.id, userData.id)).limit(1);
+      
+      if (existing.length > 0) {
+        await sqlite.update(productores)
+          .set(productorData)
+          .where(eq(productores.id, userData.id));
+        console.log('[AuthContext] Perfil de productor actualizado en BD local');
+      } else {
+        await sqlite.insert(productores).values(productorData);
+        console.log('[AuthContext] Perfil de productor guardado en BD local');
+      }
+      return true;
+    } catch (error) {
+      console.error('[AuthContext] Error guardando productor en local:', error);
+      return false;
+    }
+  };
+
   const loadSession = async () => {
     try {
+      // Inicializar la base de datos con un PIN por defecto para cumplir con RS-SEC-004
+      // En una versión futura, esto podría solicitarse al usuario.
+      await DatabaseManager.initialize('0000');
+
       const encryptedToken = await SafeStorage.getItem(TOKEN_KEY);
       const userDataStr = await SafeStorage.getItem(USER_KEY);
 
       if (encryptedToken && userDataStr) {
-        const bytes = CryptoJS.AES.decrypt(encryptedToken, getEncryptionKey());
-        const token = bytes.toString(CryptoJS.enc.Utf8);
+        const key = getEncryptionKey();
+        try {
+          const bytes = CryptoJS.AES.decrypt(encryptedToken, key, CRYPTO_CONFIG);
+          const token = bytes.toString(CryptoJS.enc.Utf8);
 
-        if (token) {
-          const decoded = jwtDecode(token);
-          const currentTime = Date.now() / 1000;
+          if (token) {
+            const decoded = jwtDecode(token);
+            const currentTime = Date.now() / 1000;
 
-          if (decoded.exp > currentTime) {
-            setUser(JSON.parse(userDataStr));
-            setIsAuthenticated(true);
-          } else {
-            await signOut();
+            if (decoded.exp > currentTime) {
+              try {
+                setUser(JSON.parse(userDataStr));
+                setIsAuthenticated(true);
+              } catch (parseError) {
+                console.error('[AuthContext] Error parseando datos de sesión:', parseError);
+                await signOut();
+              }
+            } else {
+              await signOut();
+            }
           }
+        } catch (decryptError) {
+          console.error('[AuthContext] Error al descifrar sesión:', decryptError);
+          await signOut();
         }
       }
     } catch (error) {
-      console.error('Error loading session:', error);
+      console.error('[AuthContext] Error cargando sesión:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchUserData = async (token) => {
+    const url = `${API_BASE_URL}/auth/me`;
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -69,15 +133,16 @@ export const AuthProvider = ({ children }) => {
       }
       return null;
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error('[AuthContext] Error fetching user data:', error);
       return null;
     }
   };
 
   const signIn = async (email, password) => {
     setLoading(true);
+    const url = `${API_BASE_URL}/auth/login`;
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,21 +150,39 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        return { 
+          success: false, 
+          error: `Error del servidor (${response.status}): ${responseText.substring(0, 100)}` 
+        };
+      }
 
       if (response.ok && data.access_token) {
         const token = data.access_token;
-        const encryptedToken = CryptoJS.AES.encrypt(token, getEncryptionKey()).toString();
+        const key = getEncryptionKey();
+        
+        // Cifrado determinístico para evitar error de módulo nativo de random
+        const encryptedToken = CryptoJS.AES.encrypt(token, key, CRYPTO_CONFIG).toString();
         
         await SafeStorage.setItem(TOKEN_KEY, encryptedToken);
-        
         const userData = await fetchUserData(token);
         
         if (userData) {
-          await SafeStorage.setItem(USER_KEY, JSON.stringify(userData));
-          setUser(userData);
-          setIsAuthenticated(true);
-          return { success: true };
+          // Guardar en la BD local antes de permitir el login (RS-SEC-004)
+          const savedLocal = await saveUserToLocalDB(userData);
+          
+          if (savedLocal) {
+            await SafeStorage.setItem(USER_KEY, JSON.stringify(userData));
+            setUser(userData);
+            setIsAuthenticated(true);
+            return { success: true };
+          } else {
+            return { success: false, error: 'Error al inicializar almacenamiento local de perfil' };
+          }
         } else {
           return { success: false, error: 'No se pudieron obtener los datos del perfil' };
         }
@@ -107,7 +190,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: data.message || 'Error al iniciar sesión' };
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('[AuthContext] Error en login:', error);
       return { success: false, error: 'Error de red. Intente de nuevo.' };
     } finally {
       setLoading(false);
@@ -116,14 +199,19 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     setLoading(true);
+    console.log('[AuthContext] Iniciando registro con datos:', JSON.stringify(userData, null, 2));
     try {
       const payload = {
         ...userData,
         role_name: userData.role_name || 'PRODUCTOR',
         status: userData.status || 'ACTIVO',
       };
+      
+      const url = `${API_BASE_URL}/auth/register`;
+      console.log('[AuthContext] Enviando POST a:', url);
+      console.log('[AuthContext] Payload final:', JSON.stringify(payload, null, 2));
 
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,15 +219,49 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      console.log('[AuthContext] Status de respuesta:', response.status);
+      const responseText = await response.text();
+      console.log('[AuthContext] Body de respuesta (raw):', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('[AuthContext] Error parseando JSON:', e, 'Response:', responseText);
+        return { 
+          success: false, 
+          error: `Error del servidor (${response.status}): ${responseText.substring(0, 100) || 'Respuesta no válida'}` 
+        };
+      }
 
       if (response.ok) {
+        console.log('[AuthContext] Registro exitoso:', data);
         return { success: true, data };
       } else {
-        return { success: false, error: data.message || 'Error en el registro' };
+        console.error('[AuthContext] Error en registro (JSON):', data);
+        
+        let errorMessage = 'Error en el registro';
+        if (data.message) {
+          errorMessage = data.message;
+        } else if (data.detail) {
+          if (Array.isArray(data.detail)) {
+            // Extraer el mensaje del primer error de la lista de FastAPI
+            const firstError = data.detail[0];
+            errorMessage = firstError.msg || JSON.stringify(firstError);
+            
+            // Personalizar mensajes comunes
+            if (firstError.loc && firstError.loc.includes('genero')) {
+              errorMessage = 'El género seleccionado no es válido para el sistema.';
+            }
+          } else {
+            errorMessage = data.detail;
+          }
+        }
+        
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('[AuthContext] Excepción en register:', error);
       return { success: false, error: 'Error de red. Intente de nuevo.' };
     } finally {
       setLoading(false);

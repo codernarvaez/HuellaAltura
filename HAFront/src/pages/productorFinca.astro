@@ -18,28 +18,38 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         Formulario dinámico de recopilación de datos de origen requeridos por el reglamento EUDR.
       </p>
     </div>
+    <div class="flex items-center gap-2">
+      <button
+        id="editar-productor"
+        class="flex items-center justify-center gap-2 px-4 h-12 bg-surface text-primary border border-outline rounded-xl hover:opacity-90 transition"
+      >
+        <span class="material-symbols-outlined">person</span>
+        Editar Productor
+      </button>
 
-    <button
-      id="guardar-registro"
-      class="flex items-center justify-center gap-2 px-6 h-12 bg-primary text-white rounded-xl shadow-sm hover:opacity-90 transition"
-    >
-      <span class="material-symbols-outlined">
-        save
-      </span>
-
-      Guardar Registro
-    </button>
+      <button
+        id="editar-finca"
+        class="flex items-center justify-center gap-2 px-4 h-12 bg-surface text-primary border border-outline rounded-xl hover:opacity-90 transition"
+      >
+        <span class="material-symbols-outlined">agriculture</span>
+        Editar Finca
+      </button>
+    </div>
 
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 items-end">
     <div class="md:col-span-2">
       <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-        Seleccionar productor existente
+        Productor autenticado
       </label>
-      <select id="productor-select" class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary">
-        <option value="">Cargando productores...</option>
-      </select>
+      <input
+        id="productor-auth-name"
+        type="text"
+        readonly
+        value="Cargando información de productor..."
+        class="w-full h-14 px-4 bg-surface-container-low border border-outline-variant rounded-xl"
+      />
     </div>
 
     <div class="text-right">
@@ -62,6 +72,11 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         Información del Productor
       </h2>
 
+      <div class="ml-auto flex gap-2">
+        <button id="guardar-productor" class="hidden px-3 py-1 bg-primary text-white rounded">Guardar</button>
+        <button id="cancelar-productor" class="hidden px-3 py-1 bg-surface text-primary border rounded">Cancelar</button>
+      </div>
+
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -74,6 +89,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         <input
           id="productor-nombre"
           type="text"
+          readonly
           value="José Miguel Mosquera"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -87,6 +103,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         <input
           id="productor-cedula"
           type="text"
+          readonly
           value="1100433455"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -100,6 +117,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         <input
           id="productor-organizacion"
           type="text"
+          readonly
           value="Asociación Agroartesanal de Productores"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -113,6 +131,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         <input
           id="productor-celular"
           type="text"
+          readonly
           value="+5939532692"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -125,6 +144,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 
         <select
           id="productor-genero"
+          disabled
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         >
           <option value="Masculino">Masculino</option>
@@ -140,6 +160,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         <input
           id="productor-edad"
           type="number"
+          readonly
           value="56"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -164,6 +185,11 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         Información de la Finca Cafetalera / Agrícola
       </h2>
 
+      <div class="ml-auto flex gap-2">
+        <button id="guardar-finca" class="hidden px-3 py-1 bg-primary text-white rounded">Guardar</button>
+        <button id="cancelar-finca" class="hidden px-3 py-1 bg-surface text-primary border rounded">Cancelar</button>
+      </div>
+
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -174,7 +200,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-nombre"
           type="text"
+          readonly
           value="El Ahuacate"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -186,6 +214,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-eudr"
           type="text"
           readonly
           value="uuidv4-90234-89304"
@@ -199,7 +228,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-provincia"
           type="text"
+          readonly
           value="Loja"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -211,7 +242,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-canton"
           type="text"
+          readonly
           value="Loja"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -223,7 +256,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-parroquia"
           type="text"
+          readonly
           value="Vilcabamba"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -235,7 +270,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-barrio"
           type="text"
+          readonly
           value="Ullaguanga"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -247,7 +284,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-area-total"
           type="number"
+          readonly
           value="3"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -259,7 +298,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <input
+          id="finca-area-cultivada"
           type="number"
+          readonly
           value="3"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -271,6 +312,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </label>
 
         <select
+          id="finca-tenencia"
+          disabled
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         >
           <option>Propia con escritura</option>
@@ -334,11 +377,12 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 </DashboardLayout>
 
 <script type="module">
-import { ProductorService } from "/src/services/productorServices.ts";
+  import { ProductorService } from "../services/productorServices.ts";
+  import { AuthService } from "../services/auth.service.ts";
+  import { FincaService } from "../services/finca.service.ts";
 
-  const selectProductor = document.getElementById("productor-select");
+  const authNameField = document.getElementById("productor-auth-name");
   const message = document.getElementById("productor-message");
-  const buttonGuardar = document.getElementById("guardar-registro");
 
   const inputNombre = document.getElementById("productor-nombre");
   const inputCedula = document.getElementById("productor-cedula");
@@ -361,85 +405,262 @@ import { ProductorService } from "/src/services/productorServices.ts";
     message.classList.add(isError ? "text-error" : "text-success");
   }
 
-  async function cargarProductores() {
-    if (!selectProductor) return;
-    selectProductor.innerHTML = `<option value="">Cargando productores...</option>`;
-    try {
-      const productores = await ProductorService.list(token);
-      if (productores.length === 0) {
-        selectProductor.innerHTML = `<option value="">No hay productores registrados</option>`;
-        return;
-      }
-      selectProductor.innerHTML = `
-        <option value="">Selecciona un productor</option>
-        ${productores
-          .map(
-            (productor) => `
-              <option value="${productor.id}">${productor.nombre_completo} — ${productor.cedula_id}</option>
-            `
-          )
-          .join("")}
-      `;
-      showMessage("Productores cargados correctamente.");
-    } catch (error) {
-      selectProductor.innerHTML = `<option value="">Error al cargar productores</option>`;
-      showMessage(error instanceof Error ? error.message : "Error al cargar productores.", true);
-    }
-  }
-
-  async function cargarProductor(productorId) {
-    if (!productorId) return;
-    try {
-      const productor = await ProductorService.getById(productorId, token);
-      if (inputNombre) inputNombre.value = productor.nombre_completo || "";
-      if (inputCedula) inputCedula.value = productor.cedula_id || "";
-      if (inputOrganizacion) inputOrganizacion.value = productor.organizacion || "";
-      if (inputCelular) inputCelular.value = productor.celular || "";
-      if (selectGenero) selectGenero.value = productor.genero || "Masculino";
-      if (inputEdad) inputEdad.value = productor.edad?.toString() || "";
-      showMessage("Productor cargado correctamente.");
-    } catch (error) {
-      showMessage(error instanceof Error ? error.message : "Error al obtener productor.", true);
-    }
-  }
-
-  async function guardarProductor() {
-    if (!inputNombre || !inputCedula) {
-      showMessage("Nombre y cédula son obligatorios.", true);
+  async function cargarUsuarioAutenticado() {
+    if (!token) {
+      if (authNameField) authNameField.value = "No hay sesión activa";
+      showMessage("No se encontró token de autenticación.", true);
       return;
     }
 
-    const payload = {
-      nombre_completo: inputNombre.value.trim(),
-      cedula_id: inputCedula.value.trim(),
-      organizacion: inputOrganizacion?.value.trim() || "",
-      celular: inputCelular?.value.trim() || "",
-      genero: selectGenero?.value || "",
-      edad: inputEdad?.value ? Number(inputEdad.value) : undefined,
-    };
-
     try {
-      await ProductorService.create(payload, token);
-      showMessage("Productor guardado correctamente.");
-      cargarProductores();
+      const user = await AuthService.getMe(token);
+      currentUser = user;
+      const nombreCompleto = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+
+      // Prefer backend productor record when available
+      try {
+        const productores = await ProductorService.list(token);
+        const found = productores.find((p) => p.cedula_id === user.identifier || p.cedula_id === user.identifier?.toString());
+        if (found) {
+          currentProductorId = found.id;
+          if (inputNombre) inputNombre.value = found.nombre_completo || nombreCompleto || "";
+          if (inputCedula) inputCedula.value = found.cedula_id || user.identifier || "";
+          if (inputOrganizacion) inputOrganizacion.value = found.organizacion || "";
+          if (inputCelular) inputCelular.value = found.celular || user.phone_number || "";
+          if (selectGenero) selectGenero.value = found.genero || user.genero || "Masculino";
+          if (inputEdad) inputEdad.value = found.edad?.toString() || user.edad?.toString() || "";
+        } else {
+          // fallback to profile
+          if (authNameField) authNameField.value = nombreCompleto || user.email || "Usuario autenticado";
+          if (inputNombre) inputNombre.value = nombreCompleto || "";
+          if (inputCedula) inputCedula.value = user.identifier || "";
+          if (inputOrganizacion) inputOrganizacion.value = "";
+          if (inputCelular) inputCelular.value = user.phone_number || "";
+          if (selectGenero) selectGenero.value = user.genero || "Masculino";
+          if (inputEdad) inputEdad.value = user.edad?.toString() || "";
+        }
+      } catch (err) {
+        // if productores endpoint fails, use profile
+        if (authNameField) authNameField.value = nombreCompleto || user.email || "Usuario autenticado";
+        if (inputNombre) inputNombre.value = nombreCompleto || "";
+        if (inputCedula) inputCedula.value = user.identifier || "";
+        if (inputOrganizacion) inputOrganizacion.value = "";
+        if (inputCelular) inputCelular.value = user.phone_number || "";
+        if (selectGenero) selectGenero.value = user.genero || "Masculino";
+        if (inputEdad) inputEdad.value = user.edad?.toString() || "";
+      }
+
+      // Cargar fincas relacionadas al productor autenticado
+      try {
+        const fincas = await FincaService.list(token);
+        // prefer finca linked to productor record if available
+        let finca = null;
+        if (currentProductorId) finca = fincas.find((f) => f.productor_id === currentProductorId);
+        if (!finca) finca = fincas.find((f) => f.productor_id === user.id);
+        if (finca) {
+          currentFincaId = finca.id;
+          const elNombre = document.getElementById("finca-nombre");
+          const elEudr = document.getElementById("finca-eudr");
+          const elProvincia = document.getElementById("finca-provincia");
+          const elCanton = document.getElementById("finca-canton");
+          const elParroquia = document.getElementById("finca-parroquia");
+          const elBarrio = document.getElementById("finca-barrio");
+          const elArea = document.getElementById("finca-area-total");
+          const elAreaCult = document.getElementById("finca-area-cultivada");
+          const elTenencia = document.getElementById("finca-tenencia");
+
+          if (elNombre) elNombre.value = finca.nombre || "";
+          if (elEudr) elEudr.value = finca.eudr_id || "";
+          if (elProvincia) elProvincia.value = finca.provincia || "";
+          if (elCanton) elCanton.value = finca.canton || "";
+          if (elParroquia) elParroquia.value = finca.parroquia || "";
+          if (elBarrio) elBarrio.value = finca.barrio || "";
+          if (elArea) elArea.value = finca.area_total_ha?.toString() || "";
+          if (elAreaCult) elAreaCult.value = finca.area_cultivada_ha?.toString() || "";
+          if (elTenencia) elTenencia.value = finca.tenencia || "";
+        }
+      } catch (err) {
+        console.warn("No se pudieron cargar fincas:", err);
+      }
+
+      // show name header
+      if (authNameField) authNameField.value = (inputNombre && inputNombre.value) || nombreCompleto || user.email || "Usuario autenticado";
+
+      // ensure section buttons hidden on load
+      if (guardarProductorBtn) guardarProductorBtn.classList.add("hidden");
+      if (cancelarProductorBtn) cancelarProductorBtn.classList.add("hidden");
+      if (editarProductorBtn) editarProductorBtn.classList.remove("hidden");
+      if (guardarFincaBtn) guardarFincaBtn.classList.add("hidden");
+      if (cancelarFincaBtn) cancelarFincaBtn.classList.add("hidden");
+      if (editarFincaBtn) editarFincaBtn.classList.remove("hidden");
+
+      showMessage("Productor cargado desde el perfil autenticado.");
     } catch (error) {
-      showMessage(error instanceof Error ? error.message : "Error al guardar productor.", true);
+      if (authNameField) authNameField.value = "Error al cargar productor";
+      showMessage(error instanceof Error ? error.message : "Error al cargar productor autenticado.", true);
     }
   }
 
-  if (selectProductor) {
-    selectProductor.addEventListener("change", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLSelectElement)) return;
-      if (target.value) {
-        cargarProductor(target.value);
+
+
+  // --- Section edit control (separate Productor / Finca) ---
+  let currentUser = null;
+  let currentProductorId = null;
+  let currentFincaId = null;
+
+  const editarProductorBtn = document.getElementById("editar-productor");
+  const guardarProductorBtn = document.getElementById("guardar-productor");
+  const cancelarProductorBtn = document.getElementById("cancelar-productor");
+
+  const editarFincaBtn = document.getElementById("editar-finca");
+  const guardarFincaBtn = document.getElementById("guardar-finca");
+  const cancelarFincaBtn = document.getElementById("cancelar-finca");
+
+  function setEditableProductor(enabled) {
+    const inputs = [
+      document.getElementById("productor-nombre"),
+      document.getElementById("productor-cedula"),
+      document.getElementById("productor-organizacion"),
+      document.getElementById("productor-celular"),
+      document.getElementById("productor-edad"),
+    ];
+    const selects = [document.getElementById("productor-genero")];
+    inputs.forEach((el) => {
+      if (!el) return;
+      el.readOnly = !enabled;
+      if (enabled) el.classList.add("ring-2", "ring-primary/40"); else el.classList.remove("ring-2", "ring-primary/40");
+    });
+    selects.forEach((el) => { if (el) el.disabled = !enabled; });
+  }
+
+  function setEditableFinca(enabled) {
+    const inputs = [
+      document.getElementById("finca-nombre"),
+      document.getElementById("finca-provincia"),
+      document.getElementById("finca-canton"),
+      document.getElementById("finca-parroquia"),
+      document.getElementById("finca-barrio"),
+      document.getElementById("finca-area-total"),
+      document.getElementById("finca-area-cultivada"),
+    ];
+    const selects = [document.getElementById("finca-tenencia")];
+    inputs.forEach((el) => {
+      if (!el) return;
+      el.readOnly = !enabled;
+      if (enabled) el.classList.add("ring-2", "ring-primary/40"); else el.classList.remove("ring-2", "ring-primary/40");
+    });
+    selects.forEach((el) => { if (el) el.disabled = !enabled; });
+  }
+
+  // editar productor handler
+  if (editarProductorBtn) {
+    editarProductorBtn.addEventListener("click", () => {
+      // toggle UI: show save/cancel, hide editar button
+      if (guardarProductorBtn) guardarProductorBtn.classList.remove("hidden");
+      if (cancelarProductorBtn) cancelarProductorBtn.classList.remove("hidden");
+      editarProductorBtn.classList.add("hidden");
+      setEditableProductor(true);
+    });
+  }
+
+  if (cancelarProductorBtn) {
+    cancelarProductorBtn.addEventListener("click", () => {
+      if (guardarProductorBtn) guardarProductorBtn.classList.add("hidden");
+      if (cancelarProductorBtn) cancelarProductorBtn.classList.add("hidden");
+      if (editarProductorBtn) editarProductorBtn.classList.remove("hidden");
+      setEditableProductor(false);
+      cargarUsuarioAutenticado();
+    });
+  }
+
+  if (guardarProductorBtn) {
+    guardarProductorBtn.addEventListener("click", async () => {
+      const payload = {
+        nombre_completo: inputNombre.value.trim(),
+        cedula_id: inputCedula.value.trim(),
+        organizacion: inputOrganizacion?.value.trim() || "",
+        celular: inputCelular?.value.trim() || "",
+        genero: selectGenero?.value || "",
+        edad: inputEdad?.value ? Number(inputEdad.value) : undefined,
+      };
+
+      try {
+        let res;
+        if (currentProductorId) {
+          res = await ProductorService.update(currentProductorId, payload, token);
+        } else {
+          res = await ProductorService.create(payload, token);
+          currentProductorId = res.id;
+        }
+        showMessage("Productor guardado correctamente.");
+        // dispatch event so layout can reactively enable next steps
+        try { window.dispatchEvent(new CustomEvent('productorSaved', { detail: res })); } catch (e) { /* noop */ }
+        // reset UI
+        if (guardarProductorBtn) guardarProductorBtn.classList.add("hidden");
+        if (cancelarProductorBtn) cancelarProductorBtn.classList.add("hidden");
+        if (editarProductorBtn) editarProductorBtn.classList.remove("hidden");
+        setEditableProductor(false);
+      } catch (err) {
+        showMessage(err instanceof Error ? err.message : "Error al guardar productor.", true);
       }
     });
   }
 
-  if (buttonGuardar) {
-    buttonGuardar.addEventListener("click", guardarProductor);
+  // editar finca handler
+  if (editarFincaBtn) {
+    editarFincaBtn.addEventListener("click", () => {
+      if (guardarFincaBtn) guardarFincaBtn.classList.remove("hidden");
+      if (cancelarFincaBtn) cancelarFincaBtn.classList.remove("hidden");
+      editarFincaBtn.classList.add("hidden");
+      setEditableFinca(true);
+    });
   }
 
-  cargarProductores();
+  if (cancelarFincaBtn) {
+    cancelarFincaBtn.addEventListener("click", () => {
+      if (guardarFincaBtn) guardarFincaBtn.classList.add("hidden");
+      if (cancelarFincaBtn) cancelarFincaBtn.classList.add("hidden");
+      if (editarFincaBtn) editarFincaBtn.classList.remove("hidden");
+      setEditableFinca(false);
+      cargarUsuarioAutenticado();
+    });
+  }
+
+  if (guardarFincaBtn) {
+    guardarFincaBtn.addEventListener("click", async () => {
+      const payload = {
+        nombre: (document.getElementById("finca-nombre") || {}).value || "",
+        provincia: (document.getElementById("finca-provincia") || {}).value || "",
+        canton: (document.getElementById("finca-canton") || {}).value || "",
+        parroquia: (document.getElementById("finca-parroquia") || {}).value || "",
+        barrio: (document.getElementById("finca-barrio") || {}).value || "",
+        area_total_ha: Number((document.getElementById("finca-area-total") || {}).value) || undefined,
+        area_cultivada_ha: Number((document.getElementById("finca-area-cultivada") || {}).value) || undefined,
+        tenencia: (document.getElementById("finca-tenencia") || {}).value || "",
+      };
+
+      try {
+        let res;
+        if (currentFincaId) {
+          res = await FincaService.update(currentFincaId, payload, token);
+        } else {
+          // need productor_id when creating finca
+          if (!currentUser || !currentUser.id) throw new Error('No se encontró productor autenticado para asociar la finca');
+          const createPayload = Object.assign({ productor_id: currentUser.id }, payload);
+          res = await FincaService.create(createPayload, token);
+          currentFincaId = res.id;
+        }
+        showMessage("Finca guardada correctamente.");
+        try { window.dispatchEvent(new CustomEvent('fincaSaved', { detail: res })); } catch (e) { /* noop */ }
+        if (guardarFincaBtn) guardarFincaBtn.classList.add("hidden");
+        if (cancelarFincaBtn) cancelarFincaBtn.classList.add("hidden");
+        if (editarFincaBtn) editarFincaBtn.classList.remove("hidden");
+        setEditableFinca(false);
+      } catch (err) {
+        showMessage(err instanceof Error ? err.message : "Error al guardar finca.", true);
+      }
+    });
+  }
+
+  cargarUsuarioAutenticado();
 </script>

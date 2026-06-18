@@ -13,7 +13,7 @@ export class SyncService {
       const sqlite = db();
       
       // 1. Recopilar datos pendientes
-      const pendingProductores = await sqlite.select().from(productores).where(eq(productores.syncStatus, 'pending'));
+      const pendingProductores = await sqlite.select().from(productores).where(eq(productores.sync_status, 'pending'));
       const pendingFincas = await sqlite.select().from(fincas).where(eq(fincas.syncStatus, 'pending'));
       const pendingExpedientes = await sqlite.select().from(expedientes).where(eq(expedientes.syncStatus, 'pending'));
       const pendingDatos = await sqlite.select().from(datosAgroambientales).where(eq(datosAgroambientales.syncStatus, 'pending'));
@@ -27,11 +27,11 @@ export class SyncService {
       const syncPackage = {
         productores: pendingProductores.map((p: any) => ({
           id: p.id,
-          first_name: p.firstName,
-          last_name: p.lastName,
-          cedula_id: p.cedulaId,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          cedula_id: p.cedula_id,
           email: p.email,
-          phone_number: p.phoneNumber,
+          phone_number: p.phone_number,
           edad: p.edad,
           genero: p.genero,
           organizacion: p.organizacion
@@ -84,7 +84,7 @@ export class SyncService {
       // 4. Marcar como sincronizados en local
       if (pendingProductores.length > 0) {
         await sqlite.update(productores)
-          .set({ syncStatus: 'synced' })
+          .set({ sync_status: 'synced' })
           .where(inArray(productores.id, pendingProductores.map((p: any) => p.id)));
       }
 

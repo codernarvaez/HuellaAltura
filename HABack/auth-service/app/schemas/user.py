@@ -13,6 +13,13 @@ class Genero(str, Enum):
     FEMENINO = "Femenino"
     OTRO = "Prefiero no decirlo"
 
+class NivelEducativo(str, Enum):
+    PRIMARIA = "Primaria"
+    SECUNDARIA = "Secundaria"
+    SUPERIOR = "Superior"
+    POSTGRADO = "Postgrado"
+    NINGUNO = "Ninguno"
+
 class RoleOut(BaseModel):
     id: str
     name: str
@@ -32,6 +39,7 @@ class UserCreate(UserBase):
     phone_number: Optional[str] = None
     edad: Optional[int] = None
     genero: Optional[Genero] = None
+    nivel_educativo: Optional[NivelEducativo] = None
     status: Optional[UserStatus] = UserStatus.ACTIVO
 
 class UserOut(UserBase):
@@ -44,6 +52,7 @@ class UserOut(UserBase):
     phone_number: Optional[str] = None
     edad: Optional[int] = None
     genero: Optional[Genero] = None
+    nivel_educativo: Optional[NivelEducativo] = None
 
     model_config = ConfigDict(from_attributes=True)
 

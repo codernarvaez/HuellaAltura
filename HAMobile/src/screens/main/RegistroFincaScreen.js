@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   StatusBar,
   KeyboardAvoidingView,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { RepositorioFincas } from '../../data/repositorio/RepositorioFincas';
 import * as Location from 'expo-location';
 import { FarmMapEditor } from '../../components/map/FarmMapEditor';
@@ -38,7 +38,8 @@ import {
   Trees,
   PlusCircle,
   XCircle,
-  Maximize2
+  Maximize2,
+  Info
 } from 'lucide-react-native';
 import * as Crypto from 'expo-crypto';
 
@@ -52,8 +53,9 @@ const getEncryptionKey = () => {
   }
 };
 
-const RegistroFincaScreen = () => {
+const RegistroFincaScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFullMap, setShowFullMap] = useState(false);
@@ -105,6 +107,19 @@ const RegistroFincaScreen = () => {
   
   const [camposDinamicos, setCamposDinamicos] = useState([]);
 
+  // Actualizar datos del productor automáticamente desde el perfil logueado
+  useEffect(() => {
+    if (user) {
+      setNombreProductor(user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Usuario');
+      setCedulaId(user.identifier || '');
+      setEmailProductor(user.email || '');
+      setCelular(user.phone_number || '');
+      setGenero(user.genero || '');
+      setEdad(user.edad ? String(user.edad) : '');
+      if (user.organizacion) setOrganizacion(user.organizacion);
+    }
+  }, [user]);
+
   // Lógica para generar Plus Code simple basado en coordenadas
   useEffect(() => {
     if (latitud && longitud) {
@@ -139,7 +154,7 @@ const RegistroFincaScreen = () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Se necesita acceso a la ubicación.');
+        showAlert('Permiso denegado', 'Se necesita acceso a la ubicación.', 'warning');
         return;
       }
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
@@ -149,7 +164,7 @@ const RegistroFincaScreen = () => {
         setAltitud(Math.round(location.coords.altitude).toString());
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación.');
+      showAlert('Error', 'No se pudo obtener la ubicación.', 'error');
     } finally {
       setLocating(false);
     }
@@ -197,7 +212,7 @@ const RegistroFincaScreen = () => {
 
   const guardarRegistro = async () => {
     if (!nombreFinca || puntos.length < 3 || !cedulaId || !nombreProductor) {
-      Alert.alert('Error', 'Nombre de finca, datos del productor y polígono (mín 3 puntos) son obligatorios.');
+      showAlert('Error', 'Nombre de finca, datos del productor y polígono (mín 3 puntos) son obligatorios.', 'warning');
       return;
     }
 
@@ -217,16 +232,16 @@ const RegistroFincaScreen = () => {
 
       await sqlite.insert(require('../../data/local/esquema').productores).values({
         id: productorId,
-        firstName,
-        lastName,
-        cedulaId: cedulaId,
+        first_name: firstName,
+        last_name: lastName,
+        cedula_id: cedulaId,
         email: emailProductor,
-        phoneNumber: celular,
+        phone_number: celular,
         edad: parseInt(edad) || 0,
         genero,
         organizacion,
-        syncStatus: 'pending',
-        creadoEn: new Date()
+        sync_status: 'pending',
+        creado_en: new Date()
       });
 
       // 3. Preparar Geometría
@@ -300,7 +315,7 @@ const RegistroFincaScreen = () => {
         }
       }
 
-      Alert.alert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.');
+      showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.', 'success', () => navigation.goBack());
       
       // Intentar sincronizar en segundo plano
       const token = await obtenerToken();
@@ -316,7 +331,7 @@ const RegistroFincaScreen = () => {
 
     } catch (error) {
       console.error('Error al guardar local:', error);
-      Alert.alert('Error', 'No se pudo guardar el registro en la base de datos local.');
+      showAlert('Error', 'No se pudo guardar el registro en la base de datos local.', 'error');
     } finally {
       setLoading(false);
     }
@@ -345,52 +360,56 @@ const RegistroFincaScreen = () => {
     <View style={styles.stepContent}>
       <View style={styles.sectionHeader}>
         <User size={20} color="#fff" />
-        <Text style={styles.sectionTitle}>Perfil del Productor</Text>
+        <Text style={styles.sectionTitle}>Perfil del Productor (Lectura)</Text>
       </View>
       
       <View style={styles.denseForm}>
         <View style={styles.row}>
           <View style={[styles.inputGroupDense, { flex: 1, marginRight: 6 }]}>
-            <Text style={styles.labelSmall}>Nombres *</Text>
-            <TextInput style={styles.inputDense} value={firstName} onChangeText={setNombreProductor} placeholder="Nombres" />
+            <Text style={styles.labelSmall}>Nombres</Text>
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={firstName} editable={false} />
           </View>
           <View style={[styles.inputGroupDense, { flex: 1 }]}>
-            <Text style={styles.labelSmall}>Apellidos *</Text>
-            <TextInput style={styles.inputDense} value={lastName} onChangeText={(v) => setNombreProductor(`${nombreProductor.split(' ')[0]} ${v}`)} placeholder="Apellidos" />
+            <Text style={styles.labelSmall}>Apellidos</Text>
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={lastName} editable={false} />
           </View>
         </View>
 
         <View style={styles.row}>
           <View style={[styles.inputGroupDense, { flex: 1.2, marginRight: 6 }]}>
-            <Text style={styles.labelSmall}>Cédula *</Text>
-            <TextInput style={styles.inputDense} value={cedulaId} onChangeText={setCedulaId} placeholder="Identificación" />
+            <Text style={styles.labelSmall}>Cédula</Text>
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={cedulaId} editable={false} />
           </View>
           <View style={[styles.inputGroupDense, { flex: 1 }]}>
             <Text style={styles.labelSmall}>Edad</Text>
-            <TextInput style={styles.inputDense} value={edad} onChangeText={setEdad} keyboardType="numeric" placeholder="Años" />
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={edad} editable={false} />
           </View>
         </View>
 
         <View style={styles.row}>
           <View style={[styles.inputGroupDense, { flex: 1, marginRight: 6 }]}>
             <Text style={styles.labelSmall}>Género</Text>
-            <TextInput style={styles.inputDense} value={genero} onChangeText={setGenero} placeholder="M / F" />
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={genero} editable={false} />
           </View>
           <View style={[styles.inputGroupDense, { flex: 1.5 }]}>
             <Text style={styles.labelSmall}>Celular</Text>
-            <TextInput style={styles.inputDense} value={celular} onChangeText={setCelular} keyboardType="phone-pad" placeholder="099XXX" />
+            <TextInput style={[styles.inputDense, styles.inputDisabled]} value={celular} editable={false} />
           </View>
         </View>
 
         <View style={styles.inputGroupDense}>
           <Text style={styles.labelSmall}>Correo Electrónico</Text>
-          <TextInput style={styles.inputDense} value={emailProductor} onChangeText={setEmailProductor} placeholder="email@ejemplo.com" keyboardType="email-address" autoCapitalize="none" />
+          <TextInput style={[styles.inputDense, styles.inputDisabled]} value={emailProductor} editable={false} />
         </View>
 
         <View style={styles.inputGroupDense}>
           <Text style={styles.labelSmall}>Organización / Cooperativa</Text>
-          <TextInput style={styles.inputDense} value={organizacion} onChangeText={setOrganizacion} placeholder="Nombre de la asociación" />
+          <TextInput style={[styles.inputDense, styles.inputDisabled]} value={organizacion} editable={false} />
         </View>
+      </View>
+      <View style={styles.infoBox}>
+        <Info size={16} color={theme.colors.primary} />
+        <Text style={styles.infoText}>Estos datos provienen de tu perfil y no son editables en este formulario.</Text>
       </View>
     </View>
   );
@@ -661,6 +680,21 @@ const styles = StyleSheet.create({
   inputGroupDense: { marginBottom: 12 },
   labelSmall: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginBottom: 4, fontWeight: '600' },
   inputDense: { backgroundColor: '#fff', borderRadius: 8, height: 42, paddingHorizontal: 12, color: '#000', fontSize: 15 },
+  inputDisabled: { backgroundColor: '#eee', color: '#666' },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primaryFixed,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 15,
+  },
+  infoText: {
+    ...theme.typography.labelSm,
+    color: theme.colors.onPrimaryFixed,
+    marginLeft: 8,
+    flex: 1,
+  },
   inputGroup: { marginBottom: 15 },
   label: { ...theme.typography.labelSm, color: '#fff', marginBottom: 6, fontWeight: '600' },
   input: { backgroundColor: '#fff', borderRadius: 10, height: 50, paddingHorizontal: 15, color: '#000', fontSize: 16 },

@@ -1,11 +1,12 @@
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Optional
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from prisma import Prisma, errors
+from prisma.models import User
 
 from app.database import get_db
-from app.dependencies import log_user_action, require_manage_users, get_current_user
+from app.dependencies import log_user_action, require_manage_users, get_current_user, get_optional_current_user
 from app.schemas.user import UserCreate, UserOut, Token, UserLogin, PasswordResetRequest, PasswordResetConfirm
 from app.security import (
     get_password_hash,
@@ -29,10 +30,15 @@ router = APIRouter(prefix=endpoints.AUTH_PREFIX, tags=["Autenticación"])
     response_model=UserOut, 
     status_code=status.HTTP_201_CREATED, 
     summary="Registrar Usuario",
-    description="Crea una nueva cuenta de usuario. Abierto al público con validaciones de seguridad."
+    description="Crea una nueva cuenta de usuario. Registro público limitado a rol PRODUCTOR. Otros roles requieren SUPER_ADMIN."
 )
 @limiter.limit("5/minute")
-async def register(request: Request, user_in: UserCreate, db: Annotated[Prisma, Depends(get_db)]):
+async def register(
+    request: Request, 
+    user_in: UserCreate, 
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None
+):
     try:
         # 1. Validaciones básicas de seguridad
         if len(user_in.password) < 8:
@@ -57,23 +63,21 @@ async def register(request: Request, user_in: UserCreate, db: Annotated[Prisma, 
                 raise HTTPException(status_code=400, detail="El número de teléfono ya está registrado")
         
         # 3. Gestión de Roles (Seguridad)
-        # Por defecto, registros públicos son TECNICO_CAMPO.
-        # Solo se permite registrarse con roles no administrativos si se especifica.
-        target_role_name = user_in.role_name or roles.DEFAULT_ROLE
+        # Por defecto, registros públicos son PRODUCTOR.
+        target_role_name = user_in.role_name or roles.PRODUCTOR
         
-        # Lista blanca de roles para registro público
-        public_roles = [roles.TECNICO_CAMPO, roles.AUDITOR_INTERNO]
-        
-        if target_role_name not in public_roles:
-            logger.warning(f"Intento de registro con rol restringido: {target_role_name} desde {request.client.host}")
-            target_role_name = roles.DEFAULT_ROLE
+        # Si el rol solicitado no es PRODUCTOR, se requiere ser SUPER_ADMIN
+        if target_role_name != roles.PRODUCTOR:
+            if not current_user or current_user.role.name != roles.SUPER_ADMIN:
+                logger.warning(f"Intento de registro no autorizado para rol {target_role_name} desde {request.client.host}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, 
+                    detail="Solo un SUPER_ADMIN puede registrar usuarios con roles distintos a PRODUCTOR"
+                )
 
         role = await db.role.find_unique(where={"name": target_role_name})
         if not role:
-            # Fallback seguro si el rol no existe en DB
-            role = await db.role.find_first(where={"name": roles.DEFAULT_ROLE})
-            if not role:
-                 raise HTTPException(status_code=500, detail="Error de configuración de roles en el sistema")
+            raise HTTPException(status_code=400, detail=f"El rol '{target_role_name}' no existe en el sistema")
         
         return await db.user.create(
             data={
@@ -84,9 +88,10 @@ async def register(request: Request, user_in: UserCreate, db: Annotated[Prisma, 
                 "phone_number": user_in.phone_number,
                 "edad": user_in.edad,
                 "genero": user_in.genero.name if user_in.genero else None,
+                "nivel_educativo": user_in.nivel_educativo.name if user_in.nivel_educativo else None,
                 "password_hash": get_password_hash(user_in.password),
                 "role_id": role.id,
-                "status": "ACTIVO" # O "PENDIENTE" si se requiere aprobación
+                "status": "ACTIVO"
             },
             include={"role": True}
         )

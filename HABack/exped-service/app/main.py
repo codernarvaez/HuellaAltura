@@ -16,7 +16,6 @@ from app.routers import (
     certificados,
     expedientes,
     fincas,
-    productores,
     variables,
     sync,
 )
@@ -52,7 +51,7 @@ Esta API es el núcleo del sistema **GeoGuard EUDR**, encargada de gestionar el 
     version=settings.app_version,
     contact={
         "name": "GeoGuard Support",
-        "email": "support@geoguard.com",
+        "email": "jaimedavidmendoza1506@gmail.com",
     },
     license_info={
         "name": "Proprietary",
@@ -80,11 +79,6 @@ app.include_router(
     prefix=endpoints.AGROAMBIENTAL_PREFIX,
     tags=["Agroambiental"],
 )
-app.include_router(
-    productores.router,
-    prefix=endpoints.PRODUCTORES_PREFIX,
-    tags=["Productores"],
-)
 app.include_router(fincas.router, prefix=endpoints.FINCAS_PREFIX, tags=["Fincas"])
 app.include_router(
     auditoria.router,
@@ -98,7 +92,7 @@ app.include_router(
 )
 app.include_router(
     sync.router,
-    prefix=f"{API_V1_PREFIX}/sync",
+    prefix=endpoints.SYNC_PREFIX,
     tags=["Sincronización Offline"],
 )
 

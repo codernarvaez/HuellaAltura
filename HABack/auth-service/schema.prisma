@@ -36,6 +36,7 @@ model User {
   session_token   String?    @unique
   edad            Int?
   genero          Genero?
+  nivel_educativo NivelEducativo?
   // TODO: Agregar lógica de wallets por usuario aquí
   audit_logs      AuditLog[]
   role            Role       @relation(fields: [role_id], references: [id])
@@ -249,6 +250,14 @@ enum Genero {
   MASCULINO
   FEMENINO
   OTRO
+}
+
+enum NivelEducativo {
+  PRIMARIA
+  SECUNDARIA
+  SUPERIOR
+  POSTGRADO
+  NINGUNO
 }
 
 enum calidad_cafe {
