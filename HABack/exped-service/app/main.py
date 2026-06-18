@@ -16,7 +16,6 @@ from app.routers import (
     certificados,
     expedientes,
     fincas,
-    productores,
     variables,
     sync,
 )
@@ -79,11 +78,6 @@ app.include_router(
     agroambiental.router,
     prefix=endpoints.AGROAMBIENTAL_PREFIX,
     tags=["Agroambiental"],
-)
-app.include_router(
-    productores.router,
-    prefix=endpoints.PRODUCTORES_PREFIX,
-    tags=["Productores"],
 )
 app.include_router(fincas.router, prefix=endpoints.FINCAS_PREFIX, tags=["Fincas"])
 app.include_router(

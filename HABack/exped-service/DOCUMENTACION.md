@@ -138,38 +138,18 @@ backend-kevin-sarango/
 
 El schema completo está definido en `schema.prisma`. Arquitectura: **Productor → Finca → Expediente**.
 
-### Productor → tabla `productores`
-Información personal del productor agrícola.
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | String (UUID) | Clave primaria |
-| `nombre_completo` | String | Nombre completo |
-| `cedula_id` | String (único) | Número de cédula/ID |
-| `organizacion` | String? | Organización/cooperativa |
-| `celular` | String? | Teléfono de contacto |
-| `genero` | String? | `MASCULINO` / `FEMENINO` |
-| `edad` | Int? | Edad |
-| `creado_en` | DateTime | Fecha de creación (automático) |
-| `actualizado_en` | DateTime | Última actualización (automático) |
-
-**Relaciones:** tiene muchas `Finca` y `Expediente` (cascade delete).
-
----
-
 ### Finca → tabla `fincas`
-Propiedad agrícola vinculada a un Productor.
+Propiedad agrícola vinculada a un Usuario de auth-service con rol GENERAL.
 
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `id` | String (UUID) | Clave primaria |
 | `nombre` | String | Nombre de la finca |
 | `eudr_id` | String (único) | Código EUDR generado (`uuidv4-XXXXXXXX-XXXXX`) |
-| `productor_id` | String | FK a `productores` |
+| `usuario_id` | String | FK a Usuario (auth-service) |
 | `provincia` | String? | Provincia |
 | `canton` | String? | Cantón |
 | `parroquia` | String? | Parroquia |
-| `barrio_sector` | String? | Barrio o sector |
 | `area_total_ha` | Float? | Área total (hectáreas) |
 | `area_cultivada_ha` | Float? | Área cultivada (hectáreas) |
 | `tenencia` | String? | `PROPIA` / `POSESION` / `ARRENDAMIENTO` |
@@ -177,7 +157,7 @@ Propiedad agrícola vinculada a un Productor.
 | `longitud` | Float? | Coordenada |
 | `creado_en` | DateTime | Fecha de creación |
 
-**Relaciones:** pertenece a `Productor`, tiene muchos `Expediente` (cascade delete).
+**Relaciones:** tiene muchos `Expediente` (cascade delete).
 
 ---
 
@@ -187,14 +167,13 @@ Solicitud de cumplimiento EUDR para una Finca.
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `id` | String (UUID) | Clave primaria |
-| `productor_id` | String | FK a `productores` |
 | `finca_id` | String | FK a `fincas` |
 | `estado` | String | `PENDIENTE` / `EN_PROCESO` / `APROBADO` / `RECHAZADO` |
 | `organizacion_inquilino` | String? | Inquilino (multi-tenant) |
 | `creado_en` | DateTime | Fecha de creación (automático) |
 | `actualizado_en` | DateTime | Última actualización (automático) |
 
-**Relaciones:** vincula `Productor` + `Finca`, tiene muchos `Dato`, `Historial`, `Auditoria`, `Certificado` (cascade delete).
+**Relaciones:** vinculada a `Finca`, tiene muchos `Dato`, `Historial`, `Auditoria`, `Certificado` (cascade delete).
 
 ---
 
@@ -1324,104 +1303,6 @@ Elimina una variable dinámica.
 | `403 Forbidden` | Sin permiso |
 | `404 Not Found` | Variable no encontrada |
 | `500 Internal Server Error` | Error al eliminar |
-
----
-
-### 6.9 Productores
-
-**Prefijo:** `/api/v1/productores`
-
-CRUD para gestionar productores agrícolas (entidad independiente).
-
-#### `GET /`
-Lista todos los productores.
-
-**Auth:** cualquier token autenticado
-
-**Códigos de respuesta:**
-
-| Código | Descripción |
-|---|---|
-| `200 OK` | Lista de productores |
-| `401 Unauthorized` | Token ausente o inválido |
-| `403 Forbidden` | Sin token válido |
-
----
-
-#### `POST /`
-Crea un nuevo productor.
-
-**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO
-
-**Body:**
-```json
-{
-  "nombre_completo": "José Miguel Moosquera",
-  "cedula_id": "1100433455",
-  "organizacion": "Asociación Agroecológica",
-  "celular": "+593992345678",
-  "genero": "MASCULINO",
-  "edad": 45
-}
-```
-
-**Códigos de respuesta:**
-
-| Código | Descripción |
-|---|---|
-| `201 Created` | Productor creado |
-| `401 Unauthorized` | Token ausente o inválido |
-| `403 Forbidden` | Sin permiso |
-| `409 Conflict` | Cédula ID ya existe |
-| `422 Unprocessable Entity` | Campo requerido faltante |
-
----
-
-#### `GET /{productor_id}`
-Obtiene un productor por ID.
-
-**Auth:** cualquier token autenticado
-
-**Códigos de respuesta:**
-
-| Código | Descripción |
-|---|---|
-| `200 OK` | Datos del productor |
-| `401 Unauthorized` | Token ausente o inválido |
-| `404 Not Found` | Productor no encontrado |
-
----
-
-#### `PATCH /{productor_id}`
-Actualiza datos del productor.
-
-**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO
-
-**Códigos de respuesta:**
-
-| Código | Descripción |
-|---|---|
-| `200 OK` | Productor actualizado |
-| `401 Unauthorized` | Token ausente o inválido |
-| `403 Forbidden` | Sin permiso |
-| `404 Not Found` | Productor no encontrado |
-| `409 Conflict` | Nueva cédula ya existe |
-
----
-
-#### `DELETE /{productor_id}`
-Elimina un productor (cascade deletes todas sus fincas y expedientes).
-
-**Auth:** SUPER_ADMIN, TENANT_ADMIN
-
-**Códigos de respuesta:**
-
-| Código | Descripción |
-|---|---|
-| `200 OK` | `{"message": "Productor eliminado"}` |
-| `401 Unauthorized` | Token ausente o inválido |
-| `403 Forbidden` | Sin permiso |
-| `404 Not Found` | Productor no encontrado |
 
 ---
 

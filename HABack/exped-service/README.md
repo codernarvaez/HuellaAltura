@@ -10,19 +10,21 @@ Backend **FastAPI** para gestión de expedientes EUDR, trazabilidad agroambienta
 ## Arquitectura
 
 ```
-Productor ──┐
-            ├──► Finca ──► Expediente ──► Auditoría GEE
-            │                    │
-            └──► Datos Agroambientales
-                             │
-                             └──► Certificado DDS
+Usuario (auth-service) con rol GENERAL
+            ↓
+          Finca ──► Expediente ──► Auditoría GEE
+            │            │
+            │            └──► Datos Agroambientales
+            │                        │
+            │                        └──► Variables Dinámicas
+            └────────────────────────────► Certificado DDS
 ```
 
 **Flujo completo:**
-1. Crear Productor (TECNICO_CAMPO/TENANT_ADMIN)
-2. Crear Finca vinculada al Productor (auto-genera EUDR ID)
-3. Crear Expediente (vincula Productor + Finca)
-4. Registrar Datos Agroambientales (con Variables Dinámicas)
+1. Usuario con rol **GENERAL** (creado en auth-service)
+2. Crear Finca vinculada al Usuario (auto-genera EUDR ID)
+3. Crear Expediente (vinculado a Finca)
+4. Registrar Datos Agroambientales (con Variables Dinámicas opcionales)
 5. Auditoría GEE (actualiza estado a APROBADO/RECHAZADO)
 6. Certificado DDS (requiere auditoría APROBADA)
 7. Trazabilidad automática en cada paso
@@ -30,16 +32,6 @@ Productor ──┐
 ---
 
 ## Endpoints principales
-
-### Productores `/api/v1/productores`
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/` | Listar productores |
-| POST | `/` | Crear productor |
-| GET | `/{id}` | Obtener por ID |
-| PATCH | `/{id}` | Actualizar |
-| DELETE | `/{id}` | Eliminar |
 
 ### Fincas `/api/v1/fincas`
 
