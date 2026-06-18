@@ -1,6 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { isAdminRole } from "../lib/roles";
+import { isAdminRole } from "../services/roles";
 export const prerender = false;
 
 // Si ya hay sesión válida (el middleware ya la validó contra el backend),
