@@ -36,6 +36,22 @@ def listar_fincas(
     return db.finca.find_many(where=where)
 
 
+@router.get("/por-usuario/{usuario_id}", response_model=list[FincaOut], summary="Obtener fincas por usuario (productor)")
+def obtener_fincas_por_usuario(
+    usuario_id: str,
+    db: Prisma = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Obtiene todas las fincas asociadas a un usuario (productor con rol PRODUCTOR).
+
+    **Lógica de Negocio:**
+    - Busca por usuario_id (el ID del usuario de auth-service)
+    - Retorna todas las fincas del usuario especificado
+    """
+    return db.finca.find_many(where={"usuario_id": usuario_id})
+
+
 @router.post(
     "/",
     response_model=FincaOut,
@@ -52,12 +68,9 @@ def crear_finca(
     Registra un nuevo predio o finca.
 
     **Lógica de Negocio:**
-    - Verifica que el productor asociado exista.
+    - Vincula la finca a un usuario de auth-service (rol PRODUCTOR).
     - Genera automáticamente un `eudr_id` único.
     """
-    if not db.productor.find_first(where={"id": data.productor_id}):
-        raise HTTPException(status_code=404, detail="Productor no encontrado")
-        
     payload = data.model_dump()
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
@@ -100,7 +113,7 @@ def actualizar_finca(
     if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
 
-    if current_user.get("role") == "PRODUCTOR" and finca.productor_id != current_user.get("sub"):
+    if current_user.get("role") == "PRODUCTOR" and finca.usuario_id != current_user.get("sub"):
         raise HTTPException(status_code=403, detail="No tienes permiso para editar esta finca")
 
     return db.finca.update(where={"id": finca_id}, data=data.model_dump(exclude_unset=True))

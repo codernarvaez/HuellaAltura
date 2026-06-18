@@ -15,7 +15,6 @@ from app.schemas.schemas import (
 router = APIRouter()
 
 _INCLUDE = {
-    "productor": True,
     "finca": True,
     "datos_agroambientales": {"include": {"variables": True}},
     "historial": True,
@@ -63,28 +62,17 @@ def crear_expediente(
     Registra un nuevo expediente en el sistema.
 
     **Lógica de Negocio:**
-    - Verifica la existencia del productor y la finca vinculados.
-    - Si el usuario es un `PRODUCTOR`, se fuerza que el `productor_id` sea el suyo propio.
+    - Verifica la existencia de la finca vinculada.
+    - La finca a su vez está vinculada a un usuario de auth-service.
     - Registra un evento inicial en el historial de trazabilidad.
     """
-    productor_id = data.productor_id
-    if current_user.get("role") == "PRODUCTOR":
-        productor_id = current_user.get("sub")
-
-    productor = db.productor.find_first(where={"id": productor_id})
-    if not productor:
-        raise HTTPException(status_code=404, detail="Productor no encontrado")
-
     finca = db.finca.find_first(where={"id": data.finca_id})
     if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
 
     dato_nested = data.datos_agroambientales
     create_data = data.model_dump(exclude={"datos_agroambientales"})
-    desc = (
-        f"Registro inicial del productor {productor.nombre_completo} "
-        f"- Finca {finca.nombre}"
-    )
+    desc = f"Expediente creado para la finca {finca.nombre}"
     create_data["historial"] = {
         "create": [{
             "accion": "Expediente creado",

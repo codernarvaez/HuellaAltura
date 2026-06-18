@@ -26,6 +26,7 @@ class EstadoEnum(StrEnum):
 class RolNombreEnum(StrEnum):
     SUPER_ADMIN = "SUPER_ADMIN"
     TENANT_ADMIN = "TENANT_ADMIN"
+    PRODUCTOR = "PRODUCTOR"
     TECNICO_CAMPO = "TECNICO_CAMPO"
     AUDITOR_INTERNO = "AUDITOR_INTERNO"
 
@@ -120,38 +121,17 @@ class HistorialOut(HistorialCreate):
         from_attributes = True
 
 
-# ─── Productor ───────────────────────────────────────────────
+# ─── Usuario (gestionado por auth-service) ──────────────────
 
-class ProductorCreate(BaseModel):
-    nombre_completo: str = Field(..., example="José Miguel Mosquera")
-    cedula_id: str = Field(..., example="1100433455")
-    organizacion: str | None = Field(None, example="Asociación APECAEL")
-    celular: str | None = None
-    genero: GeneroEnum | None = None
-    edad: int | None = None
-
-
-class ProductorUpdate(BaseModel):
-    nombre_completo: str | None = None
-    organizacion: str | None = None
-    celular: str | None = None
-    genero: GeneroEnum | None = None
-    edad: int | None = None
-
-
-class ProductorOut(ProductorCreate):
-    id: str
-    creado_en: datetime
-    actualizado_en: datetime
-
-    class Config:
-        from_attributes = True
+# Los productores/usuarios se crean y gestionan en auth-service
+# No hay modelo local de Productor en exped-service
 
 
 # ─── Finca ───────────────────────────────────────────────────
 
 class FincaCreate(BaseModel):
     nombre: str = Field(..., example="El Ahuacate")
+    usuario_id: str = Field(..., example="uuid-del-usuario", description="ID del usuario (productor) de auth-service")
     provincia: str | None = Field(None, example="Loja")
     canton: str | None = Field(None, example="Loja")
     parroquia: str | None = None
@@ -160,7 +140,6 @@ class FincaCreate(BaseModel):
     tenencia: TenenciaEnum | None = None
     latitud: float | None = Field(None, example=-4.2625)
     longitud: float | None = Field(None, example=-79.2231)
-    productor_id: str
 
 
 class FincaOut(FincaCreate):
@@ -187,8 +166,7 @@ class FincaUpdate(BaseModel):
 # ─── Expediente ──────────────────────────────────────────────
 
 class ExpedienteCreate(BaseModel):
-    productor_id: str
-    finca_id: str
+    finca_id: str = Field(..., description="ID de la finca asociada")
     organizacion_inquilino: str | None = None
     datos_agroambientales: DatoAgroambientalCreate | None = None
 
@@ -202,7 +180,6 @@ class ExpedienteOut(BaseModel):
     id: str
     estado: str
     organizacion_inquilino: str | None = None
-    productor: ProductorOut
     finca: FincaOut
     creado_en: datetime
     actualizado_en: datetime

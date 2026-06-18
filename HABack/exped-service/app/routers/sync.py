@@ -67,30 +67,35 @@ async def sync_upload(
 
     # Usamos una transacción para asegurar integridad
     async with db.tx() as transaction:
-        
+
         # 1. Sincronizar Fincas
         for finca in payload.fincas:
             # Forzamos que la finca pertenezca al usuario si es rol PRODUCTOR
-            p_id = user_id if current_user.get("role") == "PRODUCTOR" else finca.productor_id
-            
+            # usuario_id vincula la finca al usuario (que tiene rol PRODUCTOR en auth-service)
+            u_id = user_id if current_user.get("role") == "PRODUCTOR" else finca.usuario_id
+
+            finca_data = finca.model_dump()
+            finca_data["usuario_id"] = u_id
+
             await transaction.finca.upsert(
                 where={"id": finca.id},
                 data={
-                    "create": {**finca.model_dump(), "productor_id": p_id},
-                    "update": finca.model_dump(exclude={"id", "productor_id"})
+                    "create": finca_data,
+                    "update": {k: v for k, v in finca_data.items() if k not in ["id"]}
                 }
             )
             counts["fincas"] += 1
 
         # 2. Sincronizar Expedientes
         for exp in payload.expedientes:
-            p_id = user_id if current_user.get("role") == "PRODUCTOR" else exp.productor_id
-            
+            # Expediente solo necesita finca_id (que vincula al usuario vía Finca.usuario_id)
+            exp_data = exp.model_dump(exclude={"datos_agroambientales"})
+
             await transaction.expediente.upsert(
                 where={"id": exp.id},
                 data={
-                    "create": {**exp.model_dump(exclude={"datos_agroambientales"}), "productor_id": p_id},
-                    "update": exp.model_dump(exclude={"id", "productor_id", "datos_agroambientales"})
+                    "create": exp_data,
+                    "update": {k: v for k, v in exp_data.items() if k not in ["id"]}
                 }
             )
             counts["expedientes"] += 1
