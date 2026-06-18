@@ -21,10 +21,6 @@ ROLES_DATA = [
         "description": "Analista que revisa expedientes, evalúa la auditoría satelital Copernicus y emite certificados.",
     },
     {
-        "name": "PRODUCTOR",
-        "description": "Usuario que pertenece a una organizacion .",
-    },
-    {
         "name": "GENERAL",
         "description": "Usuario general.",
     },
@@ -53,14 +49,14 @@ async def main():
     print("Sincronizando usuario administrador...")
     admin_role = await db.role.find_unique(where={"name": SUPER_ADMIN})
     if admin_role:
-        password_plain = "admin@admin"
+        password_plain = "Admin123@admin"
         hashed_password = get_password_hash(password_plain)
 
         await db.user.upsert(
-            where={"email": "admin@eudr.local"},
+            where={"email": "wg25530@gmail.com"},
             data={
                 "create": {
-                    "email": "admin@eudr.local",
+                    "email": "wg25530@gmail.com",
                     "password_hash": hashed_password,
                     "role_id": admin_role.id,
                 },
@@ -70,7 +66,7 @@ async def main():
                 },
             },
         )
-        print(f"Usuario admin@eudr.local sincronizado con contraseña: {password_plain}")
+        print(f"Usuario sincronizado con contraseña: {password_plain}")
 
     await db.disconnect()
     print(f"Seed completado. Roles activos: {', '.join(EUDR_ROLES)}")

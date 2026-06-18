@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Annotated, Callable
+from typing import Annotated, Callable, Optional
 import logging
 from fastapi import Depends, HTTPException, Request, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
@@ -63,6 +63,20 @@ async def get_current_user(
         )
 
     return user
+
+async def get_optional_current_user(
+    request: Request,
+    db: Annotated[Prisma, Depends(get_db)],
+) -> Optional[User]:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    
+    token = auth_header.split(" ")[1]
+    try:
+        return await get_current_user(token, db)
+    except Exception:
+        return None
 
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],

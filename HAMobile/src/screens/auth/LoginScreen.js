@@ -16,6 +16,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { theme } from '../../theme/theme';
 import { Mail, Lock, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 
@@ -23,6 +24,7 @@ const { width, height } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }) => {
   const { signIn, loading } = useAuth();
+  const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -57,6 +59,9 @@ const LoginScreen = ({ navigation }) => {
     
     if (!result.success) {
       setError(result.error);
+      if (result.error.includes('servidor')) {
+        showAlert('Error de Conexión', result.error, 'error');
+      }
     }
   };
 
