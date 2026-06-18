@@ -1,6 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 import { AuthService } from "./services/auth.service";
-import { isAdminRole } from "./lib/roles";
+import { isAdminRole } from "./services/roles";
 
 // Rutas que NO requieren sesión (todo lo demás se considera privado).
 const PUBLIC_PATHS = [
