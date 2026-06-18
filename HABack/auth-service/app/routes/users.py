@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr
 
 from app.database import get_db
 from app.dependencies import require_manage_users, log_user_action
-from app.schemas.user import UserOut, UserStatus, Genero
+from app.schemas.user import UserOut, UserStatus, Genero, NivelEducativo
 from app.schemas.audit import AuditLogOut
 from app.core import endpoints
 from app.security import get_password_hash
@@ -23,6 +23,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     edad: Optional[int] = None
     genero: Optional[Genero] = None
+    nivel_educativo: Optional[NivelEducativo] = None
 
 @router.get(
     endpoints.USERS_LIST, 
@@ -124,6 +125,9 @@ async def update_user(
         
         if user_update.genero is not None:
             update_data["genero"] = user_update.genero.name
+        
+        if user_update.nivel_educativo is not None:
+            update_data["nivel_educativo"] = user_update.nivel_educativo.name
 
         if not update_data:
             raise HTTPException(status_code=400, detail="No se proporcionaron datos válidos para actualizar")

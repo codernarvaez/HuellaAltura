@@ -4,7 +4,9 @@ import SafeStorage from '../utils/SafeStorage';
 import { jwtDecode } from 'jwt-decode';
 import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
-import { DatabaseManager } from '../data/local/database';
+import { DatabaseManager, db } from '../data/local/database';
+import { productores } from '../data/local/esquema/productores';
+import { eq } from 'drizzle-orm';
 
 const AuthContext = createContext();
 
@@ -35,6 +37,44 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     loadSession();
   }, []);
+
+  const saveUserToLocalDB = async (userData) => {
+    try {
+      const sqlite = db();
+      
+      // Mapear campos de API a Esquema de BD local (snake_case consistente)
+      const productorData = {
+        id: userData.id,
+        first_name: userData.first_name || 'Usuario',
+        last_name: userData.last_name || '',
+        cedula_id: userData.identifier || '0000000000',
+        email: userData.email,
+        phone_number: userData.phone_number,
+        edad: userData.edad,
+        genero: userData.genero,
+        organizacion: userData.organizacion,
+        sync_status: 'synced', // Ya viene del servidor
+        creado_en: new Date(),
+      };
+
+      // Verificar si ya existe para hacer upsert manual (SQLite op-sqlite compatibility)
+      const existing = await sqlite.select().from(productores).where(eq(productores.id, userData.id)).limit(1);
+      
+      if (existing.length > 0) {
+        await sqlite.update(productores)
+          .set(productorData)
+          .where(eq(productores.id, userData.id));
+        console.log('[AuthContext] Perfil de productor actualizado en BD local');
+      } else {
+        await sqlite.insert(productores).values(productorData);
+        console.log('[AuthContext] Perfil de productor guardado en BD local');
+      }
+      return true;
+    } catch (error) {
+      console.error('[AuthContext] Error guardando productor en local:', error);
+      return false;
+    }
+  };
 
   const loadSession = async () => {
     try {
@@ -132,10 +172,17 @@ export const AuthProvider = ({ children }) => {
         const userData = await fetchUserData(token);
         
         if (userData) {
-          await SafeStorage.setItem(USER_KEY, JSON.stringify(userData));
-          setUser(userData);
-          setIsAuthenticated(true);
-          return { success: true };
+          // Guardar en la BD local antes de permitir el login (RS-SEC-004)
+          const savedLocal = await saveUserToLocalDB(userData);
+          
+          if (savedLocal) {
+            await SafeStorage.setItem(USER_KEY, JSON.stringify(userData));
+            setUser(userData);
+            setIsAuthenticated(true);
+            return { success: true };
+          } else {
+            return { success: false, error: 'Error al inicializar almacenamiento local de perfil' };
+          }
         } else {
           return { success: false, error: 'No se pudieron obtener los datos del perfil' };
         }

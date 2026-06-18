@@ -139,7 +139,7 @@ backend-kevin-sarango/
 El schema completo está definido en `schema.prisma`. Arquitectura: **Productor → Finca → Expediente**.
 
 ### Finca → tabla `fincas`
-Propiedad agrícola vinculada a un Usuario de auth-service con rol GENERAL.
+Propiedad agrícola vinculada a un Usuario de auth-service con rol PRODUCTOR.
 
 | Campo | Tipo | Descripción |
 |---|---|---|

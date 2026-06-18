@@ -10,7 +10,7 @@ Backend **FastAPI** para gestión de expedientes EUDR, trazabilidad agroambienta
 ## Arquitectura
 
 ```
-Usuario (auth-service) con rol GENERAL
+Usuario (auth-service) con rol PRODUCTOR
             ↓
           Finca ──► Expediente ──► Auditoría GEE
             │            │
@@ -21,7 +21,7 @@ Usuario (auth-service) con rol GENERAL
 ```
 
 **Flujo completo:**
-1. Usuario con rol **GENERAL** (creado en auth-service)
+1. Usuario con rol **PRODUCTOR** (creado en auth-service)
 2. Crear Finca vinculada al Usuario (auto-genera EUDR ID)
 3. Crear Expediente (vinculado a Finca)
 4. Registrar Datos Agroambientales (con Variables Dinámicas opcionales)

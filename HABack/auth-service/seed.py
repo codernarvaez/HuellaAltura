@@ -21,7 +21,7 @@ ROLES_DATA = [
         "description": "Analista que revisa expedientes, evalúa la auditoría satelital Copernicus y emite certificados.",
     },
     {
-        "name": "GENERAL",
+        "name": "PRODUCTOR",
         "description": "Usuario general.",
     },
 

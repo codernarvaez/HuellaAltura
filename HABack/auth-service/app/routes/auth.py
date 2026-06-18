@@ -30,7 +30,7 @@ router = APIRouter(prefix=endpoints.AUTH_PREFIX, tags=["Autenticación"])
     response_model=UserOut, 
     status_code=status.HTTP_201_CREATED, 
     summary="Registrar Usuario",
-    description="Crea una nueva cuenta de usuario. Registro público limitado a rol GENERAL. Otros roles requieren SUPER_ADMIN."
+    description="Crea una nueva cuenta de usuario. Registro público limitado a rol PRODUCTOR. Otros roles requieren SUPER_ADMIN."
 )
 @limiter.limit("5/minute")
 async def register(
@@ -63,16 +63,16 @@ async def register(
                 raise HTTPException(status_code=400, detail="El número de teléfono ya está registrado")
         
         # 3. Gestión de Roles (Seguridad)
-        # Por defecto, registros públicos son GENERAL.
-        target_role_name = user_in.role_name or roles.GENERAL
+        # Por defecto, registros públicos son PRODUCTOR.
+        target_role_name = user_in.role_name or roles.PRODUCTOR
         
-        # Si el rol solicitado no es GENERAL, se requiere ser SUPER_ADMIN
-        if target_role_name != roles.GENERAL:
+        # Si el rol solicitado no es PRODUCTOR, se requiere ser SUPER_ADMIN
+        if target_role_name != roles.PRODUCTOR:
             if not current_user or current_user.role.name != roles.SUPER_ADMIN:
                 logger.warning(f"Intento de registro no autorizado para rol {target_role_name} desde {request.client.host}")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, 
-                    detail="Solo un SUPER_ADMIN puede registrar usuarios con roles distintos a GENERAL"
+                    detail="Solo un SUPER_ADMIN puede registrar usuarios con roles distintos a PRODUCTOR"
                 )
 
         role = await db.role.find_unique(where={"name": target_role_name})
@@ -88,6 +88,7 @@ async def register(
                 "phone_number": user_in.phone_number,
                 "edad": user_in.edad,
                 "genero": user_in.genero.name if user_in.genero else None,
+                "nivel_educativo": user_in.nivel_educativo.name if user_in.nivel_educativo else None,
                 "password_hash": get_password_hash(user_in.password),
                 "role_id": role.id,
                 "status": "ACTIVO"
