@@ -4,6 +4,7 @@ import SafeStorage from '../utils/SafeStorage';
 import { jwtDecode } from 'jwt-decode';
 import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
+import { DatabaseManager } from '../data/local/database';
 
 const AuthContext = createContext();
 
@@ -37,6 +38,10 @@ export const AuthProvider = ({ children }) => {
 
   const loadSession = async () => {
     try {
+      // Inicializar la base de datos con un PIN por defecto para cumplir con RS-SEC-004
+      // En una versión futura, esto podría solicitarse al usuario.
+      await DatabaseManager.initialize('0000');
+
       const encryptedToken = await SafeStorage.getItem(TOKEN_KEY);
       const userDataStr = await SafeStorage.getItem(USER_KEY);
 

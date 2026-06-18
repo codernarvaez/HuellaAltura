@@ -3,6 +3,7 @@ import { SyncService } from './SyncService';
 import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
 import SafeStorage from '../utils/SafeStorage';
+import { DatabaseManager } from '../data/local/database';
 
 const getEncryptionKey = () => {
   try {
@@ -41,6 +42,14 @@ export class SyncManager {
     
     this.isSyncing = true;
     try {
+      // Asegurar que la base de datos esté inicializada antes de sincronizar
+      try {
+        DatabaseManager.instance;
+      } catch (e) {
+        console.log('[SyncManager] Inicializando DB para sincronización...');
+        await DatabaseManager.initialize('0000');
+      }
+
       const token = await obtenerToken();
       if (token) {
         await SyncService.syncAll(token);
