@@ -28,12 +28,16 @@ def listar_fincas(
     - Permite filtrar por provincia y cantón.
     - Esta entidad es complementaria a los expedientes y permite una gestión independiente de predios.
     """
-    where: dict = {}
-    if provincia:
-        where["provincia"] = provincia
-    if canton:
-        where["canton"] = canton
-    return db.finca.find_many(where=where)
+    try:
+        where: dict = {}
+        if provincia:
+            where["provincia"] = provincia
+        if canton:
+            where["canton"] = canton
+        fincas = db.finca.find_many(where=where)
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}")
 
 
 @router.get("/por-usuario/{usuario_id}", response_model=list[FincaOut], summary="Obtener fincas por usuario (productor)")
@@ -49,7 +53,11 @@ def obtener_fincas_por_usuario(
     - Busca por usuario_id (el ID del usuario de auth-service)
     - Retorna todas las fincas del usuario especificado
     """
-    return db.finca.find_many(where={"usuario_id": usuario_id})
+    try:
+        fincas = db.finca.find_many(where={"usuario_id": usuario_id})
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}")
 
 
 @router.post(
