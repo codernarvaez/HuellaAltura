@@ -91,12 +91,13 @@ class DatoAgroambientalBase(BaseModel):
 
 
 class DatoAgroambientalCreate(DatoAgroambientalBase):
+    finca_id: str = Field(..., description="ID de la finca asociada")
     variables: list["VariableDinamicaCreate"] | None = None
 
 
 class DatoAgroambientalOut(DatoAgroambientalBase):
     id: str
-    expediente_id: str
+    finca_id: str
     creado_en: datetime
     variables: list["VariableDinamicaOut"] = []
 
@@ -166,9 +167,8 @@ class FincaUpdate(BaseModel):
 # ─── Expediente ──────────────────────────────────────────────
 
 class ExpedienteCreate(BaseModel):
-    finca_id: str = Field(..., description="ID de la finca asociada")
+    dato_id: str = Field(..., description="ID del dato agroambiental asociado")
     organizacion_inquilino: str | None = None
-    datos_agroambientales: DatoAgroambientalCreate | None = None
 
 
 class ExpedienteUpdate(BaseModel):
@@ -178,12 +178,11 @@ class ExpedienteUpdate(BaseModel):
 
 class ExpedienteOut(BaseModel):
     id: str
+    dato_id: str
     estado: str
     organizacion_inquilino: str | None = None
-    finca: FincaOut
     creado_en: datetime
     actualizado_en: datetime
-    datos_agroambientales: list[DatoAgroambientalOut] = []
     historial: list[HistorialOut] = []
 
     class Config:
