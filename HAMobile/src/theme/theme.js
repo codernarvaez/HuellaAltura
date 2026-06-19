@@ -1,5 +1,5 @@
 export const theme = {
-  name: 'Altitude Trace',
+  name: 'Huella de Altura',
   colors: {
     surface: '#f5f7fa',
     onSurface: '#141b2b',

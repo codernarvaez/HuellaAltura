@@ -70,6 +70,7 @@ def crear_finca(
     **Lógica de Negocio:**
     - Vincula la finca a un usuario de auth-service (rol PRODUCTOR).
     - Genera automáticamente un `eudr_id` único.
+    - Permite guardar el polígono de la finca (GeoJSON o lista de coordenadas) enviado desde dispositivos móviles.
     """
     payload = data.model_dump()
     payload["eudr_id"] = generar_eudr_id()

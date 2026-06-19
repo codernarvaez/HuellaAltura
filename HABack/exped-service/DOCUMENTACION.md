@@ -155,6 +155,7 @@ Propiedad agrícola vinculada a un Usuario de auth-service con rol PRODUCTOR.
 | `tenencia` | String? | `PROPIA` / `POSESION` / `ARRENDAMIENTO` |
 | `latitud` | Float? | Coordenada |
 | `longitud` | Float? | Coordenada |
+| `poligono` | Json? | Datos del polígono (GeoJSON o lista de coordenadas) |
 | `creado_en` | DateTime | Fecha de creación |
 
 **Relaciones:** tiene muchos `Expediente` (cascade delete).
@@ -263,8 +264,10 @@ Información geoespacial de fincas, vinculadas a un Usuario de auth-service con 
 | `area_total_ha` | Float? | Área total (hectáreas) |
 | `area_cultivada_ha` | Float? | Área cultivada (hectáreas) |
 | `tenencia` | String? | `PROPIA` / `POSESION` / `ARRENDAMIENTO` |
-| `latitud` | Float? | Coordenada |
-| `longitud` | Float? | Coordenada |
+| `latitud` | Float? | Latitud |
+| `longitud` | Float? | Longitud |
+| `poligono` | Json? | Datos del polígono (GeoJSON o lista de coordenadas) |
+| `productor_id` | String? | FK a usuarios |
 | `creado_en` | DateTime | Fecha de creación |
 
 ---
@@ -888,6 +891,18 @@ Crea una nueva finca.
   "tenencia": "PROPIA",
   "latitud": -4.0,
   "longitud": -79.2,
+  "poligono": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-79.2, -4.0],
+        [-79.1, -4.0],
+        [-79.1, -4.1],
+        [-79.2, -4.1],
+        [-79.2, -4.0]
+      ]
+    ]
+  },
   "productor_id": "uuid-del-usuario"
 }
 ```

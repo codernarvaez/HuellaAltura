@@ -9,15 +9,65 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAlert } from '../../contexts/AlertContext';
 import { theme } from '../../theme/theme';
-import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
+import { 
+  ChevronLeft, 
+  Eye, 
+  EyeOff, 
+  User, 
+  Mail, 
+  Lock, 
+  Smartphone, 
+  CreditCard, 
+  Calendar,
+  GraduationCap,
+  Mars,
+  Venus,
+  MoreHorizontal
+} from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
+
+// Moviendo InputField fuera para evitar que el teclado se cierre al re-renderizar
+const InputField = ({ icon: Icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, autoCapitalize, showEye, onEyePress, eyeOpen }) => (
+  <View style={styles.inputWrapper}>
+    <View style={styles.inputIconContainer}>
+      <Icon size={22} color={theme.colors.primary} />
+    </View>
+    <TextInput
+      style={styles.textInput}
+      placeholder={placeholder}
+      placeholderTextColor={theme.colors.outline}
+      value={value}
+      onChangeText={onChangeText}
+      secureTextEntry={secureTextEntry}
+      keyboardType={keyboardType}
+      autoCapitalize={autoCapitalize}
+    />
+    {showEye && (
+      <TouchableOpacity onPress={onEyePress} style={styles.eyeIcon}>
+        {eyeOpen ? <EyeOff size={20} color={theme.colors.onSurfaceVariant} /> : <Eye size={20} color={theme.colors.onSurfaceVariant} />}
+      </TouchableOpacity>
+    )}
+  </View>
+);
 
 const RegistrationScreen = ({ navigation }) => {
   const { register, loading } = useAuth();
   const { showAlert } = useAlert();
+  
+  const nivelesEducativos = ['Ninguno', 'Primaria', 'Secundaria', 'Superior', 'Postgrado'];
+  const opcionesGenero = [
+    { label: 'Masculino', value: 'Masculino', icon: Mars },
+    { label: 'Femenino', value: 'Femenino', icon: Venus },
+    { label: 'Otro', value: 'Prefiero no decirlo', icon: MoreHorizontal },
+  ];
   
   const [formData, setFormData] = useState({
     email: '',
@@ -29,6 +79,7 @@ const RegistrationScreen = ({ navigation }) => {
     phone_number: '',
     edad: '',
     genero: 'Masculino',
+    nivel_educativo: 'Ninguno',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -36,77 +87,38 @@ const RegistrationScreen = ({ navigation }) => {
   const [error, setError] = useState('');
 
   const handleChange = (name, value) => {
-    setFormData({ ...formData, [name]: value });
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
 
   const validateEcuadorianId = (id) => {
     if (!id || id.length !== 10) return false;
-    
     const digits = id.split('').map(Number);
     if (digits.some(isNaN)) return false;
-
     const province = parseInt(id.substring(0, 2));
     if (!((province >= 1 && province <= 24) || province === 30)) return false;
-
     const thirdDigit = digits[2];
     if (thirdDigit >= 6) return false;
-
     let sum = 0;
     for (let i = 0; i < 9; i++) {
       let val = digits[i];
-      if (i % 2 === 0) { // Odd positions in human terms (0, 2, 4...)
-        val *= 2;
-        if (val > 9) val -= 9;
-      }
+      if (i % 2 === 0) { val *= 2; if (val > 9) val -= 9; }
       sum += val;
     }
-
     const verifier = (Math.ceil(sum / 10) * 10) - sum;
     return verifier === digits[9] || (sum % 10 === 0 && digits[9] === 0);
   };
 
   const handleRegister = async () => {
-    // Basic validation
-    if (!formData.first_name.trim()) {
-      showAlert('Campo Requerido', 'El nombre es requerido.', 'warning');
-      return;
-    }
-    if (!formData.last_name.trim()) {
-      showAlert('Campo Requerido', 'El apellido es requerido.', 'warning');
-      return;
-    }
-    
-    if (!validateEcuadorianId(formData.cedula_id)) {
-      showAlert('Validación de Identidad', 'La identificación (cédula) no es válida.', 'error');
-      return;
-    }
+    if (!formData.first_name.trim()) { showAlert('Campo Requerido', 'El nombre es requerido.', 'warning'); return; }
+    if (!formData.last_name.trim()) { showAlert('Campo Requerido', 'El apellido es requerido.', 'warning'); return; }
+    if (!validateEcuadorianId(formData.cedula_id)) { showAlert('Validación de Identidad', 'La identificación (cédula) no es válida.', 'error'); return; }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      showAlert('Correo Inválido', 'Por favor ingrese un correo electrónico válido.', 'warning');
-      return;
-    }
-
-    if (formData.phone_number.length < 9) {
-      showAlert('Teléfono Inválido', 'El número de teléfono no es válido.', 'warning');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      showAlert('Seguridad', 'La contraseña debe tener al menos 6 caracteres.', 'warning');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      showAlert('Error de Coincidencia', 'Las contraseñas no coinciden.', 'error');
-      return;
-    }
-
-    if (formData.edad && (parseInt(formData.edad) < 12 || parseInt(formData.edad) > 100)) {
-      showAlert('Edad No Válida', 'Por favor ingrese una edad válida.', 'warning');
-      return;
-    }
+    if (!emailRegex.test(formData.email)) { showAlert('Correo Inválido', 'Ingrese un correo electrónico válido.', 'warning'); return; }
+    if (formData.phone_number.length < 9) { showAlert('Teléfono Inválido', 'El número de teléfono no es válido.', 'warning'); return; }
+    if (formData.password.length < 6) { showAlert('Seguridad', 'La contraseña debe tener al menos 6 caracteres.', 'warning'); return; }
+    if (formData.password !== formData.confirmPassword) { showAlert('Error de Coincidencia', 'Las contraseñas no coinciden.', 'error'); return; }
 
     const { confirmPassword, ...registerPayload } = formData;
     const payload = {
@@ -117,16 +129,12 @@ const RegistrationScreen = ({ navigation }) => {
       identifier: registerPayload.cedula_id.trim(),
       edad: parseInt(formData.edad) || 0,
       genero: formData.genero,
-      // role_name and status are handled with defaults in AuthContext
+      nivel_educativo: formData.nivel_educativo,
     };
     
-    // Remove old field name if it exists in spread
     delete payload.cedula_id;
 
-    console.log('[RegistrationScreen] Llamando a register con payload:', payload);
     const result = await register(payload);
-    console.log('[RegistrationScreen] Resultado de register:', result);
-
     if (result.success) {
       showAlert('Éxito', 'Registro completado. Por favor, inicie sesión.', 'success', () => navigation.goBack());
     } else {
@@ -136,132 +144,321 @@ const RegistrationScreen = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.onPrimaryFixed]}
+        style={styles.headerGradient}
       >
-        <View style={styles.header}>
+        <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ChevronLeft size={24} color={theme.colors.onPrimaryFixed} />
+            <ChevronLeft size={28} color={theme.colors.onPrimary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Nueva Cuenta</Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Registro</Text>
+            <Text style={styles.headerSubtitle}>Crea tu cuenta para comenzar</Text>
+          </View>
         </View>
+      </LinearGradient>
 
-        <View style={styles.form}>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      <View style={styles.contentCard}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorMessage}>{error}</Text>
+              </View>
+            ) : null}
 
-          <View style={styles.inputSection}>
             <Text style={styles.sectionLabel}>Datos Personales</Text>
             <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.inputLabel}>Nombres *</Text>
-                <TextInput style={styles.input} placeholder="Juan" value={formData.first_name} onChangeText={(text) => handleChange('first_name', text)} />
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <InputField icon={User} placeholder="Nombre" value={formData.first_name} onChangeText={(t) => handleChange('first_name', t)} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.inputLabel}>Apellidos *</Text>
-                <TextInput style={styles.input} placeholder="Pérez" value={formData.last_name} onChangeText={(text) => handleChange('last_name', text)} />
+                <InputField icon={User} placeholder="Apellido" value={formData.last_name} onChangeText={(t) => handleChange('last_name', t)} />
               </View>
             </View>
 
+            <InputField icon={CreditCard} placeholder="Identificación" value={formData.cedula_id} onChangeText={(t) => handleChange('cedula_id', t)} keyboardType="numeric" />
+            
             <View style={styles.row}>
-              <View style={{ flex: 1.5, marginRight: 8 }}>
-                <Text style={styles.inputLabel}>Identificación *</Text>
-                <TextInput style={styles.input} placeholder="Cédula/RUC" value={formData.cedula_id} onChangeText={(text) => handleChange('cedula_id', text)} />
+              <View style={{ flex: 0.8, marginRight: 10 }}>
+                <InputField icon={Calendar} placeholder="Edad" value={formData.edad} onChangeText={(t) => handleChange('edad', t)} keyboardType="numeric" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputLabel}>Edad</Text>
-                <TextInput style={styles.input} placeholder="0" value={formData.edad} onChangeText={(text) => handleChange('edad', text)} keyboardType="numeric" />
+              <View style={{ flex: 1.2 }}>
+                <View style={styles.genderRow}>
+                  {opcionesGenero.map((opcion) => (
+                    <TouchableOpacity 
+                      key={opcion.value}
+                      style={[styles.genderBox, formData.genero === opcion.value && styles.genderBoxActive]} 
+                      onPress={() => handleChange('genero', opcion.value)}
+                    >
+                      <opcion.icon size={20} color={formData.genero === opcion.value ? theme.colors.onPrimary : theme.colors.outline} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.miniLabel}>{formData.genero}</Text>
               </View>
             </View>
-            
-            <Text style={styles.inputLabel}>Género</Text>
-            <View style={styles.genderContainer}>
-              <TouchableOpacity 
-                style={[styles.genderButton, formData.genero === 'Masculino' && styles.genderButtonActive]} 
-                onPress={() => handleChange('genero', 'Masculino')}
-              >
-                <Text style={[styles.genderButtonText, formData.genero === 'Masculino' && styles.genderButtonTextActive]}>Masculino</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.genderButton, formData.genero === 'Femenino' && styles.genderButtonActive]} 
-                onPress={() => handleChange('genero', 'Femenino')}
-              >
-                <Text style={[styles.genderButtonText, formData.genero === 'Femenino' && styles.genderButtonTextActive]}>Femenino</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
-          <View style={styles.inputSection}>
+            <Text style={styles.sectionLabel}>Educación</Text>
+            <View style={styles.eduContainer}>
+              <GraduationCap size={20} color={theme.colors.primary} style={{ marginRight: 10 }} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eduChips}>
+                {nivelesEducativos.map((nivel) => (
+                  <TouchableOpacity 
+                    key={nivel} 
+                    style={[styles.eduChip, formData.nivel_educativo === nivel && styles.eduChipActive]}
+                    onPress={() => handleChange('nivel_educativo', nivel)}
+                  >
+                    <Text style={[styles.eduChipText, formData.nivel_educativo === nivel && styles.eduChipTextActive]}>{nivel}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
             <Text style={styles.sectionLabel}>Contacto y Seguridad</Text>
-            <Text style={styles.inputLabel}>Correo Electrónico *</Text>
-            <TextInput style={styles.input} placeholder="correo@ejemplo.com" value={formData.email} onChangeText={(text) => handleChange('email', text)} keyboardType="email-address" autoCapitalize="none" />
+            <InputField icon={Mail} placeholder="Correo Electrónico" value={formData.email} onChangeText={(t) => handleChange('email', t)} keyboardType="email-address" autoCapitalize="none" />
+            <InputField icon={Smartphone} placeholder="Número de Teléfono" value={formData.phone_number} onChangeText={(t) => handleChange('phone_number', t)} keyboardType="phone-pad" />
             
-            <Text style={styles.inputLabel}>Teléfono *</Text>
-            <TextInput style={styles.input} placeholder="0999999999" value={formData.phone_number} onChangeText={(text) => handleChange('phone_number', text)} keyboardType="phone-pad" />
+            <InputField 
+              icon={Lock} placeholder="Contraseña" value={formData.password} onChangeText={(t) => handleChange('password', t)} 
+              secureTextEntry={!showPassword} showEye onEyePress={() => setShowPassword(!showPassword)} eyeOpen={showPassword}
+            />
             
-            <Text style={styles.inputLabel}>Contraseña *</Text>
-            <View style={styles.passwordWrapper}>
-              <TextInput 
-                style={[styles.input, { flex: 1, marginBottom: 0 }]} 
-                placeholder="Mínimo 6 caracteres" 
-                value={formData.password} 
-                onChangeText={(text) => handleChange('password', text)} 
-                secureTextEntry={!showPassword} 
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                {showPassword ? <EyeOff size={20} color="#666" /> : <Eye size={20} color="#666" />}
+            <InputField 
+              icon={Lock} placeholder="Confirmar Contraseña" value={formData.confirmPassword} onChangeText={(t) => handleChange('confirmPassword', t)} 
+              secureTextEntry={!showConfirmPassword} showEye onEyePress={() => setShowConfirmPassword(!showConfirmPassword)} eyeOpen={showConfirmPassword}
+            />
+
+            <TouchableOpacity 
+              style={[styles.registerButton, loading && styles.buttonDisabled]} 
+              onPress={handleRegister} 
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.registerButtonText}>Crear Cuenta</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>¿Ya tienes una cuenta? </Text>
+              <TouchableOpacity onPress={() => navigation.goBack()}>
+                <Text style={styles.loginLink}>Ingresa aquí</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Confirmar Contraseña *</Text>
-            <View style={styles.passwordWrapper}>
-              <TextInput 
-                style={[styles.input, { flex: 1, marginBottom: 0 }]} 
-                placeholder="Repita su contraseña" 
-                value={formData.confirmPassword} 
-                onChangeText={(text) => handleChange('confirmPassword', text)} 
-                secureTextEntry={!showConfirmPassword} 
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
-                {showConfirmPassword ? <EyeOff size={20} color="#666" /> : <Eye size={20} color="#666" />}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.registerButton} onPress={handleRegister} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerButtonText}>Crear Cuenta</Text>}
-          </TouchableOpacity>
-          
-          <View style={{ height: 20 }} />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f7f6' },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: Platform.OS === 'ios' ? 50 : 30 },
-  backButton: { padding: 8, marginRight: 4 },
-  title: { fontSize: 22, fontWeight: 'bold', color: theme.colors.onPrimaryFixed },
-  form: { flex: 1 },
-  inputSection: { marginBottom: 20 },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#666', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 5, marginLeft: 4 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e1e1e1', borderRadius: 12, padding: 12, fontSize: 15, color: '#333', marginBottom: 10 },
-  passwordWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e1e1e1', borderRadius: 12, marginBottom: 10 },
-  eyeIcon: { padding: 12 },
-  genderContainer: { flexDirection: 'row', backgroundColor: '#eee', borderRadius: 12, padding: 4 },
-  genderButton: { flex: 1, padding: 10, alignItems: 'center', borderRadius: 10 },
-  genderButtonActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-  genderButtonText: { fontSize: 14, fontWeight: '600', color: '#777' },
-  genderButtonTextActive: { color: theme.colors.primary },
-  row: { flexDirection: 'row' },
-  errorText: { color: theme.colors.error, marginBottom: 15, textAlign: 'center', fontSize: 14, fontWeight: '500' },
-  registerButton: { backgroundColor: theme.colors.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  registerButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  headerGradient: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 60,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    ...theme.typography.headlineMd,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    ...theme.typography.bodyMd,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  contentCard: {
+    flex: 1,
+    marginTop: -30,
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 24,
+  },
+  scrollContent: {
+    paddingTop: 30,
+    paddingBottom: 40,
+  },
+  sectionLabel: {
+    ...theme.typography.labelSm,
+    color: theme.colors.primary,
+    fontWeight: '700',
+    marginBottom: 12,
+    marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    height: 52,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  inputIconContainer: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    ...theme.typography.bodyMd,
+    color: theme.colors.onSurface,
+  },
+  eyeIcon: {
+    padding: 8,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    padding: 4,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  genderBox: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  genderBoxActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  miniLabel: {
+    fontSize: 10,
+    color: theme.colors.outline,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  eduContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: '#F8F9FA',
+    padding: 10,
+    borderRadius: 12,
+  },
+  eduChips: {
+    paddingRight: 10,
+  },
+  eduChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E1E1E1',
+    marginRight: 8,
+  },
+  eduChipActive: {
+    backgroundColor: theme.colors.primaryContainer,
+    borderColor: theme.colors.primary,
+  },
+  eduChipText: {
+    fontSize: 12,
+    color: theme.colors.outline,
+  },
+  eduChipTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  registerButton: {
+    backgroundColor: theme.colors.primary,
+    height: 56,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  registerButtonText: {
+    ...theme.typography.labelMd,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
+  footerText: {
+    ...theme.typography.bodyMd,
+    color: theme.colors.outline,
+  },
+  loginLink: {
+    ...theme.typography.bodyMd,
+    color: theme.colors.primary,
+    fontWeight: '700',
+  },
+  errorContainer: {
+    backgroundColor: '#FFE5E5',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FFB2B2',
+  },
+  errorMessage: {
+    color: '#D32F2F',
+    fontSize: 13,
+    textAlign: 'center',
+  },
 });
 
 export default RegistrationScreen;

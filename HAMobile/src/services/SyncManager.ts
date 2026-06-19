@@ -31,7 +31,6 @@ export class SyncManager {
   static initialize() {
     NetInfo.addEventListener(state => {
       if (state.isConnected && state.isInternetReachable) {
-        console.log('Conexión detectada, iniciando sincronización...');
         this.triggerSync();
       }
     });
@@ -42,11 +41,9 @@ export class SyncManager {
     
     this.isSyncing = true;
     try {
-      // Asegurar que la base de datos esté inicializada antes de sincronizar
       try {
         DatabaseManager.instance;
       } catch (e) {
-        console.log('[SyncManager] Inicializando DB para sincronización...');
         await DatabaseManager.initialize('0000');
       }
 

@@ -98,7 +98,16 @@ const LoginScreen = ({ navigation }) => {
           >
             {/* Branding Section */}
             <View style={styles.brandingSection}>
-              <Text style={styles.brandTitle}>Huella de Altura</Text>
+              <View style={styles.titleRow}>
+                <View style={styles.smallIconContainer}>
+                  <Image 
+                    source={require('../../../assets/Icon.png')}
+                    style={styles.smallLogoImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={styles.brandTitle}>Huella de Altura</Text>
+              </View>
               <Text style={styles.brandTagline}>Precisión en cada grano</Text>
             </View>
 
@@ -239,6 +248,24 @@ const styles = StyleSheet.create({
   brandingSection: {
     alignItems: 'center',
     marginBottom: 32,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallIconContainer: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  smallLogoImage: {
+    width: 24,
+    height: 24,
   },
   brandTitle: {
     ...theme.typography.headlineLg,
