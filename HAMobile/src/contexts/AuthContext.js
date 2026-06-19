@@ -280,8 +280,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUserProfile = async (newUserData) => {
+    try {
+      // 1. Guardar en SQLite
+      const savedLocal = await saveUserToLocalDB(newUserData);
+      if (savedLocal) {
+        // 2. Guardar en SafeStorage
+        await SafeStorage.setItem(USER_KEY, JSON.stringify(newUserData));
+        // 3. Actualizar estado global
+        setUser(newUserData);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('[AuthContext] Error actualizando perfil localmente:', e);
+      return false;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, loading, signIn, register, signOut }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, loading, signIn, register, signOut, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

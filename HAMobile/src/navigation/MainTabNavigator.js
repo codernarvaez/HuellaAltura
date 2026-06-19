@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ScreenOne from '../screens/main/ScreenOne';
-import RegistroFincaScreen from '../screens/main/RegistroFincaScreen';
+import RegistroFincaScreen from '../screens/main/registro-finca';
 import ScreenThree from '../screens/main/ScreenThree';
 import { theme } from '../theme/theme';
 import { LayoutDashboard, MapPin, User } from 'lucide-react-native';

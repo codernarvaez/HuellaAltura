@@ -9,16 +9,16 @@ class UserStatus(str, Enum):
     PENDIENTE = "PENDIENTE"
 
 class Genero(str, Enum):
-    MASCULINO = "Masculino"
-    FEMENINO = "Femenino"
-    OTRO = "Prefiero no decirlo"
+    MASCULINO = "MASCULINO"
+    FEMENINO = "FEMENINO"
+    OTRO = "OTRO"
 
 class NivelEducativo(str, Enum):
-    PRIMARIA = "Primaria"
-    SECUNDARIA = "Secundaria"
-    SUPERIOR = "Superior"
-    POSTGRADO = "Postgrado"
-    NINGUNO = "Ninguno"
+    PRIMARIA = "PRIMARIA"
+    SECUNDARIA = "SECUNDARIA"
+    SUPERIOR = "SUPERIOR"
+    POSTGRADO = "POSTGRADO"
+    NINGUNO = "NINGUNO"
 
 class RoleOut(BaseModel):
     id: str
