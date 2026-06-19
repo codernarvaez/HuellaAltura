@@ -355,8 +355,8 @@ def require_roles(*allowed: str):
 
 | Recurso | GET (listar/leer) | POST (crear) | PATCH/PUT | DELETE / Revocar |
 |---|---|---|---|---|
-| Expedientes | Cualquier token | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO | SUPER_ADMIN, TENANT_ADMIN |
-| Agroambiental | Cualquier token | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO | — |
+| Expedientes | Cualquier token | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, PRODUCTOR | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO | SUPER_ADMIN, TENANT_ADMIN |
+| Agroambiental | Cualquier token | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO, PRODUCTOR | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO | — |
 | Usuarios | SUPER_ADMIN, TENANT_ADMIN | SUPER_ADMIN, TENANT_ADMIN | SUPER_ADMIN, TENANT_ADMIN | SUPER_ADMIN, TENANT_ADMIN |
 | Roles | Cualquier token | SUPER_ADMIN | — | SUPER_ADMIN |
 | Fincas | Cualquier token | Cualquier token | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO | SUPER_ADMIN, TENANT_ADMIN |
@@ -423,7 +423,7 @@ Lista todos los expedientes. Soporta filtros por query params.
 #### `POST /`
 Crea un nuevo expediente. Genera `eudr_id` automáticamente y registra el primer evento en el historial.
 
-**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO
+**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, PRODUCTOR
 
 **Body:**
 ```json
@@ -604,7 +604,7 @@ Lista los datos agroambientales de un expediente.
 #### `POST /{expediente_id}`
 Agrega un nuevo registro de datos agroambientales. Registra automáticamente un evento en el historial.
 
-**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO
+**Auth:** SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO, PRODUCTOR
 
 **Body:**
 ```json

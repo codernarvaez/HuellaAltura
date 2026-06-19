@@ -261,12 +261,21 @@ export const useRegistroFinca = (navigation) => {
         }
       }
 
-      showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.', 'success', () => navigation.goBack());
-
       const token = await obtenerToken();
       if (token) {
         const { SyncService } = require('@/services/SyncService');
-        SyncService.syncAll(token).catch(e => console.warn('Sync fallido:', e));
+        const syncResult = await SyncService.syncAll(token);
+        
+        if (!syncResult.success) {
+          // Hubo un error devuelto por la API o la red, mostramos el error
+          showAlert('Error de Sincronización', syncResult.error || 'Error desconocido al sincronizar', 'error', () => navigation.goBack());
+        } else {
+          // Sincronización exitosa
+          showAlert('Éxito', 'Finca registrada y sincronizada correctamente.', 'success', () => navigation.goBack());
+        }
+      } else {
+        // No hay token, guardado offline
+        showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al conectarse.', 'success', () => navigation.goBack());
       }
 
       setStep(1); setPuntos([]); setNombreFinca(''); setCamposDinamicos([]);
