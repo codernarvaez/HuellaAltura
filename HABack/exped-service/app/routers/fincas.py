@@ -74,8 +74,14 @@ def crear_finca(
     """
     payload = data.model_dump()
 
-    if payload.get("poligono") is not None:
-        payload["poligono"] = Json(payload["poligono"])
+    poligono = payload.get("poligono")
+    if poligono:
+        try:
+            payload["poligono"] = Json(poligono)
+        except:
+            payload["poligono"] = None
+    else:
+        payload["poligono"] = None
 
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
@@ -121,7 +127,18 @@ def actualizar_finca(
     if current_user.get("role") == "PRODUCTOR" and finca.usuario_id != current_user.get("sub"):
         raise HTTPException(status_code=403, detail="No tienes permiso para editar esta finca")
 
-    return db.finca.update(where={"id": finca_id}, data=data.model_dump(exclude_unset=True))
+    payload = data.model_dump(exclude_unset=True)
+    if "poligono" in payload:
+        poligono = payload.get("poligono")
+        if poligono:
+            try:
+                payload["poligono"] = Json(poligono)
+            except:
+                payload["poligono"] = None
+        else:
+            payload["poligono"] = None
+
+    return db.finca.update(where={"id": finca_id}, data=payload)
 
 
 @router.delete(
