@@ -67,44 +67,49 @@ async def sync_upload(
 
     # Usamos una transacción para asegurar integridad
     async with db.tx() as transaction:
-        
+
         # 1. Sincronizar Fincas
         for finca in payload.fincas:
             # Forzamos que la finca pertenezca al usuario si es rol PRODUCTOR
-            p_id = user_id if current_user.get("role") == "PRODUCTOR" else finca.productor_id
-            
+            # usuario_id vincula la finca al usuario (que tiene rol PRODUCTOR en auth-service)
+            u_id = user_id if current_user.get("role") == "PRODUCTOR" else finca.usuario_id
+
+            finca_data = finca.model_dump()
+            finca_data["usuario_id"] = u_id
+
             await transaction.finca.upsert(
                 where={"id": finca.id},
                 data={
-                    "create": {**finca.model_dump(), "productor_id": p_id},
-                    "update": finca.model_dump(exclude={"id", "productor_id"})
+                    "create": finca_data,
+                    "update": {k: v for k, v in finca_data.items() if k not in ["id"]}
                 }
             )
             counts["fincas"] += 1
 
-        # 2. Sincronizar Expedientes
-        for exp in payload.expedientes:
-            p_id = user_id if current_user.get("role") == "PRODUCTOR" else exp.productor_id
-            
-            await transaction.expediente.upsert(
-                where={"id": exp.id},
-                data={
-                    "create": {**exp.model_dump(exclude={"datos_agroambientales"}), "productor_id": p_id},
-                    "update": exp.model_dump(exclude={"id", "productor_id", "datos_agroambientales"})
-                }
-            )
-            counts["expedientes"] += 1
-
-        # 3. Sincronizar Datos Agroambientales
+        # 2. Sincronizar Datos Agroambientales (ANTES que Expedientes)
         for dato in payload.datos_agroambientales:
             await transaction.dato.upsert(
                 where={"id": dato.id},
                 data={
                     "create": dato.model_dump(exclude={"variables"}),
-                    "update": dato.model_dump(exclude={"id", "expediente_id", "variables"})
+                    "update": dato.model_dump(exclude={"id", "variables"})
                 }
             )
             counts["datos"] += 1
+
+        # 3. Sincronizar Expedientes (DESPUÉS de Datos)
+        for exp in payload.expedientes:
+            # Expediente necesita dato_id (que vincula a Dato que vincula a Finca)
+            exp_data = exp.model_dump()
+
+            await transaction.expediente.upsert(
+                where={"id": exp.id},
+                data={
+                    "create": exp_data,
+                    "update": {k: v for k, v in exp_data.items() if k not in ["id"]}
+                }
+            )
+            counts["expedientes"] += 1
 
         # 4. Sincronizar Variables Dinámicas
         for var in payload.variables_dinamicas:

@@ -15,9 +15,6 @@ from app.schemas.schemas import (
 router = APIRouter()
 
 _INCLUDE = {
-    "productor": True,
-    "finca": True,
-    "datos_agroambientales": {"include": {"variables": True}},
     "historial": True,
 }
 
@@ -51,7 +48,7 @@ def listar_expedientes(
     "/",
     response_model=ExpedienteOut,
     status_code=201,
-    summary="Crear nuevo expediente",
+    summary="Crear nuevo expediente (paso 3)",
     dependencies=[Depends(log_user_action("create_expediente"))],
 )
 def crear_expediente(
@@ -62,29 +59,26 @@ def crear_expediente(
     """
     Registra un nuevo expediente en el sistema.
 
+    **Flujo de creación:**
+    1. POST /fincas/ → crear Finca
+    2. POST /agroambiental/ → crear Datos Agroambientales
+    3. POST /expedientes/ → crear Expediente (AQUÍ)
+
     **Lógica de Negocio:**
-    - Verifica la existencia del productor y la finca vinculados.
-    - Si el usuario es un `PRODUCTOR`, se fuerza que el `productor_id` sea el suyo propio.
+    - Verifica la existencia del dato agroambiental.
+    - El dato vincula la Finca con el Expediente.
     - Registra un evento inicial en el historial de trazabilidad.
     """
-    productor_id = data.productor_id
-    if current_user.get("role") == "PRODUCTOR":
-        productor_id = current_user.get("sub")
+    dato = db.dato.find_first(where={"id": data.dato_id})
+    if not dato:
+        raise HTTPException(status_code=404, detail="Dato agroambiental no encontrado")
 
-    productor = db.productor.find_first(where={"id": productor_id})
-    if not productor:
-        raise HTTPException(status_code=404, detail="Productor no encontrado")
-
-    finca = db.finca.find_first(where={"id": data.finca_id})
+    finca = db.finca.find_first(where={"id": dato.finca_id})
     if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
 
-    dato_nested = data.datos_agroambientales
-    create_data = data.model_dump(exclude={"datos_agroambientales"})
-    desc = (
-        f"Registro inicial del productor {productor.nombre_completo} "
-        f"- Finca {finca.nombre}"
-    )
+    create_data = data.model_dump()
+    desc = f"Expediente creado para la finca {finca.nombre} con datos agroambientales"
     create_data["historial"] = {
         "create": [{
             "accion": "Expediente creado",
@@ -92,23 +86,8 @@ def crear_expediente(
             "usuario": current_user.get("sub", "sistema"),
         }]
     }
-    variables_pendientes = []
-    if dato_nested:
-        dato_data = dato_nested.model_dump(exclude={"variables"})
-        create_data["datos_agroambientales"] = {"create": [dato_data]}
-        variables_pendientes = dato_nested.variables or []
 
     expediente = db.expediente.create(data=create_data, include=_INCLUDE)
-
-    if variables_pendientes and expediente.datos_agroambientales:
-        dato_id = expediente.datos_agroambientales[0].id
-        for v in variables_pendientes:
-            db.variabledinamica.create(data={"dato_id": dato_id, **v.model_dump()})
-        return db.expediente.find_first(
-            where={"id": expediente.id},
-            include=_INCLUDE,
-        )
-
     return expediente
 
 
@@ -127,11 +106,17 @@ def buscar_por_eudr(
 
     **Relaciones:**
     - Útil para sistemas externos que solo conocen el `eudr_id` de la finca y no el UUID interno del expediente.
+    - El expediente se vincula a través del Dato Agroambiental.
     """
     finca = db.finca.find_first(where={"eudr_id": eudr_id})
     if not finca:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
-    exp = db.expediente.find_first(where={"finca_id": finca.id}, include=_INCLUDE)
+
+    dato = db.dato.find_first(where={"finca_id": finca.id})
+    if not dato:
+        raise HTTPException(status_code=404, detail="Datos agroambientales no encontrados")
+
+    exp = db.expediente.find_first(where={"dato_id": dato.id}, include=_INCLUDE)
     if not exp:
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     return exp

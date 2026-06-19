@@ -27,6 +27,7 @@ class EstadoEnum(StrEnum):
 class RolNombreEnum(StrEnum):
     SUPER_ADMIN = "SUPER_ADMIN"
     TENANT_ADMIN = "TENANT_ADMIN"
+    PRODUCTOR = "PRODUCTOR"
     TECNICO_CAMPO = "TECNICO_CAMPO"
     AUDITOR_INTERNO = "AUDITOR_INTERNO"
 
@@ -91,12 +92,13 @@ class DatoAgroambientalBase(BaseModel):
 
 
 class DatoAgroambientalCreate(DatoAgroambientalBase):
+    finca_id: str = Field(..., description="ID de la finca asociada")
     variables: list["VariableDinamicaCreate"] | None = None
 
 
 class DatoAgroambientalOut(DatoAgroambientalBase):
     id: str
-    expediente_id: str
+    finca_id: str
     creado_en: datetime
     variables: list["VariableDinamicaOut"] = []
 
@@ -121,38 +123,17 @@ class HistorialOut(HistorialCreate):
         from_attributes = True
 
 
-# ─── Productor ───────────────────────────────────────────────
+# ─── Usuario (gestionado por auth-service) ──────────────────
 
-class ProductorCreate(BaseModel):
-    nombre_completo: str = Field(..., example="José Miguel Mosquera")
-    cedula_id: str = Field(..., example="1100433455")
-    organizacion: str | None = Field(None, example="Asociación APECAEL")
-    celular: str | None = None
-    genero: GeneroEnum | None = None
-    edad: int | None = None
-
-
-class ProductorUpdate(BaseModel):
-    nombre_completo: str | None = None
-    organizacion: str | None = None
-    celular: str | None = None
-    genero: GeneroEnum | None = None
-    edad: int | None = None
-
-
-class ProductorOut(ProductorCreate):
-    id: str
-    creado_en: datetime
-    actualizado_en: datetime
-
-    class Config:
-        from_attributes = True
+# Los productores/usuarios se crean y gestionan en auth-service
+# No hay modelo local de Productor en exped-service
 
 
 # ─── Finca ───────────────────────────────────────────────────
 
 class FincaCreate(BaseModel):
     nombre: str = Field(..., example="El Ahuacate")
+    usuario_id: str = Field(..., example="uuid-del-usuario", description="ID del usuario (productor) de auth-service")
     provincia: str | None = Field(None, example="Loja")
     canton: str | None = Field(None, example="Loja")
     parroquia: str | None = None
@@ -190,10 +171,8 @@ class FincaUpdate(BaseModel):
 # ─── Expediente ──────────────────────────────────────────────
 
 class ExpedienteCreate(BaseModel):
-    productor_id: str
-    finca_id: str
+    dato_id: str = Field(..., description="ID del dato agroambiental asociado")
     organizacion_inquilino: str | None = None
-    datos_agroambientales: DatoAgroambientalCreate | None = None
 
 
 class ExpedienteUpdate(BaseModel):
@@ -203,13 +182,11 @@ class ExpedienteUpdate(BaseModel):
 
 class ExpedienteOut(BaseModel):
     id: str
+    dato_id: str
     estado: str
     organizacion_inquilino: str | None = None
-    productor: ProductorOut
-    finca: FincaOut
     creado_en: datetime
     actualizado_en: datetime
-    datos_agroambientales: list[DatoAgroambientalOut] = []
     historial: list[HistorialOut] = []
 
     class Config:

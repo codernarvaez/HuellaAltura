@@ -10,26 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Expediente {
-  id                     String   @id @default(uuid())
-  finca_id               String
-  estado                 String   @default("PENDIENTE")
-  organizacion_inquilino String?
-  creado_en              DateTime @default(now())
-  actualizado_en         DateTime @updatedAt
-
-  finca                  Finca         @relation(fields: [finca_id], references: [id], onDelete: Cascade)
-  datos_agroambientales  Dato[]
-  historial              Historial[]
-  auditorias             Auditoria[]
-  certificados           Certificado[]
-
-  @@map("expedientes")
-}
-
 model Dato {
   id                     String     @id @default(uuid())
-  expediente_id          String
+  finca_id               String
   indice_shannon         Float?
   indice_simpson         Float?
   uso_suelo              String?
@@ -42,10 +25,27 @@ model Dato {
   total_stock_carbono    Float?
   creado_en              DateTime   @default(now())
 
-  expediente             Expediente       @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
+  finca                  Finca              @relation(fields: [finca_id], references: [id], onDelete: Cascade)
+  expediente             Expediente?
   variables              VariableDinamica[]
 
   @@map("datos_agroambientales")
+}
+
+model Expediente {
+  id                     String   @id @default(uuid())
+  dato_id                String   @unique
+  estado                 String   @default("PENDIENTE")
+  organizacion_inquilino String?
+  creado_en              DateTime @default(now())
+  actualizado_en         DateTime @updatedAt
+
+  dato                   Dato              @relation(fields: [dato_id], references: [id], onDelete: Cascade)
+  historial              Historial[]
+  auditorias             Auditoria[]
+  certificados           Certificado[]
+
+  @@map("expedientes")
 }
 
 model VariableDinamica {
@@ -89,7 +89,7 @@ model Finca {
   poligono          Json?
   creado_en         DateTime @default(now())
 
-  expedientes       Expediente[]
+  datos_agroambientales  Dato[]
 
   @@map("fincas")
 }

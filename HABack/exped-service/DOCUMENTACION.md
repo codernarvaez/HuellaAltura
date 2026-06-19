@@ -67,9 +67,9 @@ El sistema se integra con un módulo externo de autenticación (`auth-service`) 
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐  │
 │  │Expedientes│ │Auditoria │ │Certific. │ │Usuarios   │  │
 │  └──────────┘ └──────────┘ └──────────┘ └───────────┘  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                 │
-│  │Agroamb.  │ │Productores│ │Fincas    │                 │
-│  └──────────┘ └──────────┘ └──────────┘                 │
+│  ┌──────────┐ ┌──────────┐                                │
+│  │Agroamb.  │ │Fincas    │                                │
+│  └──────────┘ └──────────┘                                │
 │  ┌──────────┐                                            │
 │  │ Variables │                                            │
 │  │ Dinámicas│                                            │
@@ -136,7 +136,7 @@ backend-kevin-sarango/
 
 ## 4. Modelos de Datos
 
-El schema completo está definido en `schema.prisma`. Arquitectura: **Productor → Finca → Expediente**.
+El schema completo está definido en `schema.prisma`. Arquitectura: **Usuario (auth-service) → Finca → Expediente**.
 
 ### Finca → tabla `fincas`
 Propiedad agrícola vinculada a un Usuario de auth-service con rol PRODUCTOR.
@@ -228,10 +228,9 @@ Roles del sistema para RBAC.
 |---|---|
 | `SUPER_ADMIN` | Administrador global del sistema — acceso total |
 | `TENANT_ADMIN` | Administrador de organización/inquilino — gestiona su propio entorno |
-| `CLIENTE` | Usuario final — solo lectura |
+| `PRODUCTOR` | Usuario que crea fincas y expedientes — rol por defecto |
 | `TECNICO_CAMPO` | Operario que registra expedientes y datos agroambientales en campo |
 | `AUDITOR_INTERNO` | Analista que ejecuta y revisa auditorías GEE y genera certificados |
-| `AUDITOR_EXTERNO` | Autoridad europea / organismo regulador — solo lectura de auditorías |
 
 ---
 
@@ -251,24 +250,24 @@ Usuarios del sistema gestionados por el ADMIN.
 ---
 
 ### Finca → tabla `fincas`
-Información geoespacial de fincas, opcionalmente vinculadas a un productor.
+Información geoespacial de fincas, vinculadas a un Usuario de auth-service con rol PRODUCTOR.
 
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `id` | String (UUID) | Clave primaria |
 | `nombre` | String | Nombre de la finca |
-| `eudr_id` | String? (único) | Código EUDR |
+| `eudr_id` | String (único) | Código EUDR generado (`uuidv4-XXXXXXXX-XXXXX`) |
+| `usuario_id` | String | FK a Usuario (auth-service) |
 | `provincia` | String? | Provincia |
 | `canton` | String? | Cantón |
 | `parroquia` | String? | Parroquia |
-| `area_total_ha` | Float? | Área total |
-| `area_cultivada_ha` | Float? | Área cultivada |
+| `area_total_ha` | Float? | Área total (hectáreas) |
+| `area_cultivada_ha` | Float? | Área cultivada (hectáreas) |
 | `tenencia` | String? | `PROPIA` / `POSESION` / `ARRENDAMIENTO` |
 | `latitud` | Float? | Latitud |
 | `longitud` | Float? | Longitud |
 | `poligono` | Json? | Datos del polígono (GeoJSON o lista de coordenadas) |
 | `productor_id` | String? | FK a usuarios |
-
 | `creado_en` | DateTime | Fecha de creación |
 
 ---
@@ -361,10 +360,8 @@ def require_roles(*allowed: str):
 | Usuarios | SUPER_ADMIN, TENANT_ADMIN | SUPER_ADMIN, TENANT_ADMIN | SUPER_ADMIN, TENANT_ADMIN | SUPER_ADMIN, TENANT_ADMIN |
 | Roles | Cualquier token | SUPER_ADMIN | — | SUPER_ADMIN |
 | Fincas | Cualquier token | Cualquier token | SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO | SUPER_ADMIN, TENANT_ADMIN |
-| Auditoría GEE | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO, AUDITOR_EXTERNO* | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO | — | — |
-| Certificados DDS | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO, AUDITOR_EXTERNO* | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO | — | SUPER_ADMIN, TENANT_ADMIN |
-
-> *GET por ID o por expediente está abierto a cualquier token autenticado.
+| Auditoría GEE | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO | — | — |
+| Certificados DDS | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO | SUPER_ADMIN, TENANT_ADMIN, AUDITOR_INTERNO | — | SUPER_ADMIN, TENANT_ADMIN |
 
 ---
 

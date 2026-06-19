@@ -1,445 +1,553 @@
 ---
 import DashboardLayout from "../layouts/LayoutVariable.astro";
+import { AuthService } from "../services/auth.service.ts";
+import { FincaService } from "../services/finca.service.ts";
+
+// Obtener token de las cookies
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let fincaData = null;
+let error = null;
+let isLoading = true;
+
+if (token) {
+  try {
+    // Cargar datos del usuario usando AuthService
+    userData = await AuthService.getMe(token);
+    
+    if (userData?.id) {
+      try {
+        // Obtener TODAS las fincas
+        const todasLasFincas = await FincaService.list(token);
+        
+        // Buscar la finca que tenga el usuario_id correcto
+        fincaData = todasLasFincas.find(f => f.usuario_id === userData.id) || null;
+      } catch (e) {
+        fincaData = null;
+      }
+    }
+    isLoading = false;
+  } catch (e) {
+    error = e.message;
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+// Preparar datos para el cliente
+const userJSON = JSON.stringify(userData);
+const fincaJSON = JSON.stringify(fincaData);
 ---
 
 <DashboardLayout title="Productor y Finca">
+<!-- Inyectar datos como JSON oculto para el cliente -->
+<script type="application/json" id="user-data">
+  {userJSON}
+</script>
+<script type="application/json" id="finca-data">
+  {fincaJSON}
+</script>
 
 <div class="space-y-8">
 
   <!-- HEADER -->
   <div class="flex flex-col md:flex-row justify-between gap-6">
-
     <div>
       <h1 class="text-3xl font-bold text-on-surface">
         Módulo 1: Información de Productor y Finca
       </h1>
-
       <p class="mt-2 text-on-surface-variant max-w-3xl">
         Formulario dinámico de recopilación de datos de origen requeridos por el reglamento EUDR.
       </p>
     </div>
+    <div class="flex items-center gap-2">
+      <button
+        id="editar-productor"
+        class="flex items-center justify-center gap-2 px-4 h-12 bg-surface text-primary border border-outline rounded-xl hover:opacity-90 transition"
+      >
+        <span class="material-symbols-outlined">person</span>
+        Editar Productor
+      </button>
 
-    <button
-      id="guardar-registro"
-      class="flex items-center justify-center gap-2 px-6 h-12 bg-primary text-white rounded-xl shadow-sm hover:opacity-90 transition"
-    >
-      <span class="material-symbols-outlined">
-        save
-      </span>
-
-      Guardar Registro
-    </button>
-
+      <button
+        id="editar-finca"
+        class="flex items-center justify-center gap-2 px-4 h-12 bg-surface text-primary border border-outline rounded-xl hover:opacity-90 transition"
+      >
+        <span class="material-symbols-outlined">agriculture</span>
+        Editar Finca
+      </button>
+    </div>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 items-end">
     <div class="md:col-span-2">
       <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-        Seleccionar productor existente
+        Productor autenticado
       </label>
-      <select id="productor-select" class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface focus:outline-none focus:ring-2 focus:ring-primary">
-        <option value="">Cargando productores...</option>
-      </select>
+      <input
+        id="productor-auth-name"
+        type="text"
+        readonly
+        value={isLoading ? 'Cargando información de productor...' : (error ? 'Error al cargar' : (userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email || 'Usuario sin nombre' : 'No hay sesión activa'))}
+        class="w-full h-14 px-4 bg-surface-container-low border border-outline-variant rounded-xl"
+      />
     </div>
 
     <div class="text-right">
-      <p id="productor-message" class="text-sm text-on-surface-variant"></p>
+      <p id="productor-message" class="text-sm" style="color: {error ? '#ef4444' : (isLoading ? '#f59e0b' : '#22c55e')}">
+        {isLoading ? 'Cargando información...' : (error ? '⚠️ ' + error : (fincaData ? '✓ Información cargada correctamente' : 'Completa los datos de la finca'))}
+      </p>
     </div>
   </div>
 
   <!-- PRODUCTOR -->
-  <section
-    class="bg-surface-container-low border border-outline-variant rounded-xl p-8 hover-lift"
-  >
-
+  <section class="bg-surface-container-low border border-outline-variant rounded-xl p-8 hover-lift">
     <div class="flex items-center gap-3 border-b border-outline-variant pb-4 mb-6">
-
-      <span class="material-symbols-outlined text-primary">
-        person
-      </span>
-
-      <h2 class="text-xl font-semibold">
-        Información del Productor
-      </h2>
-
+      <span class="material-symbols-outlined text-primary">person</span>
+      <h2 class="text-xl font-semibold">Información del Productor</h2>
+      <div class="ml-auto flex gap-2">
+        <button id="guardar-productor" class="hidden px-3 py-1 bg-primary text-white rounded">Guardar</button>
+        <button id="cancelar-productor" class="hidden px-3 py-1 bg-surface text-primary border rounded">Cancelar</button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Nombre Completo *
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Nombre Completo *</label>
         <input
           id="productor-nombre"
           type="text"
-          value="José Miguel Mosquera"
+          readonly
+          value={userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : ''}
+          placeholder="Nombre del productor"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Cédula de Identidad / ID *
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Cédula de Identidad / ID *</label>
         <input
           id="productor-cedula"
           type="text"
-          value="1100433455"
+          readonly
+          value={userData?.identifier || ''}
+          placeholder="Número de identificación"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Organización / Asociación
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Organización / Asociación</label>
         <input
           id="productor-organizacion"
           type="text"
-          value="Asociación Agroartesanal de Productores"
+          readonly
+          value={userData?.organizacion || ''}
+          placeholder="Nombre de la organización"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Celular de Contacto
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Celular de Contacto</label>
         <input
           id="productor-celular"
           type="text"
-          value="+5939532692"
+          readonly
+          value={userData?.phone_number || ''}
+          placeholder="Número de celular"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Género
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Género</label>
         <select
           id="productor-genero"
+          disabled
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         >
-          <option value="Masculino">Masculino</option>
-          <option value="Femenino">Femenino</option>
+          <option value="">Seleccionar género</option>
+          <option value="Masculino" selected={userData?.genero === 'Masculino'}>Masculino</option>
+          <option value="Femenino" selected={userData?.genero === 'Femenino'}>Femenino</option>
         </select>
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Edad
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Edad</label>
         <input
           id="productor-edad"
           type="number"
-          value="56"
+          readonly
+          value={userData?.edad || ''}
+          placeholder="Edad del productor"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
-
     </div>
-
   </section>
 
   <!-- FINCA -->
-  <section
-    class="bg-surface-container-low border border-outline-variant rounded-xl p-8 hover-lift"
-  >
-
+  <section class="bg-surface-container-low border border-outline-variant rounded-xl p-8 hover-lift">
     <div class="flex items-center gap-3 border-b border-outline-variant pb-4 mb-6">
-
-      <span class="material-symbols-outlined text-primary">
-        agriculture
-      </span>
-
-      <h2 class="text-xl font-semibold">
-        Información de la Finca Cafetalera / Agrícola
-      </h2>
-
+      <span class="material-symbols-outlined text-primary">agriculture</span>
+      <h2 class="text-xl font-semibold">Información de la Finca Cafetalera / Agrícola</h2>
+      <div class="ml-auto flex gap-2">
+        <button id="guardar-finca" class="hidden px-3 py-1 bg-primary text-white rounded">Guardar</button>
+        <button id="cancelar-finca" class="hidden px-3 py-1 bg-surface text-primary border rounded">Cancelar</button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Nombre de la Finca *
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Nombre de la Finca *</label>
         <input
+          id="finca-nombre"
           type="text"
-          value="El Ahuacate"
+          readonly
+          value={fincaData?.nombre || ''}
+          placeholder="Nombre de la finca"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Código Único de Finca
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Código Único de Finca</label>
         <input
+          id="finca-eudr"
           type="text"
           readonly
-          value="uuidv4-90234-89304"
+          value={fincaData?.eudr_id || ''}
+          placeholder="Código EUDR"
           class="w-full h-14 px-4 bg-surface-container border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Provincia
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Provincia</label>
         <input
+          id="finca-provincia"
           type="text"
-          value="Loja"
+          readonly
+          value={fincaData?.provincia || ''}
+          placeholder="Provincia"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Cantón
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Cantón</label>
         <input
+          id="finca-canton"
           type="text"
-          value="Loja"
+          readonly
+          value={fincaData?.canton || ''}
+          placeholder="Cantón"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Parroquia
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Parroquia</label>
         <input
+          id="finca-parroquia"
           type="text"
-          value="Vilcabamba"
+          readonly
+          value={fincaData?.parroquia || ''}
+          placeholder="Parroquia"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Barrio / Sector
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Barrio / Sector</label>
         <input
+          id="finca-barrio"
           type="text"
-          value="Ullaguanga"
+          readonly
+          value={fincaData?.barrio || ''}
+          placeholder="Barrio o sector"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Área Total (ha) *
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Área Total (ha) *</label>
         <input
+          id="finca-area-total"
           type="number"
-          value="3"
+          readonly
+          value={fincaData?.area_total_ha || ''}
+          placeholder="Área total en hectáreas"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Área Cultivada (ha)
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Área Cultivada (ha)</label>
         <input
+          id="finca-area-cultivada"
           type="number"
-          value="3"
+          readonly
+          value={fincaData?.area_cultivada_ha || ''}
+          placeholder="Área cultivada en hectáreas"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
       </div>
 
       <div class="md:col-span-2">
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          Tenencia de Tierra
-        </label>
-
+        <label class="block mb-2 text-sm font-medium text-on-surface-variant">Tenencia de Tierra</label>
         <select
+          id="finca-tenencia"
+          disabled
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         >
-          <option>Propia con escritura</option>
-          <option>Arrendada</option>
-          <option>Posesión</option>
+          <option value="">Seleccionar tenencia</option>
+          <option value="PROPIA" selected={fincaData?.tenencia === 'PROPIA'}>Propia</option>
+          <option value="ARRENDADA" selected={fincaData?.tenencia === 'ARRENDADA'}>Arrendada</option>
+          <option value="POSESION" selected={fincaData?.tenencia === 'POSESION'}>Posesión</option>
         </select>
       </div>
-
     </div>
 
-    <!-- ALERTA -->
-    <div
-      class="mt-8 p-5 rounded-xl border border-primary bg-primary-container/10"
-    >
-
-      <div class="flex gap-3">
-
-        <span class="material-symbols-outlined text-primary">
-          info
-        </span>
-
-        <p class="text-sm text-on-surface">
-          El área es de 3 ha (menor a 4 ha). El reglamento EUDR permite
-          registrar únicamente un punto central de coordenadas geográficas
-          para cumplir con el estándar.
-        </p>
-
+    <!-- ALERTA - Área menor a 4ha -->
+    {fincaData?.area_total_ha && fincaData.area_total_ha < 4 && (
+      <div class="mt-8 p-5 rounded-xl border border-primary bg-primary-container/10">
+        <div class="flex gap-3">
+          <span class="material-symbols-outlined text-primary">info</span>
+          <p class="text-sm text-on-surface">
+            El área es de {fincaData.area_total_ha} ha (menor a 4 ha). El reglamento EUDR permite
+            registrar únicamente un punto central de coordenadas geográficas para cumplir con el estándar.
+          </p>
+        </div>
       </div>
+    )}
 
-    </div>
-
+    <!-- ALERTA - No hay finca -->
+    {!fincaData && !isLoading && !error && (
+      <div class="mt-8 p-5 rounded-xl border border-yellow-500 bg-yellow-50">
+        <div class="flex gap-3">
+          <span class="material-symbols-outlined text-yellow-500">warning</span>
+          <p class="text-sm text-on-surface">
+            No se encontró información de la finca. Haz clic en <strong>"Editar Finca"</strong> para agregar los datos.
+          </p>
+        </div>
+      </div>
+    )}
   </section>
 
   <!-- SIGUIENTE PASO -->
-  <section
-    class="bg-surface-container-low border border-outline-variant rounded-xl p-6"
-  >
-
-    <p class="text-xs uppercase tracking-wider text-on-surface-variant mb-2">
-      Próximo Paso
-    </p>
-
-    <p class="text-on-surface mb-4">
-      Cargar el mapa de la finca para completar el registro.
-    </p>
-
-    <button
-      class="flex items-center gap-2 text-primary font-semibold hover:underline"
-    >
+  <section class="bg-surface-container-low border border-outline-variant rounded-xl p-6">
+    <p class="text-xs uppercase tracking-wider text-on-surface-variant mb-2">Próximo Paso</p>
+    <p class="text-on-surface mb-4">Cargar el mapa de la finca para completar el registro.</p>
+    <button class="flex items-center gap-2 text-primary font-semibold hover:underline">
       Ir al mapeo de campos dinámicos
-
-      <span class="material-symbols-outlined">
-        arrow_forward
-      </span>
+      <span class="material-symbols-outlined">arrow_forward</span>
     </button>
-
   </section>
 
 </div>
 
 </DashboardLayout>
 
-<script type="module">
-import { ProductorService } from "/src/services/productorServices.ts";
+<script>
+  // Cliente JavaScript - solo para interacciones de UI
+  document.addEventListener('DOMContentLoaded', () => {
+    const editarProductorBtn = document.getElementById('editar-productor');
+    const editarFincaBtn = document.getElementById('editar-finca');
+    const guardarProductorBtn = document.getElementById('guardar-productor');
+    const cancelarProductorBtn = document.getElementById('cancelar-productor');
+    const guardarFincaBtn = document.getElementById('guardar-finca');
+    const cancelarFincaBtn = document.getElementById('cancelar-finca');
+    const messageEl = document.getElementById('productor-message');
 
-  const selectProductor = document.getElementById("productor-select");
-  const message = document.getElementById("productor-message");
-  const buttonGuardar = document.getElementById("guardar-registro");
-
-  const inputNombre = document.getElementById("productor-nombre");
-  const inputCedula = document.getElementById("productor-cedula");
-  const inputOrganizacion = document.getElementById("productor-organizacion");
-  const inputCelular = document.getElementById("productor-celular");
-  const selectGenero = document.getElementById("productor-genero");
-  const inputEdad = document.getElementById("productor-edad");
-
-  function getCookie(name) {
-    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-    return match ? decodeURIComponent(match[1]) : "";
-  }
-
-  const token = getCookie("token");
-
-  function showMessage(text, isError = false) {
-    if (!message) return;
-    message.textContent = text;
-    message.classList.remove("text-error", "text-success");
-    message.classList.add(isError ? "text-error" : "text-success");
-  }
-
-  async function cargarProductores() {
-    if (!selectProductor) return;
-    selectProductor.innerHTML = `<option value="">Cargando productores...</option>`;
+    // Obtener datos de los elementos JSON
+    let userData = null;
+    let fincaData = null;
+    
     try {
-      const productores = await ProductorService.list(token);
-      if (productores.length === 0) {
-        selectProductor.innerHTML = `<option value="">No hay productores registrados</option>`;
-        return;
+      const userDataEl = document.getElementById('user-data');
+      const fincaDataEl = document.getElementById('finca-data');
+      
+      if (userDataEl) {
+        userData = JSON.parse(userDataEl.textContent || 'null');
       }
-      selectProductor.innerHTML = `
-        <option value="">Selecciona un productor</option>
-        ${productores
-          .map(
-            (productor) => `
-              <option value="${productor.id}">${productor.nombre_completo} — ${productor.cedula_id}</option>
-            `
-          )
-          .join("")}
-      `;
-      showMessage("Productores cargados correctamente.");
-    } catch (error) {
-      selectProductor.innerHTML = `<option value="">Error al cargar productores</option>`;
-      showMessage(error instanceof Error ? error.message : "Error al cargar productores.", true);
-    }
-  }
-
-  async function cargarProductor(productorId) {
-    if (!productorId) return;
-    try {
-      const productor = await ProductorService.getById(productorId, token);
-      if (inputNombre) inputNombre.value = productor.nombre_completo || "";
-      if (inputCedula) inputCedula.value = productor.cedula_id || "";
-      if (inputOrganizacion) inputOrganizacion.value = productor.organizacion || "";
-      if (inputCelular) inputCelular.value = productor.celular || "";
-      if (selectGenero) selectGenero.value = productor.genero || "Masculino";
-      if (inputEdad) inputEdad.value = productor.edad?.toString() || "";
-      showMessage("Productor cargado correctamente.");
-    } catch (error) {
-      showMessage(error instanceof Error ? error.message : "Error al obtener productor.", true);
-    }
-  }
-
-  async function guardarProductor() {
-    if (!inputNombre || !inputCedula) {
-      showMessage("Nombre y cédula son obligatorios.", true);
-      return;
-    }
-
-    const payload = {
-      nombre_completo: inputNombre.value.trim(),
-      cedula_id: inputCedula.value.trim(),
-      organizacion: inputOrganizacion?.value.trim() || "",
-      celular: inputCelular?.value.trim() || "",
-      genero: selectGenero?.value || "",
-      edad: inputEdad?.value ? Number(inputEdad.value) : undefined,
-    };
-
-    try {
-      await ProductorService.create(payload, token);
-      showMessage("Productor guardado correctamente.");
-      cargarProductores();
-    } catch (error) {
-      showMessage(error instanceof Error ? error.message : "Error al guardar productor.", true);
-    }
-  }
-
-  if (selectProductor) {
-    selectProductor.addEventListener("change", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLSelectElement)) return;
-      if (target.value) {
-        cargarProductor(target.value);
+      if (fincaDataEl) {
+        fincaData = JSON.parse(fincaDataEl.textContent || 'null');
       }
-    });
-  }
+    } catch (e) {
+      console.error('Error parsing data:', e);
+    }
 
-  if (buttonGuardar) {
-    buttonGuardar.addEventListener("click", guardarProductor);
-  }
+    function showMessage(text, isError = false, isLoading = false) {
+      if (!messageEl) return;
+      messageEl.textContent = text;
+      messageEl.style.color = isError ? '#ef4444' : (isLoading ? '#f59e0b' : '#22c55e');
+    }
 
-  cargarProductores();
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+      return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    // Funcionalidad de edición para el productor
+    if (editarProductorBtn) {
+      editarProductorBtn.addEventListener('click', () => {
+        document.querySelectorAll('#productor-nombre, #productor-cedula, #productor-organizacion, #productor-celular, #productor-edad').forEach(el => {
+          el.removeAttribute('readonly');
+          el.classList.remove('bg-surface');
+          el.classList.add('bg-white');
+        });
+        document.getElementById('productor-genero')?.removeAttribute('disabled');
+        
+        editarProductorBtn.classList.add('hidden');
+        guardarProductorBtn?.classList.remove('hidden');
+        cancelarProductorBtn?.classList.remove('hidden');
+        
+        showMessage('Modo edición activado', false);
+      });
+    }
+
+    if (cancelarProductorBtn) {
+      cancelarProductorBtn.addEventListener('click', () => {
+        location.reload();
+      });
+    }
+
+    if (guardarProductorBtn) {
+      guardarProductorBtn.addEventListener('click', async () => {
+        const nombreCompleto = document.getElementById('productor-nombre')?.value || '';
+        const partes = nombreCompleto.trim().split(' ');
+        const firstName = partes[0] || '';
+        const lastName = partes.slice(1).join(' ') || '';
+        
+        const payload = {
+          first_name: firstName,
+          last_name: lastName,
+          identifier: document.getElementById('productor-cedula')?.value || '',
+          organizacion: document.getElementById('productor-organizacion')?.value || '',
+          phone_number: document.getElementById('productor-celular')?.value || '',
+          genero: document.getElementById('productor-genero')?.value || '',
+          edad: parseInt(document.getElementById('productor-edad')?.value) || null
+        };
+
+        try {
+          showMessage('Guardando cambios...', false, true);
+          const token = getCookie('token');
+          
+          const response = await fetch('/api/usuarios/update', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            showMessage('Productor actualizado correctamente');
+            window.dispatchEvent(new CustomEvent('productorSaved'));
+            setTimeout(() => location.reload(), 1500);
+          } else {
+            const error = await response.json();
+            showMessage('Error: ' + (error.message || 'Error al actualizar'), true);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showMessage('Error al guardar los cambios', true);
+        }
+      });
+    }
+
+    // Funcionalidad para finca
+    if (editarFincaBtn) {
+      editarFincaBtn.addEventListener('click', () => {
+        document.querySelectorAll('#finca-nombre, #finca-provincia, #finca-canton, #finca-parroquia, #finca-barrio, #finca-area-total, #finca-area-cultivada').forEach(el => {
+          el.removeAttribute('readonly');
+          el.classList.remove('bg-surface');
+          el.classList.add('bg-white');
+        });
+        document.getElementById('finca-tenencia')?.removeAttribute('disabled');
+        
+        editarFincaBtn.classList.add('hidden');
+        guardarFincaBtn?.classList.remove('hidden');
+        cancelarFincaBtn?.classList.remove('hidden');
+        
+        showMessage('Modo edición de finca activado', false);
+      });
+    }
+
+    if (cancelarFincaBtn) {
+      cancelarFincaBtn.addEventListener('click', () => {
+        location.reload();
+      });
+    }
+
+    if (guardarFincaBtn) {
+      guardarFincaBtn.addEventListener('click', async () => {
+        const payload = {
+          nombre: document.getElementById('finca-nombre')?.value || '',
+          provincia: document.getElementById('finca-provincia')?.value || '',
+          canton: document.getElementById('finca-canton')?.value || '',
+          parroquia: document.getElementById('finca-parroquia')?.value || '',
+          barrio: document.getElementById('finca-barrio')?.value || '',
+          area_total_ha: parseFloat(document.getElementById('finca-area-total')?.value) || 0,
+          area_cultivada_ha: parseFloat(document.getElementById('finca-area-cultivada')?.value) || 0,
+          tenencia: document.getElementById('finca-tenencia')?.value || ''
+        };
+
+        const fincaId = fincaData?.id;
+        const token = getCookie('token');
+
+        try {
+          showMessage('Guardando finca...', false, true);
+          
+          // Si es nueva, necesitamos el usuario_id
+          if (!fincaId && userData?.id) {
+            payload.usuario_id = userData.id;
+          }
+          
+          const url = fincaId ? `/api/fincas/${fincaId}` : '/api/fincas';
+          const method = fincaId ? 'PUT' : 'POST';
+          
+          const response = await fetch(url, {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            showMessage('Finca guardada correctamente');
+            window.dispatchEvent(new CustomEvent('fincaSaved'));
+            setTimeout(() => location.reload(), 1500);
+          } else {
+            const error = await response.json();
+            showMessage('Error: ' + (error.message || 'Error al guardar finca'), true);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showMessage('Error al guardar los cambios', true);
+        }
+      });
+    }
+
+    // Mostrar mensaje inicial
+    if (userData) {
+      if (fincaData) {
+        showMessage('Información cargada correctamente');
+      } else {
+        showMessage('Completa los datos de la finca', false);
+      }
+    } else if (document.getElementById('productor-auth-name')?.value === 'Error al cargar') {
+      showMessage('Error al cargar los datos', true);
+    } else {
+      showMessage('Cargando información...', false, true);
+    }
+  });
 </script>

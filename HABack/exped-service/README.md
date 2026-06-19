@@ -21,7 +21,7 @@ Usuario (auth-service) con rol PRODUCTOR
 ```
 
 **Flujo completo:**
-1. Usuario con rol **PRODUCTOR** (creado en auth-service)
+1. Usuario con rol **PRODUCTOR** (creado en auth-service como rol por defecto)
 2. Crear Finca vinculada al Usuario (auto-genera EUDR ID)
 3. Crear Expediente (vinculado a Finca)
 4. Registrar Datos Agroambientales (con Variables Dinámicas opcionales)

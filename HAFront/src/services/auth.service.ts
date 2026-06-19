@@ -63,8 +63,16 @@ export class AuthService {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.detail || "Error al iniciar sesión");
-    }
+  const detail = data.detail;
+  if (typeof detail === "string") {
+    throw new Error(detail);
+  } else if (Array.isArray(detail)) {
+    // Error 422: validación de FastAPI
+    const msgs = detail.map((e: any) => e.msg || JSON.stringify(e)).join(", ");
+    throw new Error(`Datos inválidos: ${msgs}`);
+  }
+  throw new Error(JSON.stringify(detail) || "Error al iniciar sesión");
+}
 
     return data;
   }
