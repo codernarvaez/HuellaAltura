@@ -74,14 +74,8 @@ def crear_finca(
     """
     payload = data.model_dump()
 
-    poligono = payload.get("poligono")
-    if poligono:
-        try:
-            payload["poligono"] = Json(poligono)
-        except:
-            payload["poligono"] = None
-    else:
-        payload["poligono"] = None
+    if payload.get("poligono"):
+        payload["poligono"] = Json(payload["poligono"])
 
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
@@ -128,15 +122,8 @@ def actualizar_finca(
         raise HTTPException(status_code=403, detail="No tienes permiso para editar esta finca")
 
     payload = data.model_dump(exclude_unset=True)
-    if "poligono" in payload:
-        poligono = payload.get("poligono")
-        if poligono:
-            try:
-                payload["poligono"] = Json(poligono)
-            except:
-                payload["poligono"] = None
-        else:
-            payload["poligono"] = None
+    if "poligono" in payload and payload.get("poligono"):
+        payload["poligono"] = Json(payload["poligono"])
 
     return db.finca.update(where={"id": finca_id}, data=payload)
 

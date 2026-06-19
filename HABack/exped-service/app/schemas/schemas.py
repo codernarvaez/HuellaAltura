@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ─── Enums (valores alineados con Prisma) ────────────────────
 
@@ -145,6 +145,13 @@ class FincaCreate(BaseModel):
     longitud: float | None = Field(None, example=-79.2231)
     poligono: Any | None = Field(None, description="Datos del polígono de la finca (GeoJSON o lista de coordenadas)")
 
+    @field_validator("poligono")
+    @classmethod
+    def validar_poligono(cls, v):
+        if v is not None and isinstance(v, dict) and len(v) == 0:
+            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas o omite el campo.")
+        return v
+
 
 class FincaOut(FincaCreate):
     id: str
@@ -167,6 +174,13 @@ class FincaUpdate(BaseModel):
     latitud: float | None = None
     longitud: float | None = None
     poligono: Any | None = None
+
+    @field_validator("poligono")
+    @classmethod
+    def validar_poligono(cls, v):
+        if v is not None and isinstance(v, dict) and len(v) == 0:
+            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas o omite el campo.")
+        return v
 
 
 # ─── Expediente ──────────────────────────────────────────────
