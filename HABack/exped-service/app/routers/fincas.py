@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from prisma import Prisma
+from prisma import Prisma, Json
 
 from app.database import get_db
 from app.dependencies import get_current_user, log_user_action, require_roles
@@ -80,6 +80,9 @@ def crear_finca(
             payload["productor_id"] = payload["usuario_id"]
     if "usuario_id" in payload:
         del payload["usuario_id"]
+        
+    if payload.get("poligono") is not None:
+        payload["poligono"] = Json(payload["poligono"])
         
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
