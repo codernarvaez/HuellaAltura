@@ -133,7 +133,7 @@ class HistorialOut(HistorialCreate):
 
 class FincaCreate(BaseModel):
     nombre: str = Field(..., example="El Ahuacate")
-    usuario_id: str = Field(..., example="uuid-del-usuario", description="ID del usuario (productor) de auth-service")
+    usuario_id: str | None = Field(None, example="uuid-del-usuario", description="ID del usuario (productor) de auth-service")
     provincia: str | None = Field(None, example="Loja")
     canton: str | None = Field(None, example="Loja")
     parroquia: str | None = None

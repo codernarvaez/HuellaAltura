@@ -11,7 +11,7 @@ export class RepositorioFincas {
   async obtenerTodas() {
     return await db().select()
       .from(fincas)
-      .where(eq(fincas.productorId, this.userId));
+      .where(eq(fincas.productor_id, this.userId));
   }
 
   /**

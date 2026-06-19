@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { BackHandler } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import * as Location from 'expo-location';
@@ -26,6 +27,20 @@ export const useRegistroFinca = (navigation) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFullMap, setShowFullMap] = useState(false);
+
+  // Efecto: Interceptar botón físico de atrás en Android cuando el mapa completo está abierto
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showFullMap) {
+        setShowFullMap(false);
+        return true; // Indicamos que hemos manejado el evento
+      }
+      return false; // Que el sistema siga su comportamiento normal
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [showFullMap]);
 
   // --- ESTADO DEL FORMULARIO ---
   
@@ -111,7 +126,7 @@ export const useRegistroFinca = (navigation) => {
       try {
         const token = await obtenerToken();
         if (!token) return;
-        const baseUrl = API_BASE_URL || 'https://huellaaltura.onrender.com/api';
+        const baseUrl = API_BASE_URL;
         const response = await fetch(`${baseUrl}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
