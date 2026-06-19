@@ -149,7 +149,7 @@ class FincaCreate(BaseModel):
     @classmethod
     def validar_poligono(cls, v):
         if v is not None and isinstance(v, dict) and len(v) == 0:
-            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas o omite el campo.")
+            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas.")
         return v
 
 
@@ -179,7 +179,7 @@ class FincaUpdate(BaseModel):
     @classmethod
     def validar_poligono(cls, v):
         if v is not None and isinstance(v, dict) and len(v) == 0:
-            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas o omite el campo.")
+            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas.")
         return v
 
 
