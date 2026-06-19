@@ -81,6 +81,7 @@ model Finca {
   provincia         String?
   canton            String?
   parroquia         String?
+  sector            String?
   area_total_ha     Float?
   area_cultivada_ha Float?
   tenencia          String?

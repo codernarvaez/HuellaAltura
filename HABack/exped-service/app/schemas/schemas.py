@@ -137,6 +137,7 @@ class FincaCreate(BaseModel):
     provincia: str | None = Field(None, example="Loja")
     canton: str | None = Field(None, example="Loja")
     parroquia: str | None = None
+    sector: str | None = Field(None, example="18", description="Barrio/Sector de la finca")
     area_total_ha: float | None = Field(None, example=3.0)
     area_cultivada_ha: float | None = None
     tenencia: TenenciaEnum | None = None
@@ -159,6 +160,7 @@ class FincaUpdate(BaseModel):
     provincia: str | None = None
     canton: str | None = None
     parroquia: str | None = None
+    sector: str | None = None
     area_total_ha: float | None = None
     area_cultivada_ha: float | None = None
     tenencia: TenenciaEnum | None = None
