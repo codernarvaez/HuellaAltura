@@ -54,9 +54,9 @@ class TipoDatoEnum(StrEnum):
 
 
 class VariableDinamicaCreate(BaseModel):
-    nombre: str = Field(..., example="pH del suelo")
-    valor: str = Field(..., example="6.5")
-    tipo_dato: TipoDatoEnum = Field(..., example="FLOAT")
+    nombre: str | None = Field(None, example="pH del suelo")
+    valor: str | None = Field(None, example="6.5")
+    tipo_dato: TipoDatoEnum | None = Field(None, example="FLOAT")
 
 
 class VariableDinamicaUpdate(BaseModel):
@@ -143,7 +143,6 @@ class FincaCreate(BaseModel):
     latitud: float | None = Field(None, example=-4.2625)
     longitud: float | None = Field(None, example=-79.2231)
     poligono: Any | None = Field(None, description="Datos del polígono de la finca (GeoJSON o lista de coordenadas)")
-    productor_id: str
 
 
 class FincaOut(FincaCreate):
