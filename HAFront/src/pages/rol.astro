@@ -32,21 +32,24 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         Crear Nuevo Rol
       </button>
 
+      <!-- Panel Crear Rol -->
       <div id="new-role-overlay" class="fixed inset-0 z-40 hidden bg-black/40"></div>
       <div id="new-role-panel" class="fixed inset-y-0 right-0 z-50 hidden w-full max-w-md overflow-auto border-l border-outline-variant bg-surface p-6 shadow-2xl transition-transform duration-300 transform translate-x-full">
         <div class="flex items-center justify-between gap-4 mb-6">
           <div>
-            <h2 class="text-2xl font-semibold text-on-surface">Crear nuevo rol</h2>
-            <p class="text-on-surface-variant mt-1 text-sm">Agrega un nivel de acceso nuevo para el sistema.</p>
+            <h2 id="role-panel-title" class="text-2xl font-semibold text-on-surface">Crear nuevo rol</h2>
+            <p id="role-panel-subtitle" class="text-on-surface-variant mt-1 text-sm">Agrega un nivel de acceso nuevo para el sistema.</p>
           </div>
           <button id="close-role-panel" type="button" class="text-on-surface-variant hover:text-on-surface">
             <span class="material-symbols-outlined">close</span>
           </button>
         </div>
 
-        <form id="new-role-form" class="grid gap-4">
+        <form id="role-form" class="grid gap-4">
+          <input type="hidden" id="role-id" value="" />
+          
           <label class="block">
-            <span class="text-sm text-on-surface-variant">Nombre del rol</span>
+            <span class="text-sm text-on-surface-variant">Nombre del rol *</span>
             <input id="role-name" type="text" required class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" />
           </label>
 
@@ -55,7 +58,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
             <textarea id="role-description" rows="4" class="mt-2 w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
           </label>
 
-          <p id="new-role-form-message" class="text-sm text-error hidden"></p>
+          <p id="role-form-message" class="text-sm hidden"></p>
 
           <div class="flex flex-col gap-3 pt-3 border-t border-outline-variant md:flex-row md:justify-between">
             <button id="cancel-role-button" type="button" class="w-full md:w-auto px-6 py-3 rounded-xl border border-outline-variant hover:bg-surface-container-high transition">Cancelar</button>
@@ -64,63 +67,51 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </form>
       </div>
 
+      <!-- Panel Confirmar Eliminación -->
+      <div id="delete-role-overlay" class="fixed inset-0 z-50 hidden bg-black/50"></div>
+      <div id="delete-role-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-surface rounded-2xl max-w-md w-full p-6 shadow-2xl">
+          <div class="flex items-center gap-3 text-error mb-4">
+            <span class="material-symbols-outlined text-3xl">warning</span>
+            <h3 class="text-xl font-semibold">Eliminar Rol</h3>
+          </div>
+          <p class="text-on-surface-variant mb-2">
+            ¿Estás seguro de que deseas eliminar el rol <strong id="delete-role-name"></strong>?
+          </p>
+          <p class="text-sm text-on-surface-variant mb-6">
+            Esta acción no se puede deshacer. Los usuarios con este rol perderán sus permisos.
+          </p>
+          <input type="hidden" id="delete-role-id" value="" />
+          <div class="flex flex-col md:flex-row gap-3 md:justify-end">
+            <button id="cancel-delete-button" type="button" class="px-6 py-3 rounded-xl border border-outline-variant hover:bg-surface-container-high transition">Cancelar</button>
+            <button id="confirm-delete-button" type="button" class="px-6 py-3 rounded-xl bg-error text-white font-medium hover:bg-error/90 transition">Eliminar</button>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- ESTADISTICAS -->
     <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-      <!-- CARD GRANDE -->
-      <div
-        class="lg:col-span-8 bg-white border border-outline-variant rounded-xl p-6 shadow-sm relative overflow-hidden"
-      >
-
+      <div class="lg:col-span-8 bg-white border border-outline-variant rounded-xl p-6 shadow-sm relative overflow-hidden">
         <div class="relative z-10">
-
-          <p class="text-xs uppercase tracking-wider text-on-surface-variant">
-            Total de Roles Activos
-          </p>
-
-          <h2 class="text-5xl font-bold text-primary mt-2">
-            12
-          </h2>
-
+          <p class="text-xs uppercase tracking-wider text-on-surface-variant">Total de Roles Activos</p>
+          <h2 id="total-roles-count" class="text-5xl font-bold text-primary mt-2">0</h2>
           <div class="flex items-center gap-2 mt-3 text-secondary">
-            <span class="material-symbols-outlined text-base">
-              trending_up
-            </span>
-
-            <span class="text-sm">
-              2 creados este mes
-            </span>
+            <span class="material-symbols-outlined text-base">trending_up</span>
+            <span class="text-sm">Roles disponibles en el sistema</span>
           </div>
-
         </div>
-
-        <span
-          class="material-symbols-outlined absolute -right-8 -bottom-8 text-[180px] opacity-5 text-primary"
-        >
-          verified_user
-        </span>
-
+        <span class="material-symbols-outlined absolute -right-8 -bottom-8 text-[180px] opacity-5 text-primary">verified_user</span>
       </div>
 
-      <!-- ALERTA -->
-      <div
-        class="lg:col-span-4 bg-primary text-white rounded-xl p-6 shadow-sm"
-      >
-
-        <p class="text-xs uppercase tracking-wider opacity-80">
-          Urgente
-        </p>
-
-        <h3 class="text-xl font-semibold mt-2">
-          Revisar Rol: Auditor
-        </h3>
-
+      <div class="lg:col-span-4 bg-primary text-white rounded-xl p-6 shadow-sm">
+        <p class="text-xs uppercase tracking-wider opacity-80">Información</p>
+        <h3 class="text-xl font-semibold mt-2">Gestión de Roles</h3>
         <p class="mt-3 text-sm opacity-90">
-          Hay 3 solicitudes de cambio de permisos pendientes.
+          Cada rol define los permisos y accesos de los usuarios en la plataforma.
         </p>
-
       </div>
 
     </section>
@@ -157,318 +148,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 
       <div class="p-4 border-t border-outline-variant flex items-center justify-between">
         <p id="roles-total-text" class="text-sm text-on-surface-variant">Mostrando 0 roles</p>
+        <p id="roles-filtered-text" class="text-sm text-on-surface-variant hidden"></p>
       </div>
-    </section>
-
-    <!-- UI ESTÁTICA ADICIONAL -->
-    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-
-      <!-- ADMINISTRADOR -->
-      <div
-        class="bg-white border border-outline-variant border-l-4 border-l-primary rounded-xl p-6 hover:shadow-md transition"
-      >
-
-        <div class="flex justify-between mb-5">
-
-          <div
-            class="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center"
-          >
-            <span class="material-symbols-outlined text-primary">
-              shield_person
-            </span>
-          </div>
-
-          <div class="flex gap-2">
-
-            <button
-              class="p-2 rounded-lg hover:bg-surface-container"
-            >
-              <span class="material-symbols-outlined">
-                edit
-              </span>
-            </button>
-
-            <button
-              class="p-2 rounded-lg text-outline cursor-not-allowed"
-            >
-              <span class="material-symbols-outlined">
-                delete_forever
-              </span>
-            </button>
-
-          </div>
-
-        </div>
-
-        <h3 class="text-xl font-semibold mb-2">
-          Administrador
-        </h3>
-
-        <p class="text-sm text-on-surface-variant mb-6">
-          Acceso total a todos los módulos del sistema, gestión de usuarios
-          y configuración global.
-        </p>
-
-        <div
-          class="flex justify-between items-center pt-4 border-t border-outline-variant"
-        >
-
-          <span
-            class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm"
-          >
-            4 Usuarios
-          </span>
-
-          <span class="text-sm italic text-on-surface-variant">
-            Protegido
-          </span>
-
-        </div>
-
-      </div>
-
-      <!-- ANALISTA -->
-      <div
-        class="bg-white border border-outline-variant rounded-xl p-6 hover:shadow-md transition"
-      >
-
-        <div class="flex justify-between mb-5">
-
-          <div
-            class="w-11 h-11 rounded-lg bg-secondary/10 flex items-center justify-center"
-          >
-            <span class="material-symbols-outlined text-secondary">
-              satellite
-            </span>
-          </div>
-
-          <div class="flex gap-2">
-
-            <button
-              class="p-2 rounded-lg hover:bg-surface-container"
-            >
-              <span class="material-symbols-outlined">
-                edit
-              </span>
-            </button>
-
-            <button
-              class="p-2 rounded-lg text-error hover:bg-error/10"
-            >
-              <span class="material-symbols-outlined">
-                delete
-              </span>
-            </button>
-
-          </div>
-
-        </div>
-
-        <h3 class="text-xl font-semibold mb-2">
-          Analista Satelital
-        </h3>
-
-        <p class="text-sm text-on-surface-variant mb-6">
-          Permisos de lectura y exportación para reportes satelitales.
-        </p>
-
-        <div
-          class="flex justify-between items-center pt-4 border-t border-outline-variant"
-        >
-
-          <span
-            class="bg-surface-container px-3 py-1 rounded-full text-sm"
-          >
-            0 Usuarios
-          </span>
-
-          <span class="text-secondary text-sm">
-            Eliminable
-          </span>
-
-        </div>
-
-      </div>
-
-      <!-- GESTOR -->
-      <div
-        class="bg-white border border-outline-variant border-l-4 border-l-secondary rounded-xl p-6 hover:shadow-md transition"
-      >
-
-        <div class="flex justify-between mb-5">
-
-          <div
-            class="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center"
-          >
-            <span class="material-symbols-outlined text-primary">
-              edit_document
-            </span>
-          </div>
-
-          <div class="flex gap-2">
-
-            <button
-              class="p-2 rounded-lg hover:bg-surface-container"
-            >
-              <span class="material-symbols-outlined">
-                edit
-              </span>
-            </button>
-
-            <button
-              class="p-2 rounded-lg text-outline cursor-not-allowed"
-            >
-              <span class="material-symbols-outlined">
-                delete_forever
-              </span>
-            </button>
-
-          </div>
-
-        </div>
-
-        <h3 class="text-xl font-semibold mb-2">
-          Gestor Documental
-        </h3>
-
-        <p class="text-sm text-on-surface-variant mb-6">
-          Responsable de la carga y validación de expedientes.
-        </p>
-
-        <div
-          class="flex justify-between items-center pt-4 border-t border-outline-variant"
-        >
-
-          <span
-            class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm"
-          >
-            12 Usuarios
-          </span>
-
-          <span class="text-sm italic text-on-surface-variant">
-            Protegido
-          </span>
-
-        </div>
-
-      </div>
-
-      <!-- NUEVO ROL -->
-      <button
-        class="border-2 border-dashed border-outline-variant rounded-xl min-h-[250px]
-               flex flex-col items-center justify-center gap-3
-               hover:border-primary hover:text-primary transition"
-      >
-
-        <span class="material-symbols-outlined text-5xl">
-          add
-        </span>
-
-        <span class="font-medium">
-          Crear nueva plantilla de rol
-        </span>
-
-      </button>
-
-    </section>
-
-    <!-- ACTIVIDAD RECIENTE -->
-    <section
-      class="bg-white border border-outline-variant rounded-xl overflow-hidden"
-    >
-
-      <div class="p-6 border-b border-outline-variant">
-
-        <div class="flex items-center gap-2">
-
-          <span class="material-symbols-outlined text-primary">
-            history
-          </span>
-
-          <h2 class="text-xl font-semibold">
-            Actividad Reciente
-          </h2>
-
-        </div>
-
-      </div>
-
-      <div class="overflow-x-auto">
-
-        <table class="w-full">
-
-          <thead class="bg-surface-container">
-
-            <tr>
-
-              <th class="text-left px-6 py-4">
-                Acción
-              </th>
-
-              <th class="text-left px-6 py-4">
-                Usuario
-              </th>
-
-              <th class="text-left px-6 py-4">
-                Rol Afectado
-              </th>
-
-              <th class="text-left px-6 py-4">
-                Fecha
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            <tr class="border-t border-outline-variant">
-
-              <td class="px-6 py-4">
-                Permisos Actualizados
-              </td>
-
-              <td class="px-6 py-4">
-                Carlos Mendoza
-              </td>
-
-              <td class="px-6 py-4">
-                Analista Satelital
-              </td>
-
-              <td class="px-6 py-4">
-                12 Oct, 14:30
-              </td>
-
-            </tr>
-
-            <tr class="border-t border-outline-variant">
-
-              <td class="px-6 py-4">
-                Nuevo Rol Creado
-              </td>
-
-              <td class="px-6 py-4">
-                Admin System
-              </td>
-
-              <td class="px-6 py-4">
-                Auditor Externo
-              </td>
-
-              <td class="px-6 py-4">
-                10 Oct, 09:15
-              </td>
-
-            </tr>
-
-          </tbody>
-
-        </table>
-
-      </div>
-
     </section>
 
   </div>
@@ -478,17 +159,42 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 <script type="module">
   import { RoleService } from "/src/services/rol.service.ts";
 
+  // ============================================================
+  // DOM ELEMENTS
+  // ============================================================
+  
   const newRoleButton = document.getElementById("new-role-button");
   const newRoleOverlay = document.getElementById("new-role-overlay");
   const newRolePanel = document.getElementById("new-role-panel");
   const closeRolePanel = document.getElementById("close-role-panel");
   const cancelRoleButton = document.getElementById("cancel-role-button");
-  const newRoleForm = document.getElementById("new-role-form");
-  const newRoleFormMessage = document.getElementById("new-role-form-message");
+  const roleForm = document.getElementById("role-form");
+  const roleIdInput = document.getElementById("role-id");
+  const roleNameInput = document.getElementById("role-name");
+  const roleDescriptionInput = document.getElementById("role-description");
+  const roleFormMessage = document.getElementById("role-form-message");
+  const rolePanelTitle = document.getElementById("role-panel-title");
+  const rolePanelSubtitle = document.getElementById("role-panel-subtitle");
+  const submitRoleButton = document.getElementById("submit-role-button");
+  
   const rolesCardGrid = document.getElementById("roles-card-grid");
   const rolesTotalText = document.getElementById("roles-total-text");
+  const rolesFilteredText = document.getElementById("roles-filtered-text");
   const rolesSearchInput = document.getElementById("roles-search");
   const refreshRolesButton = document.getElementById("refresh-roles-button");
+  const totalRolesCount = document.getElementById("total-roles-count");
+
+  // Delete modal
+  const deleteOverlay = document.getElementById("delete-role-overlay");
+  const deleteModal = document.getElementById("delete-role-modal");
+  const deleteRoleId = document.getElementById("delete-role-id");
+  const deleteRoleName = document.getElementById("delete-role-name");
+  const cancelDeleteButton = document.getElementById("cancel-delete-button");
+  const confirmDeleteButton = document.getElementById("confirm-delete-button");
+
+  // ============================================================
+  // UTILITIES
+  // ============================================================
 
   function getCookie(name) {
     const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -497,8 +203,53 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 
   const token = getCookie("token");
   let cachedRoles = [];
+  let editingRoleId = null;
+
+  function showFormMessage(text, isError = false) {
+    if (!roleFormMessage) return;
+    roleFormMessage.textContent = text;
+    roleFormMessage.classList.remove("hidden", "text-error", "text-success");
+    roleFormMessage.classList.add(isError ? "text-error" : "text-success");
+  }
+
+  function hideFormMessage() {
+    if (roleFormMessage) {
+      roleFormMessage.textContent = "";
+      roleFormMessage.classList.add("hidden");
+    }
+  }
+
+  // ============================================================
+  // PANEL OPEN/CLOSE
+  // ============================================================
 
   function openNewRolePanel() {
+    editingRoleId = null;
+    roleIdInput.value = "";
+    roleNameInput.value = "";
+    roleDescriptionInput.value = "";
+    rolePanelTitle.textContent = "Crear nuevo rol";
+    rolePanelSubtitle.textContent = "Agrega un nivel de acceso nuevo para el sistema.";
+    submitRoleButton.textContent = "Guardar rol";
+    hideFormMessage();
+    
+    if (newRoleOverlay) newRoleOverlay.classList.remove("hidden");
+    if (newRolePanel) {
+      newRolePanel.classList.remove("hidden", "translate-x-full");
+      newRolePanel.classList.add("translate-x-0");
+    }
+  }
+
+  function openEditRolePanel(role) {
+    editingRoleId = role.id;
+    roleIdInput.value = role.id;
+    roleNameInput.value = role.name;
+    roleDescriptionInput.value = role.description || "";
+    rolePanelTitle.textContent = "Editar rol";
+    rolePanelSubtitle.textContent = "Modifica los datos del rol seleccionado.";
+    submitRoleButton.textContent = "Actualizar rol";
+    hideFormMessage();
+    
     if (newRoleOverlay) newRoleOverlay.classList.remove("hidden");
     if (newRolePanel) {
       newRolePanel.classList.remove("hidden", "translate-x-full");
@@ -510,21 +261,37 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     if (newRolePanel) {
       newRolePanel.classList.add("translate-x-full");
       newRolePanel.classList.remove("translate-x-0");
+      setTimeout(() => {
+        newRolePanel.classList.add("hidden");
+      }, 300);
     }
     if (newRoleOverlay) newRoleOverlay.classList.add("hidden");
-    if (newRoleForm) newRoleForm.reset();
-    if (newRoleFormMessage) {
-      newRoleFormMessage.textContent = "";
-      newRoleFormMessage.classList.add("hidden");
-    }
+    if (roleForm) roleForm.reset();
+    hideFormMessage();
+    editingRoleId = null;
   }
 
-  function showNewRoleMessage(text, isError = false) {
-    if (!newRoleFormMessage) return;
-    newRoleFormMessage.textContent = text;
-    newRoleFormMessage.classList.remove("hidden", "text-error", "text-success");
-    newRoleFormMessage.classList.add(isError ? "text-error" : "text-success");
+  // ============================================================
+  // DELETE MODAL
+  // ============================================================
+
+  function openDeleteModal(role) {
+    deleteRoleId.value = role.id;
+    deleteRoleName.textContent = role.name;
+    if (deleteOverlay) deleteOverlay.classList.remove("hidden");
+    if (deleteModal) deleteModal.classList.remove("hidden");
   }
+
+  function closeDeleteModal() {
+    if (deleteOverlay) deleteOverlay.classList.add("hidden");
+    if (deleteModal) deleteModal.classList.add("hidden");
+    deleteRoleId.value = "";
+    deleteRoleName.textContent = "";
+  }
+
+  // ============================================================
+  // RENDER ROLES
+  // ============================================================
 
   function renderRoles(roles) {
     if (!rolesCardGrid || !rolesTotalText) return;
@@ -536,8 +303,13 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         </div>
       `;
       rolesTotalText.textContent = `Mostrando 0 roles`;
+      if (rolesFilteredText) rolesFilteredText.classList.add("hidden");
+      if (totalRolesCount) totalRolesCount.textContent = "0";
       return;
     }
+
+    const totalRoles = cachedRoles.length;
+    if (totalRolesCount) totalRolesCount.textContent = totalRoles.toString();
 
     rolesCardGrid.innerHTML = roles
       .map((role) => `
@@ -547,11 +319,11 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
               ${role.name.charAt(0).toUpperCase()}
             </div>
             <div class="flex gap-2">
-              <button class="h-10 w-10 rounded-lg border border-outline-variant hover:bg-surface-container transition" type="button" data-role-id="${role.id}" data-action="edit">
-                <span class="material-symbols-outlined">edit</span>
+              <button class="h-10 w-10 rounded-lg border border-outline-variant hover:bg-primary/10 text-primary transition" type="button" data-role-id="${role.id}" data-action="edit">
+                <span class="material-symbols-outlined text-base">edit</span>
               </button>
               <button class="h-10 w-10 rounded-lg border border-outline-variant hover:bg-error/10 text-error transition" type="button" data-role-id="${role.id}" data-action="delete">
-                <span class="material-symbols-outlined">delete</span>
+                <span class="material-symbols-outlined text-base">delete</span>
               </button>
             </div>
           </div>
@@ -566,6 +338,15 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
       .join("");
 
     rolesTotalText.textContent = `Mostrando ${roles.length} roles`;
+    
+    if (rolesFilteredText) {
+      if (roles.length < cachedRoles.length) {
+        rolesFilteredText.classList.remove("hidden");
+        rolesFilteredText.textContent = `(Filtrados de ${cachedRoles.length} totales)`;
+      } else {
+        rolesFilteredText.classList.add("hidden");
+      }
+    }
   }
 
   function filterRoles(roles) {
@@ -580,6 +361,10 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
       );
     });
   }
+
+  // ============================================================
+  // LOAD ROLES
+  // ============================================================
 
   async function loadRoles() {
     if (rolesCardGrid) {
@@ -602,32 +387,94 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     }
   }
 
+  // ============================================================
+  // EVENT LISTENERS - PANEL
+  // ============================================================
+
   if (newRoleButton) newRoleButton.addEventListener("click", openNewRolePanel);
   if (newRoleOverlay) newRoleOverlay.addEventListener("click", closeNewRolePanel);
   if (closeRolePanel) closeRolePanel.addEventListener("click", closeNewRolePanel);
   if (cancelRoleButton) cancelRoleButton.addEventListener("click", closeNewRolePanel);
 
-  if (newRoleForm) {
-    newRoleForm.addEventListener("submit", async (event) => {
+  // ============================================================
+  // EVENT LISTENERS - DELETE MODAL
+  // ============================================================
+
+  if (cancelDeleteButton) cancelDeleteButton.addEventListener("click", closeDeleteModal);
+  if (deleteOverlay) deleteOverlay.addEventListener("click", closeDeleteModal);
+
+  if (confirmDeleteButton) {
+    confirmDeleteButton.addEventListener("click", async () => {
+      const roleId = deleteRoleId.value;
+      if (!roleId) return;
+
+      try {
+        confirmDeleteButton.disabled = true;
+        confirmDeleteButton.textContent = "Eliminando...";
+        
+        await RoleService.delete(roleId, token);
+        await loadRoles();
+        closeDeleteModal();
+        showFormMessage("Rol eliminado correctamente.");
+        setTimeout(hideFormMessage, 3000);
+      } catch (error) {
+        showFormMessage(error instanceof Error ? error.message : "Error al eliminar rol.", true);
+      } finally {
+        confirmDeleteButton.disabled = false;
+        confirmDeleteButton.textContent = "Eliminar";
+      }
+    });
+  }
+
+  // ============================================================
+  // EVENT LISTENERS - FORM SUBMIT
+  // ============================================================
+
+  if (roleForm) {
+    roleForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const name = document.getElementById("role-name")?.value.trim();
-      const description = document.getElementById("role-description")?.value.trim();
+      
+      const name = roleNameInput?.value.trim();
+      const description = roleDescriptionInput?.value.trim();
 
       if (!name) {
-        showNewRoleMessage("Nombre de rol obligatorio.", true);
+        showFormMessage("El nombre del rol es obligatorio.", true);
         return;
       }
 
       try {
-        await RoleService.create({ name, description: description || undefined }, token);
-        showNewRoleMessage("Rol creado correctamente.");
+        submitRoleButton.disabled = true;
+        submitRoleButton.textContent = "Guardando...";
+        hideFormMessage();
+
+        if (editingRoleId) {
+          // UPDATE
+          await RoleService.update(editingRoleId, { name, description: description || undefined }, token);
+          showFormMessage("Rol actualizado correctamente.");
+        } else {
+          // CREATE
+          await RoleService.create({ name, description: description || undefined }, token);
+          showFormMessage("Rol creado correctamente.");
+        }
+
         await loadRoles();
-        setTimeout(closeNewRolePanel, 1200);
+        setTimeout(() => {
+          closeNewRolePanel();
+          submitRoleButton.disabled = false;
+          submitRoleButton.textContent = editingRoleId ? "Actualizar rol" : "Guardar rol";
+        }, 1200);
+        
       } catch (error) {
-        showNewRoleMessage(error instanceof Error ? error.message : "Error al crear rol.", true);
+        showFormMessage(error instanceof Error ? error.message : "Error al guardar rol.", true);
+        submitRoleButton.disabled = false;
+        submitRoleButton.textContent = editingRoleId ? "Actualizar rol" : "Guardar rol";
       }
     });
   }
+
+  // ============================================================
+  // EVENT LISTENERS - SEARCH & REFRESH
+  // ============================================================
 
   if (rolesSearchInput) {
     rolesSearchInput.addEventListener("input", () => {
@@ -641,6 +488,10 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     });
   }
 
+  // ============================================================
+  // EVENT LISTENERS - ACTION BUTTONS (Edit/Delete)
+  // ============================================================
+
   document.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -651,14 +502,36 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     const action = button.getAttribute("data-action");
     if (!roleId || !action) return;
 
+    const role = cachedRoles.find(r => r.id === roleId);
+    if (!role) return;
+
     if (action === "edit") {
-      showNewRoleMessage("Funcionalidad de edición de roles pendiente.", true);
+      openEditRolePanel(role);
     }
 
     if (action === "delete") {
-      showNewRoleMessage("Funcionalidad de eliminación de roles pendiente.", true);
+      openDeleteModal(role);
     }
   });
+
+  // ============================================================
+  // KEYBOARD SHORTCUTS
+  // ============================================================
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (!deleteModal?.classList.contains("hidden")) {
+        closeDeleteModal();
+      }
+      if (!newRolePanel?.classList.contains("hidden")) {
+        closeNewRolePanel();
+      }
+    }
+  });
+
+  // ============================================================
+  // INIT
+  // ============================================================
 
   loadRoles();
 </script>
