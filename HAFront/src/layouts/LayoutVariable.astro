@@ -1,12 +1,48 @@
 ---
 import "../styles/global.css";
-
 import { isAdminRole } from "../services/roles";
+import { AuthService } from "../services/auth.service.ts";
+import { FincaService } from "../services/finca.service.ts";
+import { ExpedienteService } from "../services/expediente.service.ts";
 
 const user = Astro.locals.user;
 const userRole = user?.role?.name || Astro.props.userRole || "Usuario";
 const isAdmin = isAdminRole(user?.role?.name);
 const title = Astro.props.title || "Huella de Altura";
+
+// Obtener token de las cookies
+const token = Astro.cookies.get("token")?.value;
+let userData = null;
+let hasFinca = false;
+let hasExpediente = false;
+
+if (token) {
+  try {
+    userData = await AuthService.getMe(token);
+    
+    // Verificar si tiene finca
+    if (userData?.id) {
+      try {
+        const finca = await FincaService.getByProductorId(userData.id, token);
+        hasFinca = !!finca;
+        
+        // Verificar si tiene expediente
+        if (hasFinca) {
+          try {
+            const expedientes = await ExpedienteService.list(token, { productor_id: userData.id });
+            hasExpediente = expedientes && expedientes.length > 0;
+          } catch (e) {
+            hasExpediente = false;
+          }
+        }
+      } catch (e) {
+        hasFinca = false;
+      }
+    }
+  } catch (e) {
+    console.error("Error cargando usuario en layout:", e);
+  }
+}
 ---
 
 <!DOCTYPE html>
@@ -53,7 +89,9 @@ const title = Astro.props.title || "Huella de Altura";
         </div>
 
         <div class="hidden md:block">
-          <p class="text-sm font-semibold">{user?.user_metadata?.full_name || "Usuario"}</p>
+          <p class="text-sm font-semibold">
+            {user?.user_metadata?.full_name || user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() || "Usuario" : "Usuario"}
+          </p>
           <p class="text-xs text-on-surface-variant">
             {userRole}
           </p>
@@ -87,10 +125,11 @@ const title = Astro.props.title || "Huella de Altura";
         {
           !isAdmin && (
             <>
-              <!-- PRODUCTOR -->
+              <!-- PRODUCTOR Y FINCA -->
               <a
                 href="/productorFinca"
-                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                id="link-productor"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition enabled-link"
               >
                 <span class="material-symbols-outlined">
                   agriculture
@@ -102,38 +141,58 @@ const title = Astro.props.title || "Huella de Altura";
               <!-- EXPEDIENTE -->
               <a
                 href="/expedientes"
-                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                id="link-expediente"
+                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasFinca ? 'enabled-link' : 'disabled-link'}`}
               >
                 <span class="material-symbols-outlined">
                   folder_open
                 </span>
 
                 <span>Expediente</span>
+
+                {!hasFinca && (
+                  <span id="badge-expediente" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
+                    Completar Finca
+                  </span>
+                )}
               </a>
 
               <!-- INFORMACIÓN AGROAMBIENTAL -->
               <a
                 href="/infoAgro"
-                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                id="link-infoagro"
+                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
               >
                 <span class="material-symbols-outlined">
                   eco
                 </span>
 
                 <span>Información Agroambiental</span>
-              </a>
 
+                {!hasExpediente && (
+                  <span id="badge-infoagro" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
+                    {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
+                  </span>
+                )}
+              </a>
 
               <!-- SATELITAL -->
               <a
                 href="/satelital"
-                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                id="link-satelital"
+                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
               >
                 <span class="material-symbols-outlined">
                   satellite_alt
                 </span>
 
                 <span>Reporte Satelital</span>
+
+                {!hasExpediente && (
+                  <span id="badge-satelital" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
+                    {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
+                  </span>
+                )}
               </a>
             </>
           )
@@ -229,119 +288,123 @@ const title = Astro.props.title || "Huella de Altura";
   </div>
 
   <style>
-    .disabled-link { pointer-events: none; opacity: 0.45; }
-    .enabled-link { pointer-events: auto; opacity: 1; }
-    .link-badge { margin-left: 8px; padding: 2px 8px; background: rgba(59,130,246,0.95); color: white; font-size: 11px; border-radius: 999px; }
-    #toast-container { position: fixed; right: 1rem; bottom: 1rem; display:flex; flex-direction:column; gap:0.5rem; z-index:9999; }
-    .toast { background: #111827; color: #fff; padding: 8px 12px; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.2); opacity:0; transform: translateY(10px); transition: all 240ms ease; }
-    .toast.show { opacity:1; transform: translateY(0); }
+    .disabled-link { 
+      pointer-events: none; 
+      opacity: 0.45; 
+      cursor: not-allowed;
+    }
+    .enabled-link { 
+      pointer-events: auto; 
+      opacity: 1; 
+    }
+    #toast-container { 
+      position: fixed; 
+      right: 1rem; 
+      bottom: 1rem; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 0.5rem; 
+      z-index: 9999; 
+    }
+    .toast { 
+      background: #111827; 
+      color: #fff; 
+      padding: 8px 12px; 
+      border-radius: 8px; 
+      box-shadow: 0 6px 18px rgba(0,0,0,0.2); 
+      opacity: 0; 
+      transform: translateY(10px); 
+      transition: all 240ms ease; 
+    }
+    .toast.show { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
   </style>
 
   <div id="toast-container"></div>
 
-  <script type="module">
-    import { AuthService } from "../services/auth.service.ts";
-    import { ProductorService } from "../services/productorServices.ts";
-    import { FincaService } from "../services/finca.service.ts";
-    import { ExpedienteService } from "../services/expediente.service.ts";
-
-    function getCookie(name) {
-      const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-      return match ? decodeURIComponent(match[1]) : "";
-    }
-
-    const token = getCookie('token');
-    const linkProductor = document.getElementById('link-productor');
-    const linkExpediente = document.getElementById('link-expediente');
-    const linkInfoAgro = document.getElementById('link-infoagro');
-    const linkSatelital = document.getElementById('link-satelital');
-    const badgeExpediente = document.getElementById('badge-expediente');
-    const badgeInfoAgro = document.getElementById('badge-infoagro');
-    const badgeSatelital = document.getElementById('badge-satelital');
-
-    function showToast(message, timeout = 3500) {
-      const container = document.getElementById('toast-container');
-      if (!container) return;
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.textContent = message;
-      container.appendChild(t);
-      // show
-      requestAnimationFrame(() => t.classList.add('show'));
-      setTimeout(() => { t.classList.remove('show'); setTimeout(()=> t.remove(), 260); }, timeout);
-    }
-
-    // handle clicks on disabled links to show reason
-    function attachDisabledClick(linkEl, badgeEl, defaultMsg) {
-      if (!linkEl) return;
-      linkEl.addEventListener('click', (ev) => {
-        if (linkEl.classList.contains('disabled-link')) {
-          ev.preventDefault();
-          const msg = badgeEl && badgeEl.textContent ? badgeEl.textContent : defaultMsg;
-          showToast(msg);
-        }
-      });
-    }
-
-    attachDisabledClick(linkExpediente, badgeExpediente, 'Completa Productor y Finca antes de acceder a Expedientes');
-    attachDisabledClick(linkInfoAgro, badgeInfoAgro, 'Crea un expediente antes de acceder a Información Agroambiental');
-
-    async function initFlow() {
-      // Default: only productor link active
-      if (linkProductor) linkProductor.classList.add('enabled-link');
-      if (linkExpediente) linkExpediente.classList.add('disabled-link');
-      if (linkInfoAgro) linkInfoAgro.classList.add('disabled-link');
-      if (badgeExpediente) badgeExpediente.classList.add('hidden');
-      if (badgeInfoAgro) badgeInfoAgro.classList.add('hidden');
-
-      if (!token) return; // can't progress without auth
-
-      try {
-        const user = await AuthService.getMe(token);
-
-        // check productor
-        let hasProductor = false;
-        try {
-          const productores = await ProductorService.list(token);
-          hasProductor = productores.some(p => p.cedula_id === user.identifier || p.id === user.id);
-        } catch (e) { /* ignore */ }
-
-        // check finca
-        let hasFinca = false;
-        try {
-          const fincas = await FincaService.list(token);
-          // consider finca if linked to user id or productor id
-          hasFinca = fincas.some(f => f.productor_id === user.id);
-        } catch (e) { /* ignore */ }
-
-        if (hasProductor && hasFinca) {
-          // enable expediente link
-          if (linkExpediente) { linkExpediente.classList.remove('disabled-link'); linkExpediente.classList.add('enabled-link'); }
-        } else {
-          // show hint badge on expediente
-          if (badgeExpediente) { badgeExpediente.classList.remove('hidden'); badgeExpediente.textContent = hasProductor ? 'Completar Finca' : 'Completar Productor'; }
-        }
-
-        // check expedientes
-        try {
-          const expedientes = await ExpedienteService.list(token, { productor_id: user.id });
-          if (expedientes && expedientes.length > 0) {
-            if (linkInfoAgro) { linkInfoAgro.classList.remove('disabled-link'); linkInfoAgro.classList.add('enabled-link'); }
-          } else {
-            if (badgeInfoAgro) { badgeInfoAgro.classList.remove('hidden'); badgeInfoAgro.textContent = 'Crear Expediente'; }
-          }
-        } catch (e) { /* ignore */ }
-
-      } catch (err) {
-        console.warn('Flow init failed', err);
+  <script>
+    // Cliente script sin importaciones de TypeScript
+    document.addEventListener('DOMContentLoaded', () => {
+      
+      function getCookie(name) {
+        const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : "";
       }
-    }
 
-    // react to saves elsewhere in the app and re-evaluate flow
-    window.addEventListener('productorSaved', () => initFlow());
-    window.addEventListener('fincaSaved', () => initFlow());
+      const token = getCookie('token');
+      const linkProductor = document.getElementById('link-productor');
+      const linkExpediente = document.getElementById('link-expediente');
+      const linkInfoAgro = document.getElementById('link-infoagro');
+      const linkSatelital = document.getElementById('link-satelital');
 
-    initFlow();
+      function showToast(message, timeout = 3500) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = message;
+        container.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('show'));
+        setTimeout(() => { 
+          t.classList.remove('show'); 
+          setTimeout(() => t.remove(), 260); 
+        }, timeout);
+      }
+
+      // Recargar la página cuando se guarda algo
+      window.addEventListener('fincaSaved', () => {
+        showToast('✅ Finca guardada correctamente');
+        setTimeout(() => location.reload(), 1000);
+      });
+
+      window.addEventListener('productorSaved', () => {
+        showToast('✅ Productor guardado correctamente');
+        setTimeout(() => location.reload(), 1000);
+      });
+
+      window.addEventListener('expedienteSaved', () => {
+        showToast('✅ Expediente guardado correctamente');
+        setTimeout(() => location.reload(), 1000);
+      });
+
+      // Manejar clics en enlaces deshabilitados
+      if (linkExpediente) {
+        linkExpediente.addEventListener('click', (ev) => {
+          if (linkExpediente.classList.contains('disabled-link')) {
+            ev.preventDefault();
+            showToast('⚠️ Completa Productor y Finca primero');
+          }
+        });
+      }
+
+      if (linkInfoAgro) {
+        linkInfoAgro.addEventListener('click', (ev) => {
+          if (linkInfoAgro.classList.contains('disabled-link')) {
+            ev.preventDefault();
+            const badge = document.getElementById('badge-infoagro');
+            const msg = badge && badge.textContent === 'Crear Expediente' 
+              ? '⚠️ Crea un expediente primero' 
+              : '⚠️ Completa Productor y Finca primero';
+            showToast(msg);
+          }
+        });
+      }
+
+      if (linkSatelital) {
+        linkSatelital.addEventListener('click', (ev) => {
+          if (linkSatelital.classList.contains('disabled-link')) {
+            ev.preventDefault();
+            const badge = document.getElementById('badge-satelital');
+            const msg = badge && badge.textContent === 'Crear Expediente' 
+              ? '⚠️ Crea un expediente primero' 
+              : '⚠️ Completa Productor y Finca primero';
+            showToast(msg);
+          }
+        });
+      }
+    });
   </script>
 
 </body>
