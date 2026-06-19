@@ -1,4 +1,6 @@
+// src/services/InfoAgroambiental.ts
 import { API_URL } from "./Api_Base";
+
 const AGROAMBIENTAL_BASE = `${API_URL}/api/v1/agroambiental`;
 
 export interface VariableDinamicaCreate {
@@ -26,12 +28,13 @@ export interface DatoAgroambientalCreate {
   hojarasca_mantillo?: number;
   carbono_organico_suelo?: number;
   total_stock_carbono?: number;
+  finca_id?: string;
   variables?: VariableDinamicaCreate[];
 }
 
 export interface DatoAgroambientalOut extends DatoAgroambientalCreate {
   id: string;
-  expediente_id: string;
+  finca_id: string;
   creado_en: string;
   variables: VariableDinamicaOut[];
 }
@@ -55,8 +58,12 @@ function authHeaders(token?: string) {
 }
 
 export class AgroambientalService {
-  static async getByExpediente(expedienteId: string, token: string): Promise<DatoAgroambientalOut[]> {
-    const response = await fetch(`${AGROAMBIENTAL_BASE}/${expedienteId}`, {
+  /**
+   * Obtiene todos los registros agroambientales de una finca
+   * GET /api/v1/agroambiental/{finca_id}
+   */
+  static async getByFinca(fincaId: string, token?: string): Promise<DatoAgroambientalOut[]> {
+    const response = await fetch(`${AGROAMBIENTAL_BASE}/${fincaId}`, {
       method: "GET",
       headers: authHeaders(token),
     });
@@ -69,8 +76,13 @@ export class AgroambientalService {
     return data;
   }
 
-  static async create(expedienteId: string, payload: DatoAgroambientalCreate, token: string): Promise<DatoAgroambientalOut> {
-    const response = await fetch(`${AGROAMBIENTAL_BASE}/${expedienteId}`, {
+  /**
+   * Crea un nuevo registro agroambiental para una finca
+   * POST /api/v1/agroambiental/
+   * Body: DatoAgroambientalCreate (incluye finca_id)
+   */
+  static async create(payload: DatoAgroambientalCreate, token?: string): Promise<DatoAgroambientalOut> {
+    const response = await fetch(AGROAMBIENTAL_BASE, {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify(payload),
@@ -84,9 +96,18 @@ export class AgroambientalService {
     return data;
   }
 
-  static async update(expedienteId: string, datoId: string, payload: DatoAgroambientalCreate, token: string): Promise<DatoAgroambientalOut> {
-    const response = await fetch(`${AGROAMBIENTAL_BASE}/${expedienteId}/${datoId}`, {
-      method: "PUT",
+  /**
+   * Actualiza un registro agroambiental existente
+   * PATCH /api/v1/agroambiental/{dato_id}
+   * Body: DatoAgroambientalCreate (sin finca_id ni variables)
+   */
+  static async update(
+    datoId: string, 
+    payload: Partial<DatoAgroambientalCreate>, 
+    token?: string
+  ): Promise<DatoAgroambientalOut> {
+    const response = await fetch(`${AGROAMBIENTAL_BASE}/${datoId}`, {
+      method: "PATCH",
       headers: authHeaders(token),
       body: JSON.stringify(payload),
     });
@@ -99,7 +120,11 @@ export class AgroambientalService {
     return data;
   }
 
-  static async getResumenCarbono(token: string): Promise<CarbonoResumen[]> {
+  /**
+   * Obtiene un resumen del stock de carbono por finca
+   * GET /api/v1/agroambiental/resumen/carbono
+   */
+  static async getResumenCarbono(token?: string): Promise<CarbonoResumen[]> {
     const response = await fetch(`${AGROAMBIENTAL_BASE}/resumen/carbono`, {
       method: "GET",
       headers: authHeaders(token),

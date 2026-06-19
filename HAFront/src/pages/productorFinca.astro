@@ -40,6 +40,7 @@ if (token) {
 // Preparar datos para el cliente
 const userJSON = JSON.stringify(userData);
 const fincaJSON = JSON.stringify(fincaData);
+const fincaId = fincaData?.id || '';
 ---
 
 <DashboardLayout title="Productor y Finca">
@@ -343,10 +344,23 @@ const fincaJSON = JSON.stringify(fincaData);
   <section class="bg-surface-container-low border border-outline-variant rounded-xl p-6">
     <p class="text-xs uppercase tracking-wider text-on-surface-variant mb-2">Próximo Paso</p>
     <p class="text-on-surface mb-4">Cargar el mapa de la finca para completar el registro.</p>
-    <button class="flex items-center gap-2 text-primary font-semibold hover:underline">
+    
+    <!-- Botón redirigido a /infoAgro con el finca_id -->
+    <a 
+      id="ir-info-agro"
+      href={fincaId ? `/infoAgro?finca_id=${fincaId}` : '#'}
+      class={fincaId ? 'flex items-center gap-2 text-primary font-semibold hover:underline' : 'flex items-center gap-2 text-on-surface-variant font-semibold cursor-not-allowed opacity-50'}
+      onclick={!fincaId ? "event.preventDefault(); alert('Primero debes guardar la información de la finca.');" : ''}
+    >
       Ir al mapeo de campos dinámicos
       <span class="material-symbols-outlined">arrow_forward</span>
-    </button>
+    </a>
+    
+    {!fincaId && (
+      <p class="text-sm text-on-surface-variant mt-2">
+        ⚠️ Guarda la finca primero para continuar.
+      </p>
+    )}
   </section>
 
 </div>
@@ -363,6 +377,7 @@ const fincaJSON = JSON.stringify(fincaData);
     const guardarFincaBtn = document.getElementById('guardar-finca');
     const cancelarFincaBtn = document.getElementById('cancelar-finca');
     const messageEl = document.getElementById('productor-message');
+    const irInfoAgro = document.getElementById('ir-info-agro');
 
     // Obtener datos de los elementos JSON
     let userData = null;
@@ -523,7 +538,22 @@ const fincaJSON = JSON.stringify(fincaData);
           });
 
           if (response.ok) {
+            const data = await response.json();
             showMessage('Finca guardada correctamente');
+            
+            // Actualizar el ID de la finca en el DOM
+            const newFincaId = data.id || data.finca?.id;
+            if (newFincaId) {
+              // Actualizar el enlace con el nuevo ID
+              const irLink = document.getElementById('ir-info-agro');
+              if (irLink) {
+                irLink.href = `/infoAgro?finca_id=${newFincaId}`;
+                irLink.classList.remove('cursor-not-allowed', 'opacity-50', 'text-on-surface-variant');
+                irLink.classList.add('text-primary', 'hover:underline');
+                irLink.onclick = null;
+              }
+            }
+            
             window.dispatchEvent(new CustomEvent('fincaSaved'));
             setTimeout(() => location.reload(), 1500);
           } else {
