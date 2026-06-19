@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -141,6 +142,8 @@ class FincaCreate(BaseModel):
     tenencia: TenenciaEnum | None = None
     latitud: float | None = Field(None, example=-4.2625)
     longitud: float | None = Field(None, example=-79.2231)
+    poligono: Any | None = Field(None, description="Datos del polígono de la finca (GeoJSON o lista de coordenadas)")
+    productor_id: str
 
 
 class FincaOut(FincaCreate):
@@ -162,6 +165,7 @@ class FincaUpdate(BaseModel):
     tenencia: TenenciaEnum | None = None
     latitud: float | None = None
     longitud: float | None = None
+    poligono: Any | None = None
 
 
 # ─── Expediente ──────────────────────────────────────────────
