@@ -48,7 +48,7 @@ export const useRegistroFinca = (navigation) => {
   const [barrio, setBarrio] = useState('');
   const [areaTotal, setAreaTotal] = useState('');
   const [areaCultivada, setAreaCultivada] = useState('');
-  const [tenencia, setTenencia] = useState('Propia con escritura');
+  const [tenencia, setTenencia] = useState('PROPIA');
   
   // Geolocation
   const [latitud, setLatitud] = useState('-3.99313');
@@ -227,15 +227,15 @@ export const useRegistroFinca = (navigation) => {
         latitud_centro: parseFloat(latitud), longitud_centro: parseFloat(longitud), sync_status: 'pending', creado_en: new Date()
       });
 
-      await sqlite.insert(require('@/data/local/esquema').expedientes).values({
-        id: expedienteId, finca_id: fincaId, productor_id: productorId, organizacion_inquilino: organizacion, sync_status: 'pending', creado_en: new Date()
-      });
-
       await sqlite.insert(require('@/data/local/esquema').datosAgroambientales).values({
-        id: datoId, expediente_id: expedienteId, indice_shannon: parseFloat(indiceShannon) || 0, indice_simpson: parseFloat(indiceSimpson) || 0,
+        id: datoId, finca_id: fincaId, indice_shannon: parseFloat(indiceShannon) || 0, indice_simpson: parseFloat(indiceSimpson) || 0,
         uso_suelo: usoSuelo, cobertura_forestal: JSON.stringify(coberturaForestal), sistema_produccion: sistemaProduccion,
         biomasa_arboles: parseFloat(biomasaArboles) || 0, biomasa_cafe: parseFloat(biomasaCafe) || 0, hojarasca_mantillo: parseFloat(hojarascaMantillo) || 0,
         carbono_organico_suelo: parseFloat(carbonoSuelo) || 0, total_stock_carbono: parseFloat(totalStockCarbono) || 0, sync_status: 'pending', creado_en: new Date()
+      });
+
+      await sqlite.insert(require('@/data/local/esquema').expedientes).values({
+        id: expedienteId, dato_id: datoId, productor_id: productorId, organizacion_inquilino: organizacion, sync_status: 'pending', creado_en: new Date()
       });
 
       for (const campo of camposDinamicos) {
@@ -266,7 +266,7 @@ export const useRegistroFinca = (navigation) => {
   return {
     step, setStep, loading, showFullMap, setShowFullMap,
     // Step 1
-    nombreProductor, cedulaId, emailProductor, organizacion, celular, genero, edad, nivelEducativo,
+    nombreProductor, cedulaId, emailProductor, organizacion, setOrganizacion, celular, genero, edad, nivelEducativo,
     // Step 2
     nombreFinca, setNombreFinca, eudrId, provincia, setProvincia, canton, setCanton, parroquia, setParroquia,
     barrio, setBarrio, areaTotal, setAreaTotal, areaCultivada, setAreaCultivada, tenencia, setTenencia,

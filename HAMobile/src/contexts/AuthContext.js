@@ -65,10 +65,8 @@ export const AuthProvider = ({ children }) => {
         await sqlite.update(productores)
           .set(productorData)
           .where(eq(productores.id, userData.id));
-        console.log('[AuthContext] Perfil de productor actualizado en BD local');
       } else {
         await sqlite.insert(productores).values(productorData);
-        console.log('[AuthContext] Perfil de productor guardado en BD local');
       }
       return true;
     } catch (error) {
@@ -200,7 +198,6 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     setLoading(true);
-    console.log('[AuthContext] Iniciando registro con datos:', JSON.stringify(userData, null, 2));
     try {
       const payload = {
         ...userData,
@@ -208,9 +205,15 @@ export const AuthProvider = ({ children }) => {
         status: userData.status || 'ACTIVO',
       };
       
+      // Aseguramos que los enumeradores siempre vayan en MAYÚSCULAS según el backend
+      if (payload.genero) {
+        payload.genero = payload.genero.toUpperCase();
+      }
+      if (payload.nivel_educativo) {
+        payload.nivel_educativo = payload.nivel_educativo.toUpperCase();
+      }
+      
       const url = `${API_BASE_URL}/auth/register`;
-      console.log('[AuthContext] Enviando POST a:', url);
-      console.log('[AuthContext] Payload final:', JSON.stringify(payload, null, 2));
 
       const response = await fetch(url, {
         method: 'POST',
@@ -220,9 +223,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify(payload),
       });
 
-      console.log('[AuthContext] Status de respuesta:', response.status);
       const responseText = await response.text();
-      console.log('[AuthContext] Body de respuesta (raw):', responseText);
 
       let data;
       try {
@@ -236,7 +237,6 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (response.ok) {
-        console.log('[AuthContext] Registro exitoso:', data);
         return { success: true, data };
       } else {
         console.error('[AuthContext] Error en registro (JSON):', data);

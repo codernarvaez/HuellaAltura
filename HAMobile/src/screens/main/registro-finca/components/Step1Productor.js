@@ -5,15 +5,16 @@ import { styles } from '../styles';
 import { theme } from '../../../../theme/theme';
 
 export const Step1Productor = ({
-  nombreProductor, cedulaId, emailProductor, organizacion, celular, genero, edad, nivelEducativo
+  nombreProductor, cedulaId, emailProductor, celular, genero, edad, nivelEducativo
 }) => (
   <View style={styles.stepContent}>
-    <View style={styles.sectionHeader}>
-      <User size={20} color="#fff" />
-      <Text style={styles.sectionTitle}>Perfil del Productor (Lectura)</Text>
-    </View>
+    <View style={styles.card}>
+      <View style={styles.sectionHeader}>
+        <User size={20} color={theme.colors.secondaryFixed} />
+        <Text style={styles.sectionTitle}>Perfil del Productor (Lectura)</Text>
+      </View>
 
-    <View style={styles.denseForm}>
+      <View style={styles.denseForm}>
       <View style={styles.row}>
         <View style={[styles.inputGroupDense, { flex: 1, marginRight: 6 }]}>
           <Text style={styles.labelSmall}>Nombres</Text>
@@ -60,14 +61,12 @@ export const Step1Productor = ({
         <TextInput style={[styles.inputDense, styles.inputDisabled]} value={emailProductor} editable={false} />
       </View>
 
-      <View style={styles.inputGroupDense}>
-        <Text style={styles.labelSmall}>Organización / Cooperativa</Text>
-        <TextInput style={[styles.inputDense, styles.inputDisabled]} value={organizacion} editable={false} />
-      </View>
+
     </View>
     <View style={styles.infoBox}>
-      <Info size={16} color={theme.colors.primary} />
+      <Info size={16} color={theme.colors.primaryFixed} />
       <Text style={styles.infoText}>Estos datos provienen de tu perfil y no son editables en este formulario.</Text>
+    </View>
     </View>
   </View>
 );

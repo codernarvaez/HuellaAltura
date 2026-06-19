@@ -66,10 +66,11 @@ export class DatabaseManager {
       );
     `);
 
+    sqlite.execute(`DROP TABLE IF EXISTS "expedientes"`);
     sqlite.execute(`
       CREATE TABLE IF NOT EXISTS "expedientes" (
         "id" text PRIMARY KEY NOT NULL,
-        "finca_id" text NOT NULL,
+        "dato_id" text NOT NULL,
         "productor_id" text NOT NULL,
         "organizacion_inquilino" text,
         "sync_status" text DEFAULT 'pending' NOT NULL,
@@ -77,10 +78,11 @@ export class DatabaseManager {
       );
     `);
 
+    sqlite.execute(`DROP TABLE IF EXISTS "datos_agroambientales"`);
     sqlite.execute(`
       CREATE TABLE IF NOT EXISTS "datos_agroambientales" (
         "id" text PRIMARY KEY NOT NULL,
-        "expediente_id" text NOT NULL,
+        "finca_id" text NOT NULL,
         "indice_shannon" real,
         "indice_simpson" real,
         "uso_suelo" text,

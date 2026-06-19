@@ -5,16 +5,36 @@ import { styles } from '../styles';
 import { theme } from '../../../../theme/theme';
 
 export const Step3Agroambiental = ({
+  organizacion, setOrganizacion,
   indiceShannon, setIndiceShannon, indiceSimpson, setIndiceSimpson, usoSuelo, setUsoSuelo,
   coberturaForestal, sistemaProduccion, setSistemaProduccion, biomasaArboles, setBiomasaArboles,
   biomasaCafe, setBiomasaCafe, hojarascaMantillo, setHojarascaMantillo, carbonoSuelo, setCarbonoSuelo,
   totalStockCarbono, camposDinamicos, actualizarCampoDinamico, eliminarCampoDinamico, agregarCampoDinamico
 }) => (
   <View style={styles.stepContent}>
-    <View style={styles.sectionHeader}>
-      <Trees size={22} color="#fff" />
-      <Text style={styles.sectionTitle}>Información Agroambiental</Text>
+    <View style={styles.card}>
+      <View style={styles.sectionHeader}>
+        <Trees size={20} color={theme.colors.secondaryFixed} />
+        <Text style={styles.sectionTitle}>Datos del Expediente</Text>
+      </View>
+
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>Organización / Inquilino</Text>
+      <TextInput 
+        style={styles.input} 
+        value={organizacion} 
+        onChangeText={setOrganizacion} 
+        placeholder="Ej. Cooperativa ACRIM"
+      />
     </View>
+
+    </View>
+
+    <View style={styles.card}>
+      <View style={styles.sectionHeader}>
+        <Leaf size={20} color={theme.colors.secondaryFixed} />
+        <Text style={styles.sectionTitle}>Información Agroambiental</Text>
+      </View>
 
     <View style={styles.row}>
       <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
@@ -48,10 +68,13 @@ export const Step3Agroambiental = ({
       />
     </View>
 
-    <View style={styles.sectionHeader}>
-      <Leaf size={22} color="#fff" />
-      <Text style={styles.sectionTitle}>Biomasa y Carbono</Text>
     </View>
+
+    <View style={styles.card}>
+      <View style={styles.sectionHeader}>
+        <Cloud size={20} color={theme.colors.secondaryFixed} />
+        <Text style={styles.sectionTitle}>Biomasa y Carbono</Text>
+      </View>
 
     <View style={styles.row}>
       <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
@@ -83,10 +106,13 @@ export const Step3Agroambiental = ({
       </View>
     </View>
 
-    <View style={styles.sectionHeader}>
-      <PlusCircle size={22} color="#fff" />
-      <Text style={styles.sectionTitle}>Variables Dinámicas</Text>
     </View>
+
+    <View style={styles.card}>
+      <View style={styles.sectionHeader}>
+        <PlusCircle size={20} color={theme.colors.secondaryFixed} />
+        <Text style={styles.sectionTitle}>Variables Dinámicas</Text>
+      </View>
 
     {camposDinamicos.map((campo) => (
       <View key={campo.id} style={styles.dynamicFieldRow}>
@@ -109,8 +135,9 @@ export const Step3Agroambiental = ({
     ))}
 
     <TouchableOpacity style={styles.addFieldButton} onPress={agregarCampoDinamico}>
-      <PlusCircle size={18} color={theme.colors.primary} />
+      <PlusCircle size={16} color="#fff" />
       <Text style={styles.addFieldText}>Añadir Variable</Text>
     </TouchableOpacity>
+    </View>
   </View>
 );

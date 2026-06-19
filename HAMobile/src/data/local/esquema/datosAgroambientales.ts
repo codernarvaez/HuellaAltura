@@ -2,7 +2,7 @@ import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 
 export const datosAgroambientales = sqliteTable('datos_agroambientales', {
   id: text('id').primaryKey(), // UUID v4 local
-  expediente_id: text('expediente_id').notNull(),
+  finca_id: text('finca_id').notNull(),
   
   indice_shannon: real('indice_shannon'),
   indice_simpson: real('indice_simpson'),
