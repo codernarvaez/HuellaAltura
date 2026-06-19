@@ -46,7 +46,7 @@ def crear_datos(
     data: DatoAgroambientalCreate,
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(
-        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
+        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO", "PRODUCTOR")
     ),
 ):
     """

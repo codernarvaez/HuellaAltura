@@ -17,6 +17,7 @@ export class SyncService {
       
       // 1. Sincronizar Fincas Pendientes
       const pendingFincas = await sqlite.select().from(fincas).where(eq(fincas.sync_status, 'pending'));
+      const errors: string[] = [];
       
       for (const finca of pendingFincas) {
         try {
@@ -73,7 +74,7 @@ export class SyncService {
               hojarasca_mantillo: dato.hojarasca_mantillo || 0,
               carbono_organico_suelo: dato.carbono_organico_suelo || 0,
               total_stock_carbono: dato.total_stock_carbono || 0,
-              variables: linkedVars.map(v => ({
+              variables: linkedVars.map((v: any) => ({
                 nombre: v.nombre,
                 valor: String(v.valor), // Convertir a string explícitamente
                 tipo_dato: v.tipo_dato
@@ -107,9 +108,14 @@ export class SyncService {
               await sqlite.update(expedientes).set({ sync_status: 'synced' }).where(eq(expedientes.id, exp.id));
             }
           }
-        } catch (fincaError) {
+        } catch (fincaError: any) {
           console.error(`[Sync] Error sincronizando finca ${finca.nombre}:`, fincaError);
+          errors.push(fincaError.message || 'Error desconocido');
         }
+      }
+
+      if (errors.length > 0) {
+        return { success: false, error: errors[0] };
       }
 
       return { success: true };

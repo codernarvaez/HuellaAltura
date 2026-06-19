@@ -4,8 +4,8 @@ import { styles } from '../styles';
 
 export const ProgressBar = ({ step, setStep }) => (
   <View style={styles.progressContainer}>
-    {[1, 2, 3].map((s) => (
-      <View key={s} style={styles.stepIndicatorWrapper}>
+    {[1, 2, 3].map((s, index) => (
+      <React.Fragment key={s}>
         <TouchableOpacity
           style={[styles.stepCircle, step >= s && styles.stepCircleActive]}
           onPress={() => setStep(s)}
@@ -13,8 +13,8 @@ export const ProgressBar = ({ step, setStep }) => (
         >
           <Text style={[styles.stepNumber, step >= s && styles.stepNumberActive]}>{s}</Text>
         </TouchableOpacity>
-        {s < 3 && <View style={[styles.stepLine, step > s && styles.stepLineActive]} />}
-      </View>
+        {index < 2 && <View style={[styles.stepLine, step > s && styles.stepLineActive]} />}
+      </React.Fragment>
     ))}
   </View>
 );

@@ -5,17 +5,17 @@ export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.primary },
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   mainTitle: { ...theme.typography.headlineLgMobile, color: '#fff', fontSize: 22, marginBottom: 8, fontWeight: '700' },
-  progressContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8 },
+  progressContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10, width: '100%' },
   stepIndicatorWrapper: { flexDirection: 'row', alignItems: 'center' },
-  stepCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  stepCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
   stepCircleActive: { backgroundColor: theme.colors.secondary, borderColor: theme.colors.secondaryFixed },
   stepNumber: { color: 'rgba(255,255,255,0.7)', fontWeight: '600', fontSize: 13 },
   stepNumberActive: { color: '#fff', fontWeight: 'bold' },
-  stepLine: { width: 35, height: 2, backgroundColor: 'rgba(255,255,255,0.15)' },
+  stepLine: { flex: 1, height: 2, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 8 },
   stepLineActive: { backgroundColor: theme.colors.secondary },
   
   formScroll: { flex: 1 },
-  formContent: { paddingHorizontal: 16, paddingBottom: 80 },
+  formContent: { paddingHorizontal: 16, paddingBottom: 16 },
   stepContent: { paddingTop: 12 },
   
   // Card style for sections
@@ -57,10 +57,11 @@ export const styles = StyleSheet.create({
   miniMapTitle: { color: theme.colors.primaryFixed, fontSize: 12, fontWeight: '700', marginLeft: 6, textTransform: 'uppercase' },
   miniMapWrapper: { height: 120, borderRadius: 8, overflow: 'hidden' },
   
-  footer: { flexDirection: 'row', padding: 12, backgroundColor: 'rgba(0, 67, 40, 0.95)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'space-between', paddingBottom: Platform.OS === 'ios' ? 24 : 12 },
-  navButtonMinimal: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-  submitButton: { backgroundColor: theme.colors.primaryFixedDim, height: 48, paddingHorizontal: 24, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-  submitButtonText: { color: theme.colors.onPrimaryFixed, fontSize: 15, fontWeight: 'bold', textTransform: 'uppercase' },
+  footer: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 20 : 8, backgroundColor: 'rgba(0, 67, 40, 0.95)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'space-between' },
+  navButtonMinimal: { height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2 },
+  navButtonMinimalText: { color: theme.colors.primary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
+  submitButton: { backgroundColor: theme.colors.primaryFixedDim, height: 40, paddingHorizontal: 20, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2 },
+  submitButtonText: { color: theme.colors.onPrimaryFixed, fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase' },
   
   dynamicFieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   addFieldButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { BackHandler } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import * as Location from 'expo-location';
@@ -26,6 +27,20 @@ export const useRegistroFinca = (navigation) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFullMap, setShowFullMap] = useState(false);
+
+  // Efecto: Interceptar botón físico de atrás en Android cuando el mapa completo está abierto
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showFullMap) {
+        setShowFullMap(false);
+        return true; // Indicamos que hemos manejado el evento
+      }
+      return false; // Que el sistema siga su comportamiento normal
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [showFullMap]);
 
   // --- ESTADO DEL FORMULARIO ---
   
@@ -111,7 +126,7 @@ export const useRegistroFinca = (navigation) => {
       try {
         const token = await obtenerToken();
         if (!token) return;
-        const baseUrl = API_BASE_URL || 'https://huellaaltura.onrender.com/api';
+        const baseUrl = API_BASE_URL;
         const response = await fetch(`${baseUrl}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -246,12 +261,21 @@ export const useRegistroFinca = (navigation) => {
         }
       }
 
-      showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al detectar conexión.', 'success', () => navigation.goBack());
-
       const token = await obtenerToken();
       if (token) {
         const { SyncService } = require('@/services/SyncService');
-        SyncService.syncAll(token).catch(e => console.warn('Sync fallido:', e));
+        const syncResult = await SyncService.syncAll(token);
+        
+        if (!syncResult.success) {
+          // Hubo un error devuelto por la API o la red, mostramos el error
+          showAlert('Error de Sincronización', syncResult.error || 'Error desconocido al sincronizar', 'error', () => navigation.goBack());
+        } else {
+          // Sincronización exitosa
+          showAlert('Éxito', 'Finca registrada y sincronizada correctamente.', 'success', () => navigation.goBack());
+        }
+      } else {
+        // No hay token, guardado offline
+        showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al conectarse.', 'success', () => navigation.goBack());
       }
 
       setStep(1); setPuntos([]); setNombreFinca(''); setCamposDinamicos([]);

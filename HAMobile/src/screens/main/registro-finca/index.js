@@ -51,19 +51,21 @@ const RegistroFincaScreen = ({ navigation }) => {
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             {state.step > 1 ? (
               <TouchableOpacity style={styles.navButtonMinimal} onPress={() => state.setStep(state.step - 1)}>
-                <ChevronLeft size={28} color={theme.colors.primary} />
+                <ChevronLeft size={20} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.navButtonMinimalText}>Atrás</Text>
               </TouchableOpacity>
-            ) : <View style={{ width: 50 }} />}
+            ) : <View style={{ width: 100 }} />}
 
             <View style={{ flex: 1 }} />
 
             {state.step < 3 ? (
               <TouchableOpacity style={styles.navButtonMinimal} onPress={() => state.setStep(state.step + 1)}>
-                <ChevronRight size={28} color={theme.colors.primary} />
+                <Text style={styles.navButtonMinimalText}>Sig.</Text>
+                <ChevronRight size={20} color={theme.colors.primary} style={{ marginLeft: 4 }} />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.submitButton} onPress={state.guardarRegistro} disabled={state.loading}>
-                {state.loading ? <ActivityIndicator color="#fff" /> : <><Save size={20} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.submitButtonText}>Finalizar</Text></>}
+                {state.loading ? <ActivityIndicator color="#fff" /> : <><Save size={18} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.submitButtonText}>Finalizar</Text></>}
               </TouchableOpacity>
             )}
           </View>
