@@ -36,7 +36,7 @@ model Expediente {
   id                     String   @id @default(uuid())
   dato_id                String   @unique
   estado                 String   @default("PENDIENTE")
-  organizacion_inquilino String?
+  organizacion_inquilino String
   creado_en              DateTime @default(now())
   actualizado_en         DateTime @updatedAt
 

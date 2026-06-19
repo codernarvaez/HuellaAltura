@@ -168,7 +168,7 @@ class FincaUpdate(BaseModel):
 
 class ExpedienteCreate(BaseModel):
     dato_id: str = Field(..., description="ID del dato agroambiental asociado")
-    organizacion_inquilino: str | None = None
+    organizacion_inquilino: str = Field(..., description="Organización/Inquilino (multi-tenant)")
 
 
 class ExpedienteUpdate(BaseModel):
