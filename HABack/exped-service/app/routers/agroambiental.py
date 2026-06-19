@@ -75,14 +75,13 @@ def crear_datos(
     return db.dato.find_first(where={"id": dato.id}, include={"variables": True})
 
 
-@router.put(
-    "/{expediente_id}/{dato_id}",
+@router.patch(
+    "/{dato_id}",
     response_model=DatoAgroambientalOut,
     summary="Actualizar datos agroambientales",
     dependencies=[Depends(log_user_action("update_agroambiental"))],
 )
 def actualizar_datos(
-    expediente_id: str,
     dato_id: str,
     data: DatoAgroambientalCreate,
     db: Prisma = Depends(get_db),
@@ -96,19 +95,19 @@ def actualizar_datos(
     **Lógica de Negocio:**
     - Permite corregir métricas técnicas del registro especificado por `dato_id`.
     """
-    dato = db.dato.find_first(where={"id": dato_id, "expediente_id": expediente_id})
+    dato = db.dato.find_first(where={"id": dato_id})
     if not dato:
         raise HTTPException(status_code=404, detail="Dato agroambiental no encontrado")
     return db.dato.update(
         where={"id": dato_id},
-        data=data.model_dump(exclude_unset=True, exclude={"variables"}),
+        data=data.model_dump(exclude_unset=True, exclude={"finca_id", "variables"}),
         include={"variables": True},
     )
 
 
 @router.get(
     "/resumen/carbono",
-    summary="Resumen de stock de carbono por expediente",
+    summary="Resumen de stock de carbono por finca",
 )
 def resumen_carbono(
     db: Prisma = Depends(get_db),
@@ -122,11 +121,11 @@ def resumen_carbono(
     **Lógica de Negocio:**
     - Útil para dashboards y reportes de sostenibilidad de alto nivel.
     """
-    datos = db.dato.find_many(include={"expediente": {"include": {"finca": True}}})
+    datos = db.dato.find_many(include={"finca": True})
     return [
         {
-            "nombre_finca": d.expediente.finca.nombre,
-            "eudr_id": d.expediente.finca.eudr_id,
+            "nombre_finca": d.finca.nombre,
+            "eudr_id": d.finca.eudr_id,
             "total_stock_carbono_tC_ha": d.total_stock_carbono,
         }
         for d in datos
