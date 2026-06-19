@@ -56,6 +56,18 @@ if (token) {
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
     rel="stylesheet"
   />
+
+  <!-- Evita el "flash" del sidebar abierto antes de aplicar la preferencia guardada -->
+  <script is:inline>
+    (function () {
+      try {
+        var collapsed = localStorage.getItem("sidebarCollapsed") === "true";
+        if (collapsed) {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body class="bg-background text-on-surface overflow-hidden">
@@ -65,6 +77,18 @@ if (token) {
     class="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-8 z-50"
   >
     <div class="flex items-center gap-4">
+      <!-- BOTÓN TOGGLE SIDEBAR -->
+      <button
+        id="sidebar-toggle"
+        type="button"
+        aria-label="Mostrar u ocultar barra lateral"
+        aria-controls="main-sidebar"
+        aria-expanded="true"
+        class="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-surface-container-low transition"
+      >
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+
       <h1 class="text-primary font-bold text-xl">
         Huella de Altura
       </h1>
@@ -105,7 +129,8 @@ if (token) {
 
     <!-- SIDEBAR -->
     <aside
-      class="w-72 fixed top-16 bottom-0 bg-surface-container-low border-r border-outline-variant overflow-y-auto flex flex-col"
+      id="main-sidebar"
+      class="sidebar w-72 fixed top-16 bottom-0 bg-surface-container-low border-r border-outline-variant overflow-y-auto flex flex-col"
     >
 
       <!-- HEADER -->
@@ -279,7 +304,7 @@ if (token) {
     </aside>
 
     <!-- CONTENIDO -->
-    <main class="ml-72 flex-1 overflow-y-auto p-8">
+    <main id="main-content" class="main-content ml-72 flex-1 overflow-y-auto p-8">
       <div class="max-w-7xl mx-auto">
         <slot />
       </div>
@@ -319,6 +344,37 @@ if (token) {
     .toast.show { 
       opacity: 1; 
       transform: translateY(0); 
+    }
+
+    /* --- TOGGLE SIDEBAR --- */
+    .sidebar {
+      transition: transform 0.25s ease;
+    }
+    .main-content {
+      transition: margin-left 0.25s ease;
+    }
+
+    /* Cuando el <html> tiene la clase sidebar-collapsed, ocultamos el aside
+       y quitamos el margen del contenido principal */
+    html.sidebar-collapsed .sidebar {
+      transform: translateX(-100%);
+    }
+    html.sidebar-collapsed .main-content {
+      margin-left: 0;
+    }
+
+    /* En móvil, el sidebar empieza oculto y se muestra como overlay */
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        z-index: 40;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+      html:not(.sidebar-collapsed) .sidebar {
+        transform: translateX(0);
+      }
     }
   </style>
 
@@ -402,6 +458,30 @@ if (token) {
               : '⚠️ Completa Productor y Finca primero';
             showToast(msg);
           }
+        });
+      }
+
+      // --- TOGGLE SIDEBAR ---
+      const sidebarToggle = document.getElementById('sidebar-toggle');
+      const htmlEl = document.documentElement;
+
+      function applyAriaExpanded() {
+        if (!sidebarToggle) return;
+        const isCollapsed = htmlEl.classList.contains('sidebar-collapsed');
+        sidebarToggle.setAttribute('aria-expanded', String(!isCollapsed));
+      }
+
+      
+      applyAriaExpanded();
+
+      if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', () => {
+          htmlEl.classList.toggle('sidebar-collapsed');
+          const isCollapsed = htmlEl.classList.contains('sidebar-collapsed');
+          try {
+            localStorage.setItem('sidebarCollapsed', String(isCollapsed));
+          } catch (e) {}
+          applyAriaExpanded();
         });
       }
     });
