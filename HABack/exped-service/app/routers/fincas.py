@@ -46,10 +46,10 @@ def obtener_fincas_por_usuario(
     Obtiene todas las fincas asociadas a un usuario (productor con rol PRODUCTOR).
 
     **Lógica de Negocio:**
-    - Busca por productor_id (el ID del usuario de auth-service)
+    - Busca por usuario_id (el ID del usuario de auth-service)
     - Retorna todas las fincas del usuario especificado
     """
-    return db.finca.find_many(where={"productor_id": usuario_id})
+    return db.finca.find_many(where={"usuario_id": usuario_id})
 
 
 @router.post(
@@ -73,17 +73,10 @@ def crear_finca(
     - Permite guardar el polígono de la finca (GeoJSON o lista de coordenadas) enviado desde dispositivos móviles.
     """
     payload = data.model_dump()
-    
-    # Manejar el cambio de usuario_id a productor_id
-    if payload.get("usuario_id"):
-        if not payload.get("productor_id"):
-            payload["productor_id"] = payload["usuario_id"]
-    if "usuario_id" in payload:
-        del payload["usuario_id"]
-        
+
     if payload.get("poligono") is not None:
         payload["poligono"] = Json(payload["poligono"])
-        
+
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
 
