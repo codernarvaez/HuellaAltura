@@ -14,6 +14,66 @@ def generar_eudr_id() -> str:
     return f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}"
 
 
+# ===== ENDPOINTS PUBLICOS (Sin autenticacion) =====
+
+@router.get(
+    "/publico/listar",
+    response_model=list[FincaOut],
+    summary="Listar fincas (público - sin autenticación)",
+    tags=["Público"]
+)
+def listar_fincas_publico(
+    provincia: str | None = Query(None),
+    canton: str | None = Query(None),
+    db: Prisma = Depends(get_db),
+):
+    """
+    Endpoint público para listar fincas sin autenticación.
+
+    **Uso para Landing Page:**
+    - Permite que usuarios sin token vean fincas disponibles
+    - Útil para búsqueda y exploración inicial
+    - Sin restricción de autenticación
+    """
+    try:
+        where: dict = {}
+        if provincia:
+            where["provincia"] = provincia
+        if canton:
+            where["canton"] = canton
+        fincas = db.finca.find_many(where=where)
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}")
+
+
+@router.get(
+    "/publico/por-usuario/{usuario_id}",
+    response_model=list[FincaOut],
+    summary="Obtener fincas por usuario (público - sin autenticación)",
+    tags=["Público"]
+)
+def obtener_fincas_publico(
+    usuario_id: str,
+    db: Prisma = Depends(get_db),
+):
+    """
+    Endpoint público para obtener fincas de un usuario sin autenticación.
+
+    **Uso para Landing Page:**
+    - Permite que usuarios ingresen un usuario_id y vean sus fincas
+    - Útil para vista previa sin login
+    - Sin restricción de autenticación
+    """
+    try:
+        fincas = db.finca.find_many(where={"usuario_id": usuario_id})
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}")
+
+
+# ===== ENDPOINTS PRIVADOS (Requieren autenticacion) =====
+
 @router.get("/", response_model=list[FincaOut], summary="Listar fincas")
 def listar_fincas(
     provincia: str | None = Query(None),
