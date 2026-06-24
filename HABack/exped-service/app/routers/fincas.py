@@ -28,12 +28,16 @@ def listar_fincas(
     - Permite filtrar por provincia y cantón.
     - Esta entidad es complementaria a los expedientes y permite una gestión independiente de predios.
     """
-    where: dict = {}
-    if provincia:
-        where["provincia"] = provincia
-    if canton:
-        where["canton"] = canton
-    return db.finca.find_many(where=where)
+    try:
+        where: dict = {}
+        if provincia:
+            where["provincia"] = provincia
+        if canton:
+            where["canton"] = canton
+        fincas = db.finca.find_many(where=where)
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}")
 
 
 @router.get("/por-usuario/{usuario_id}", response_model=list[FincaOut], summary="Obtener fincas por usuario (productor)")
@@ -46,10 +50,14 @@ def obtener_fincas_por_usuario(
     Obtiene todas las fincas asociadas a un usuario (productor con rol PRODUCTOR).
 
     **Lógica de Negocio:**
-    - Busca por productor_id (el ID del usuario de auth-service)
+    - Busca por usuario_id (el ID del usuario de auth-service)
     - Retorna todas las fincas del usuario especificado
     """
-    return db.finca.find_many(where={"productor_id": usuario_id})
+    try:
+        fincas = db.finca.find_many(where={"usuario_id": usuario_id})
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}")
 
 
 @router.post(
@@ -73,17 +81,10 @@ def crear_finca(
     - Permite guardar el polígono de la finca (GeoJSON o lista de coordenadas) enviado desde dispositivos móviles.
     """
     payload = data.model_dump()
-    
-    # Manejar el cambio de usuario_id a productor_id
-    if payload.get("usuario_id"):
-        if not payload.get("productor_id"):
-            payload["productor_id"] = payload["usuario_id"]
-    if "usuario_id" in payload:
-        del payload["usuario_id"]
-        
-    if payload.get("poligono") is not None:
+
+    if payload.get("poligono"):
         payload["poligono"] = Json(payload["poligono"])
-        
+
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)
 
@@ -128,7 +129,11 @@ def actualizar_finca(
     if current_user.get("role") == "PRODUCTOR" and finca.usuario_id != current_user.get("sub"):
         raise HTTPException(status_code=403, detail="No tienes permiso para editar esta finca")
 
-    return db.finca.update(where={"id": finca_id}, data=data.model_dump(exclude_unset=True))
+    payload = data.model_dump(exclude_unset=True)
+    if "poligono" in payload and payload.get("poligono"):
+        payload["poligono"] = Json(payload["poligono"])
+
+    return db.finca.update(where={"id": finca_id}, data=payload)
 
 
 @router.delete(

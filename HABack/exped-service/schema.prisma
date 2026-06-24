@@ -77,10 +77,11 @@ model Finca {
   id                String   @id @default(uuid())
   nombre            String
   eudr_id           String?  @unique
-  productor_id      String
+  usuario_id        String
   provincia         String?
   canton            String?
   parroquia         String?
+  sector            String?
   area_total_ha     Float?
   area_cultivada_ha Float?
   tenencia          String?

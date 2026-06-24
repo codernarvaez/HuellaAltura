@@ -15,6 +15,7 @@ const token = Astro.cookies.get("token")?.value;
 let userData = null;
 let hasFinca = false;
 let hasExpediente = false;
+let fincaId = null; // <-- NUEVA VARIABLE para almacenar el ID de la finca
 
 if (token) {
   try {
@@ -24,25 +25,46 @@ if (token) {
     if (userData?.id) {
       try {
         const finca = await FincaService.getByProductorId(userData.id, token);
-        hasFinca = !!finca;
+        // Ahora verificamos si finca es un objeto válido
+        hasFinca = finca !== null && typeof finca === 'object' && Object.keys(finca).length > 0;
+        
+        // GUARDAMOS EL ID DE LA FINCA
+        if (hasFinca && finca.id) {
+          fincaId = finca.id;
+          console.log('✅ Finca encontrada con ID:', fincaId);
+        }
         
         // Verificar si tiene expediente
         if (hasFinca) {
           try {
             const expedientes = await ExpedienteService.list(token, { productor_id: userData.id });
             hasExpediente = expedientes && expedientes.length > 0;
+            if (hasExpediente) {
+              console.log('✅ Expedientes encontrados:', expedientes.length);
+            }
           } catch (e) {
+            console.warn('⚠️ No se pudieron cargar expedientes:', e);
             hasExpediente = false;
           }
+        } else {
+          console.log('ℹ️ No se encontró finca para el usuario:', userData.id);
         }
       } catch (e) {
+        console.error('❌ Error cargando finca:', e);
         hasFinca = false;
       }
     }
   } catch (e) {
-    console.error("Error cargando usuario en layout:", e);
+    console.error("❌ Error cargando usuario en layout:", e);
   }
+} else {
+  console.warn('⚠️ No hay token de autenticación');
 }
+
+// Construir la URL de Información Agroambiental con el finca_id
+const infoAgroUrl = fincaId ? `/infoAgro?finca_id=${fincaId}` : '/infoAgro';
+const expedientesUrl = fincaId ? `/expedientes?finca_id=${fincaId}` : '/expedientes';
+const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
 ---
 
 <!DOCTYPE html>
@@ -77,17 +99,16 @@ if (token) {
     class="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-8 z-50"
   >
     <div class="flex items-center gap-4">
-      <!-- BOTÓN TOGGLE SIDEBAR -->
-      <button
-        id="sidebar-toggle"
-        type="button"
-        aria-label="Mostrar u ocultar barra lateral"
-        aria-controls="main-sidebar"
-        aria-expanded="true"
-        class="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-surface-container-low transition"
+      <!-- BOTÓN VOLVER (solo visible en páginas específicas) -->
+      <a
+        id="btn-volver"
+        href="/productorFinca"
+        class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition"
+        title="Volver a Productor y Finca"
       >
-        <span class="material-symbols-outlined">menu</span>
-      </button>
+        <span class="material-symbols-outlined">arrow_back</span>
+        <span class="hidden md:inline text-sm">Volver</span>
+      </a>
 
       <h1 class="text-primary font-bold text-xl">
         Huella de Altura
@@ -165,7 +186,7 @@ if (token) {
 
               <!-- EXPEDIENTE -->
               <a
-                href="/expedientes"
+                href={expedientesUrl}
                 id="link-expediente"
                 class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasFinca ? 'enabled-link' : 'disabled-link'}`}
               >
@@ -184,7 +205,7 @@ if (token) {
 
               <!-- INFORMACIÓN AGROAMBIENTAL -->
               <a
-                href="/infoAgro"
+                href={infoAgroUrl}
                 id="link-infoagro"
                 class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
               >
@@ -203,7 +224,7 @@ if (token) {
 
               <!-- SATELITAL -->
               <a
-                href="/satelital"
+                href={satelitalUrl}
                 id="link-satelital"
                 class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
               >
@@ -394,6 +415,7 @@ if (token) {
       const linkExpediente = document.getElementById('link-expediente');
       const linkInfoAgro = document.getElementById('link-infoagro');
       const linkSatelital = document.getElementById('link-satelital');
+      const btnVolver = document.getElementById('btn-volver');
 
       function showToast(message, timeout = 3500) {
         const container = document.getElementById('toast-container');
@@ -407,6 +429,14 @@ if (token) {
           t.classList.remove('show'); 
           setTimeout(() => t.remove(), 260); 
         }, timeout);
+      }
+
+      // Ocultar botón volver si estamos en la página de productorFinca
+      if (btnVolver) {
+        const currentPath = window.location.pathname;
+        if (currentPath === '/productorFinca') {
+          btnVolver.style.display = 'none';
+        }
       }
 
       // Recargar la página cuando se guarda algo

@@ -17,7 +17,7 @@ router = APIRouter()
 def obtener_datos(
     finca_id: str,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO", "PRODUCTOR")),
 ):
     """
     Obtiene todos los registros técnicos agroambientales asociados a una finca.

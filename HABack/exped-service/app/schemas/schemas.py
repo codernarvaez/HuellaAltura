@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ─── Enums (valores alineados con Prisma) ────────────────────
 
@@ -54,9 +54,9 @@ class TipoDatoEnum(StrEnum):
 
 
 class VariableDinamicaCreate(BaseModel):
-    nombre: str = Field(..., example="pH del suelo")
-    valor: str = Field(..., example="6.5")
-    tipo_dato: TipoDatoEnum = Field(..., example="FLOAT")
+    nombre: str | None = Field(None, example="pH del suelo")
+    valor: str | None = Field(None, example="6.5")
+    tipo_dato: TipoDatoEnum | None = Field(None, example="FLOAT")
 
 
 class VariableDinamicaUpdate(BaseModel):
@@ -133,17 +133,24 @@ class HistorialOut(HistorialCreate):
 
 class FincaCreate(BaseModel):
     nombre: str = Field(..., example="El Ahuacate")
-    usuario_id: str | None = Field(None, example="uuid-del-usuario", description="ID del usuario (productor) de auth-service")
+    usuario_id: str = Field(..., example="uuid-del-usuario", description="ID del usuario (productor) de auth-service")
     provincia: str | None = Field(None, example="Loja")
     canton: str | None = Field(None, example="Loja")
     parroquia: str | None = None
+    sector: str | None = Field(None, example="18", description="Barrio/Sector de la finca")
     area_total_ha: float | None = Field(None, example=3.0)
     area_cultivada_ha: float | None = None
     tenencia: TenenciaEnum | None = None
     latitud: float | None = Field(None, example=-4.2625)
     longitud: float | None = Field(None, example=-79.2231)
     poligono: Any | None = Field(None, description="Datos del polígono de la finca (GeoJSON o lista de coordenadas)")
-    productor_id: str
+
+    @field_validator("poligono")
+    @classmethod
+    def validar_poligono(cls, v):
+        if v is not None and isinstance(v, dict) and len(v) == 0:
+            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas.")
+        return v
 
 
 class FincaOut(FincaCreate):
@@ -160,12 +167,20 @@ class FincaUpdate(BaseModel):
     provincia: str | None = None
     canton: str | None = None
     parroquia: str | None = None
+    sector: str | None = None
     area_total_ha: float | None = None
     area_cultivada_ha: float | None = None
     tenencia: TenenciaEnum | None = None
     latitud: float | None = None
     longitud: float | None = None
     poligono: Any | None = None
+
+    @field_validator("poligono")
+    @classmethod
+    def validar_poligono(cls, v):
+        if v is not None and isinstance(v, dict) and len(v) == 0:
+            raise ValueError("El polígono no puede estar vacío. Proporciona coordenadas válidas.")
+        return v
 
 
 # ─── Expediente ──────────────────────────────────────────────

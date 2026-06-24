@@ -12,37 +12,241 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
         Información Agroambiental
       </h1>
       <p class="text-on-surface-variant mt-2 max-w-3xl">
-        Registro de variables ambientales complementarias asociadas a la finca
-        y configuración dinámica definida por el administrador.
+        Registro de variables ambientales complementarias asociadas a la finca.
       </p>
     </section>
 
-    <!-- INFORMACIÓN AGROAMBIENTAL -->
+    <!-- FORMULARIO AGROAMBIENTAL -->
     <section
       class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden"
     >
       <div
-        class="px-6 py-4 border-b border-outline-variant flex items-center gap-3"
+        class="px-6 py-4 border-b border-outline-variant flex items-center justify-between gap-3 flex-wrap"
       >
-        <span class="material-symbols-outlined text-primary">
-          eco
-        </span>
-        <h2 class="text-xl font-semibold text-primary">
-          Información Agroambiental y Campos Dinámicos
-        </h2>
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary">
+            eco
+          </span>
+          <h2 class="text-xl font-semibold text-primary">
+            Información Agroambiental
+          </h2>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <!-- BOTÓN VOLVER -->
+          <button
+            id="volver-btn"
+            class="px-4 py-2 bg-surface text-on-surface-variant border border-outline-variant rounded-xl hover:bg-surface-container-high transition flex items-center gap-2"
+          >
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Volver
+          </button>
+          <!-- BOTÓN GUARDAR (ÚNICO) -->
+          <button
+            id="guardar-infoagro"
+            class="px-4 py-2 bg-primary text-white rounded-xl hover:opacity-90 transition flex items-center gap-2"
+          >
+            <span class="material-symbols-outlined text-sm">save</span>
+            Guardar
+          </button>
+          <button
+            id="limpiar-infoagro"
+            class="px-4 py-2 bg-surface text-on-surface-variant border border-outline-variant rounded-xl hover:bg-surface-container-high transition flex items-center gap-2"
+          >
+            <span class="material-symbols-outlined text-sm">clear</span>
+            Limpiar
+          </button>
+        </div>
       </div>
 
       <div class="p-6">
         <p class="text-on-surface-variant mb-6">
-          Los campos a continuación corresponden a variables ambientales
-          complementarias configuradas por el administrador.
+          Complete la información agroambiental de la finca. Los campos marcados con <span class="text-error">*</span> son obligatorios.
         </p>
 
-        <div id="infoagro-loading" class="text-sm text-on-surface-variant">
-          Cargando variables dinámicas...
-        </div>
+        <form id="infoagro-form">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Índice Shannon -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Índice de Shannon
+              </label>
+              <input
+                id="indice_shannon"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </div>
 
-        <div id="infoagro-fields" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4"></div>
+            <!-- Índice Simpson -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Índice de Simpson
+              </label>
+              <input
+                id="indice_simpson"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </div>
+
+            <!-- Uso de Suelo -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Uso de Suelo <span class="text-error">*</span>
+              </label>
+              <select
+                id="uso_suelo"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                <option value="">Seleccionar uso de suelo</option>
+                <option value="AGRICOLA">Agrícola</option>
+                <option value="FORESTAL">Forestal</option>
+                <option value="PASTOREO">Pastoreo</option>
+                <option value="MIXTO">Mixto</option>
+                <option value="CONSERVACION">Conservación</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </div>
+
+            <!-- Cobertura Forestal -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Cobertura Forestal <span class="text-error">*</span>
+              </label>
+              <select
+                id="cobertura_forestal"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                <option value="">Seleccionar cobertura forestal</option>
+                <option value="BOSQUE_NATIVO">Bosque Nativo</option>
+                <option value="BOSQUE_PLANTADO">Bosque Plantado</option>
+                <option value="PASTIZAL">Pastizal</option>
+                <option value="CULTIVOS">Cultivos</option>
+                <option value="VEGETACION_SECUNDARIA">Vegetación Secundaria</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </div>
+
+            <!-- Sistema de Producción -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Sistema de Producción <span class="text-error">*</span>
+              </label>
+              <select
+                id="sistema_produccion"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                <option value="">Seleccionar sistema de producción</option>
+                <option value="ORGANICO">Orgánico</option>
+                <option value="CONVENCIONAL">Convencional</option>
+                <option value="AGROFORESTAL">Agroforestal</option>
+                <option value="SILVOPASTORIL">Silvopastoril</option>
+                <option value="TRADICIONAL">Tradicional</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </div>
+
+            <!-- Biomasa Árboles -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Biomasa de Árboles (ton/ha)
+              </label>
+              <input
+                id="biomasa_arboles"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </div>
+
+            <!-- Biomasa Café -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Biomasa de Café (ton/ha)
+              </label>
+              <input
+                id="biomasa_cafe"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </div>
+
+            <!-- Hojarasca/Mantillo -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Hojarasca y Mantillo (ton/ha)
+              </label>
+              <input
+                id="hojarasca_mantillo"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </div>
+
+            <!-- Carbono Orgánico Suelo -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Carbono Orgánico del Suelo (ton/ha)
+              </label>
+              <input
+                id="carbono_organico_suelo"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </div>
+
+            <!-- Total Stock Carbono -->
+            <div class="md:col-span-2">
+              <label class="block mb-2 text-sm font-medium text-primary">
+                Total Stock de Carbono (ton/ha)
+              </label>
+              <input
+                id="total_stock_carbono"
+                type="number"
+                step="0.01"
+                readonly
+                placeholder="0.00"
+                class="w-full h-14 px-4 rounded-xl border border-primary bg-primary-container/5 text-primary font-semibold"
+              />
+              <p class="text-xs text-on-surface-variant mt-1">
+                * Este valor se calcula automáticamente como la suma de: biomasa de árboles + biomasa de café + hojarasca y mantillo + carbono orgánico del suelo.
+              </p>
+            </div>
+          </div>
+
+          <!-- Variables Dinámicas (Opcional) -->
+          <div id="dynamic-variables-container" class="mt-8 pt-6 border-t border-outline-variant hidden">
+            <h3 class="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary">tune</span>
+              Variables Dinámicas
+            </h3>
+            <p class="text-sm text-on-surface-variant mb-4">
+              Variables adicionales asociadas a la finca.
+            </p>
+            <div id="dynamic-variables" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Las variables dinámicas se cargarán aquí si existen -->
+            </div>
+          </div>
+
+          <!-- Mensaje de estado -->
+          <div id="infoagro-message" class="mt-6 hidden text-sm"></div>
+
+          <!-- ❌ ELIMINADO: Botón de acción duplicado -->
+          <!-- <div class="mt-6 flex gap-3 border-t border-outline-variant pt-6">
+            <button type="submit" ...>Guardar Información Agroambiental</button>
+          </div> -->
+        </form>
       </div>
     </section>
 
@@ -63,39 +267,37 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 
       <div class="p-6">
         <div
-          class="h-[450px] rounded-xl overflow-hidden border border-outline-variant mb-6"
+          class="h-[450px] rounded-xl overflow-hidden border border-outline-variant mb-6 bg-surface-container-low flex items-center justify-center"
         >
-          <img
-            src="/images/mapa-demo.jpg"
-            alt="Mapa de finca"
-            class="w-full h-full object-cover"
-          />
+          <div class="text-center text-on-surface-variant">
+            <span class="material-symbols-outlined text-6xl">map</span>
+            <p class="mt-2">Mapa interactivo próximamente</p>
+            <p class="text-sm mt-1">Coordenadas de la finca cargadas automáticamente</p>
+          </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="infoagro-static-coordinates">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label
-              class="block mb-2 text-sm font-medium text-on-surface-variant"
-            >
+            <label class="block mb-2 text-sm font-medium text-on-surface-variant">
               Latitud (WGS84)
             </label>
             <input
+              id="finca-latitud"
               type="text"
-              value="-0.512021"
               readonly
+              placeholder="Cargando..."
               class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
             />
           </div>
           <div>
-            <label
-              class="block mb-2 text-sm font-medium text-on-surface-variant"
-            >
+            <label class="block mb-2 text-sm font-medium text-on-surface-variant">
               Longitud (WGS84)
             </label>
             <input
+              id="finca-longitud"
               type="text"
-              value="-78.376812"
               readonly
+              placeholder="Cargando..."
               class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
             />
           </div>
@@ -106,10 +308,45 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 </DashboardLayout>
 
 <script type="module">
+  import { FincaService } from "/src/services/finca.service.ts";
   import { AgroambientalService } from "/src/services/InfoAgroambiental.ts";
 
-  const infoAgroFields = document.getElementById("infoagro-fields");
-  const infoAgroLoading = document.getElementById("infoagro-loading");
+  console.log('🔍 [INFOAGRO] Iniciando script...');
+
+  // DOM Elements
+  const form = document.getElementById("infoagro-form");
+  const messageEl = document.getElementById("infoagro-message");
+  const dynamicVariablesContainer = document.getElementById("dynamic-variables-container");
+  const dynamicVariablesEl = document.getElementById("dynamic-variables");
+  const guardarBtn = document.getElementById("guardar-infoagro");
+  const limpiarBtn = document.getElementById("limpiar-infoagro");
+  const volverBtn = document.getElementById("volver-btn");
+  const latitudInput = document.getElementById("finca-latitud");
+  const longitudInput = document.getElementById("finca-longitud");
+
+  console.log('🔍 [INFOAGRO] Elementos encontrados:', {
+    form: !!form,
+    messageEl: !!messageEl,
+    guardarBtn: !!guardarBtn,
+    limpiarBtn: !!limpiarBtn,
+    volverBtn: !!volverBtn,
+    latitudInput: !!latitudInput,
+    longitudInput: !!longitudInput
+  });
+
+  // Form fields
+  const fields = {
+    indice_shannon: document.getElementById("indice_shannon"),
+    indice_simpson: document.getElementById("indice_simpson"),
+    uso_suelo: document.getElementById("uso_suelo"),
+    cobertura_forestal: document.getElementById("cobertura_forestal"),
+    sistema_produccion: document.getElementById("sistema_produccion"),
+    biomasa_arboles: document.getElementById("biomasa_arboles"),
+    biomasa_cafe: document.getElementById("biomasa_cafe"),
+    hojarasca_mantillo: document.getElementById("hojarasca_mantillo"),
+    carbono_organico_suelo: document.getElementById("carbono_organico_suelo"),
+    total_stock_carbono: document.getElementById("total_stock_carbono"),
+  };
 
   function getCookie(name) {
     const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -118,53 +355,307 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 
   const token = getCookie("token");
   const urlParams = new URLSearchParams(window.location.search);
-  const expedienteId = urlParams.get("expediente_id");
+  const fincaId = urlParams.get("finca_id");
 
-  function renderField(variable) {
-    return `
-      <div>
-        <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-          ${variable.nombre}
-        </label>
-        <input
-          type="text"
-          id="variable-${variable.id}"
-          name="variable-${variable.id}"
-          value="${variable.valor ?? ""}"
-          readonly
-          class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface"
-        />
-      </div>
-    `;
+  console.log('🔍 [INFOAGRO] token:', token ? '✅ Presente' : '❌ Ausente');
+  console.log('🔍 [INFOAGRO] fincaId:', fincaId);
+
+  // Variable para almacenar el dato_id si existe
+  let datoId = null;
+
+  // Calcular Total Stock de Carbono
+  function calcularTotalStock() {
+    const biomasaArboles = parseFloat(fields.biomasa_arboles?.value) || 0;
+    const biomasaCafe = parseFloat(fields.biomasa_cafe?.value) || 0;
+    const hojarasca = parseFloat(fields.hojarasca_mantillo?.value) || 0;
+    const carbonoOrganico = parseFloat(fields.carbono_organico_suelo?.value) || 0;
+    
+    const total = biomasaArboles + biomasaCafe + hojarasca + carbonoOrganico;
+    
+    if (fields.total_stock_carbono) {
+      fields.total_stock_carbono.value = total.toFixed(2);
+    }
+    console.log('🔍 [INFOAGRO] Total Stock Carbono calculado:', total);
+    return total;
   }
 
-  async function loadInfoAgro() {
-    if (!infoAgroFields || !infoAgroLoading) return;
+  // Mostrar mensaje
+  function showMessage(text, isError = false) {
+    console.log('📢 [INFOAGRO] showMessage:', text, 'isError:', isError);
+    if (!messageEl) return;
+    messageEl.textContent = text;
+    messageEl.classList.remove('hidden', 'text-error', 'text-success');
+    messageEl.classList.add(isError ? 'text-error' : 'text-success');
+  }
 
-    if (!token || !expedienteId) {
-      infoAgroLoading.textContent = "";
-      infoAgroFields.innerHTML = `<div class="col-span-full p-6 text-center text-error">No se encontró token o expediente_id.</div>`;
+  function hideMessage() {
+    if (messageEl) {
+      messageEl.textContent = '';
+      messageEl.classList.add('hidden');
+    }
+  }
+
+  // Limpiar formulario
+  function limpiarFormulario() {
+    console.log('🧹 [INFOAGRO] Limpiando formulario');
+    Object.values(fields).forEach(field => {
+      if (field && field.tagName === 'INPUT') {
+        field.value = '';
+      } else if (field && field.tagName === 'SELECT') {
+        field.value = '';
+      }
+    });
+    
+    const dynamicInputs = dynamicVariablesEl?.querySelectorAll('input');
+    if (dynamicInputs) {
+      dynamicInputs.forEach(input => input.value = '');
+    }
+    
+    hideMessage();
+  }
+
+  // Obtener variables dinámicas del formulario
+  function getDynamicVariables() {
+    const inputs = dynamicVariablesEl?.querySelectorAll('input');
+    if (!inputs || inputs.length === 0) return [];
+    
+    return Array.from(inputs).map(input => ({
+      nombre: input.placeholder || input.id.replace('variable-', ''),
+      valor: input.value,
+      tipo_dato: 'text'
+    }));
+  }
+
+  // Cargar variables dinámicas y datos existentes
+  async function loadExistingData() {
+    console.log('🔍 [INFOAGRO] loadExistingData - fincaId:', fincaId, 'token:', !!token);
+    
+    if (!fincaId || !token) {
+      console.warn('⚠️ [INFOAGRO] No hay fincaId o token, omitiendo carga');
       return;
     }
 
     try {
-      const datos = await AgroambientalService.getByExpediente(expedienteId, token);
-      const fields = datos.flatMap((dato) => dato.variables || []);
-      infoAgroLoading.textContent = "";
+      console.log('🔍 [INFOAGRO] Llamando a AgroambientalService.getByFinca...');
+      const datos = await AgroambientalService.getByFinca(fincaId, token);
+      console.log('📋 [INFOAGRO] Datos agroambientales existentes:', datos);
+      
+      if (datos && datos.length > 0) {
+        const dato = datos[0];
+        datoId = dato.id;
+        console.log('✅ [INFOAGRO] Registro existente encontrado, datoId:', datoId);
+        
+        // Llenar campos con datos existentes
+        if (fields.indice_shannon) fields.indice_shannon.value = dato.indice_shannon ?? '';
+        if (fields.indice_simpson) fields.indice_simpson.value = dato.indice_simpson ?? '';
+        if (fields.uso_suelo) fields.uso_suelo.value = dato.uso_suelo ?? '';
+        if (fields.cobertura_forestal) fields.cobertura_forestal.value = dato.cobertura_forestal ?? '';
+        if (fields.sistema_produccion) fields.sistema_produccion.value = dato.sistema_produccion ?? '';
+        if (fields.biomasa_arboles) fields.biomasa_arboles.value = dato.biomasa_arboles ?? '';
+        if (fields.biomasa_cafe) fields.biomasa_cafe.value = dato.biomasa_cafe ?? '';
+        if (fields.hojarasca_mantillo) fields.hojarasca_mantillo.value = dato.hojarasca_mantillo ?? '';
+        if (fields.carbono_organico_suelo) fields.carbono_organico_suelo.value = dato.carbono_organico_suelo ?? '';
+        
+        calcularTotalStock();
 
-      if (!fields.length) {
-        infoAgroFields.innerHTML = `<div class="col-span-full p-6 text-center text-on-surface-variant">No se encontraron variables dinámicas para este expediente.</div>`;
-        return;
+        if (dato.variables && dato.variables.length > 0) {
+          console.log('📋 [INFOAGRO] Variables dinámicas encontradas:', dato.variables.length);
+          dynamicVariablesContainer.classList.remove('hidden');
+          dynamicVariablesEl.innerHTML = dato.variables
+            .map((v) => `
+              <div>
+                <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                  ${v.nombre || 'Variable'}
+                </label>
+                <input
+                  type="text"
+                  id="variable-${v.id}"
+                  name="variables[${v.nombre}]"
+                  value="${v.valor || ''}"
+                  placeholder="${v.nombre}"
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                />
+              </div>
+            `)
+            .join('');
+        } else {
+          dynamicVariablesContainer.classList.add('hidden');
+          dynamicVariablesEl.innerHTML = '';
+        }
+        
+        showMessage('✅ Datos cargados correctamente. Puedes modificarlos y guardar.', false);
+        setTimeout(hideMessage, 3000);
+      } else {
+        console.log('ℹ️ [INFOAGRO] No hay datos agroambientales para esta finca. Creando nuevos.');
+        dynamicVariablesContainer.classList.add('hidden');
+        dynamicVariablesEl.innerHTML = '';
       }
-
-      infoAgroFields.innerHTML = fields
-        .map((variable) => renderField(variable))
-        .join("");
     } catch (error) {
-      infoAgroLoading.textContent = "";
-      infoAgroFields.innerHTML = `<div class="col-span-full p-6 text-center text-error">${error instanceof Error ? error.message : "Error al cargar variables dinámicas."}</div>`;
+      console.error('❌ [INFOAGRO] Error en loadExistingData:', error);
+      dynamicVariablesContainer.classList.add('hidden');
+      dynamicVariablesEl.innerHTML = '';
     }
   }
 
-  loadInfoAgro();
+  // Cargar datos de la finca (solo coordenadas)
+  async function loadFincaData() {
+    console.log('🔍 [INFOAGRO] loadFincaData - fincaId:', fincaId);
+    
+    if (!fincaId) {
+      console.warn('⚠️ [INFOAGRO] No hay finca_id');
+      return;
+    }
+
+    if (!token) {
+      console.warn('⚠️ [INFOAGRO] No hay token');
+      return;
+    }
+
+    try {
+      console.log('🔍 [INFOAGRO] Llamando a FincaService.getById...');
+      const finca = await FincaService.getById(fincaId, token);
+      console.log('📋 [INFOAGRO] Finca cargada:', finca);
+      
+      if (latitudInput) {
+        latitudInput.value = finca.latitud?.toString() || 'No disponible';
+      }
+      if (longitudInput) {
+        longitudInput.value = finca.longitud?.toString() || 'No disponible';
+      }
+    } catch (error) {
+      console.error('❌ [INFOAGRO] Error cargando finca:', error);
+      if (latitudInput) latitudInput.value = 'Error al cargar';
+      if (longitudInput) longitudInput.value = 'Error al cargar';
+    }
+  }
+
+  // Guardar datos agroambientales
+  async function guardarInfoAgro() {
+    console.log('💾 [INFOAGRO] guardarInfoAgro - Iniciando...');
+    console.log('🔍 [INFOAGRO] token:', token ? '✅ Presente' : '❌ Ausente');
+    console.log('🔍 [INFOAGRO] fincaId:', fincaId);
+    console.log('🔍 [INFOAGRO] datoId:', datoId);
+
+    if (!token) {
+      showMessage('❌ No se encontró token de autenticación.', true);
+      return;
+    }
+
+    if (!fincaId) {
+      showMessage('❌ No se encontró ID de finca.', true);
+      return;
+    }
+
+    // Validar campos obligatorios
+    const usoSuelo = fields.uso_suelo?.value;
+    const coberturaForestal = fields.cobertura_forestal?.value;
+    const sistemaProduccion = fields.sistema_produccion?.value;
+
+    if (!usoSuelo || !coberturaForestal || !sistemaProduccion) {
+      showMessage('❌ Los campos Uso de Suelo, Cobertura Forestal y Sistema de Producción son obligatorios.', true);
+      return;
+    }
+
+    // Recopilar datos del formulario
+    const payload = {
+      indice_shannon: parseFloat(fields.indice_shannon?.value) || 0,
+      indice_simpson: parseFloat(fields.indice_simpson?.value) || 0,
+      uso_suelo: usoSuelo,
+      cobertura_forestal: coberturaForestal,
+      sistema_produccion: sistemaProduccion,
+      biomasa_arboles: parseFloat(fields.biomasa_arboles?.value) || 0,
+      biomasa_cafe: parseFloat(fields.biomasa_cafe?.value) || 0,
+      hojarasca_mantillo: parseFloat(fields.hojarasca_mantillo?.value) || 0,
+      carbono_organico_suelo: parseFloat(fields.carbono_organico_suelo?.value) || 0,
+      finca_id: fincaId,
+      variables: getDynamicVariables()
+    };
+
+    console.log('📤 [INFOAGRO] Enviando payload:', JSON.stringify(payload, null, 2));
+
+    try {
+      showMessage('💾 Guardando información agroambiental...', false);
+      
+      let result;
+      if (datoId) {
+        console.log('🔍 [INFOAGRO] Actualizando registro existente con datoId:', datoId);
+        // Actualizar existente (solo pasar el payload sin finca_id ni variables)
+        const updatePayload = { ...payload };
+        delete updatePayload.finca_id;
+        delete updatePayload.variables;
+        
+        console.log('📤 [INFOAGRO] Update Payload:', JSON.stringify(updatePayload, null, 2));
+        result = await AgroambientalService.update(datoId, updatePayload, token);
+        console.log('✅ [INFOAGRO] Datos actualizados:', result);
+        showMessage('✅ Información agroambiental actualizada correctamente.', false);
+      } else {
+        console.log('🔍 [INFOAGRO] Creando nuevo registro...');
+        result = await AgroambientalService.create(payload, token);
+        console.log('✅ [INFOAGRO] Datos creados:', result);
+        datoId = result.id;
+        showMessage('✅ Información agroambiental creada correctamente.', false);
+      }
+      
+      setTimeout(hideMessage, 3000);
+
+    } catch (error) {
+      console.error('❌ [INFOAGRO] Error guardando:', error);
+      showMessage(`❌ Error: ${error instanceof Error ? error.message : 'Error al guardar'}`, true);
+    }
+  }
+
+  // --- EVENTO VOLVER ---
+  if (volverBtn) {
+    volverBtn.addEventListener('click', () => {
+      console.log('🔙 [INFOAGRO] Click en Volver');
+      window.location.href = '/productorFinca';
+    });
+  }
+
+  // --- EVENTO GUARDAR ---
+  if (guardarBtn) {
+    console.log('✅ [INFOAGRO] guardarBtn encontrado, añadiendo event listener');
+    guardarBtn.addEventListener('click', (e) => {
+      console.log('🖊️ [INFOAGRO] Click en Guardar (btn)');
+      e.preventDefault();
+      guardarInfoAgro();
+    });
+  } else {
+    console.warn('⚠️ [INFOAGRO] guardarBtn NO encontrado');
+  }
+
+  // --- EVENTO LIMPIAR ---
+  if (limpiarBtn) {
+    limpiarBtn.addEventListener('click', () => {
+      console.log('🧹 [INFOAGRO] Click en Limpiar');
+      if (confirm('¿Estás seguro de que quieres limpiar todos los campos?')) {
+        limpiarFormulario();
+        showMessage('🧹 Formulario limpiado', false);
+        setTimeout(hideMessage, 2000);
+      }
+    });
+  }
+
+  // --- EVENTO SUBMIT (FORM) - ELIMINADO para evitar duplicados ---
+  // Ya no hay evento submit porque el botón de guardar está en el header
+
+  // Recalcular total stock al cambiar campos relevantes
+  const camposStock = ['biomasa_arboles', 'biomasa_cafe', 'hojarasca_mantillo', 'carbono_organico_suelo'];
+  camposStock.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', calcularTotalStock);
+      el.addEventListener('change', calcularTotalStock);
+    }
+  });
+
+  // Inicializar
+  console.log('🚀 [INFOAGRO] Inicializando...');
+  console.log('🔍 [INFOAGRO] finca_id recibido:', fincaId);
+  
+  // Cargar coordenadas de la finca
+  loadFincaData();
+  
+  // Cargar datos existentes si los hay
+  loadExistingData();
 </script>
