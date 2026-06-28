@@ -18,6 +18,7 @@ from app.routers import (
     fincas,
     variables,
     sync,
+    geoespacial,
 )
 
 
@@ -94,6 +95,11 @@ app.include_router(
     sync.router,
     prefix=endpoints.SYNC_PREFIX,
     tags=["Sincronización Offline"],
+)
+app.include_router(
+    geoespacial.router,
+    prefix="/api/v1/geoespacial",
+    tags=["Carga Geoespacial & EUDR"],
 )
 
 
