@@ -14,6 +14,84 @@ from app.schemas.schemas import FincaOut
 router = APIRouter()
 
 
+async def _process_geospatial_file(archivo: UploadFile) -> dict:
+    """
+    Procesa un archivo geoespacial (GPX/KML/GeoJSON).
+
+    **Retorna:**
+    - coordenadas: Lista de [lat, lon]
+    - parsed: Datos parseados con type, properties, raw
+    - center: Tupla (lat, lon)
+    - location: Ubicación geocodificada
+    - area_hectareas: Área calculada
+    - eudr_result: Resultado de validación EUDR
+    """
+    # Validar nombre de archivo
+    if not archivo.filename:
+        raise HTTPException(status_code=400, detail="El archivo no tiene nombre. Por favor, verifica el archivo e intenta de nuevo.")
+
+    # Leer contenido
+    content = await archivo.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="El archivo está vacío. Por favor, selecciona un archivo válido.")
+
+    # Decodificar UTF-8
+    try:
+        content_str = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="El archivo no está en formato UTF-8. Asegúrate de que sea un archivo de texto válido.")
+
+    # Detectar extensión
+    file_ext = archivo.filename.lower().split(".")[-1] if "." in archivo.filename else ""
+
+    if not file_ext:
+        raise HTTPException(status_code=400, detail="El archivo no tiene extensión. Usa .gpx, .kml o .geojson.")
+
+    # Parsear según tipo
+    try:
+        if file_ext == "geojson" or file_ext == "json":
+            parsed = parse_geojson(content_str)
+        elif file_ext == "kml":
+            parsed = parse_kml(content_str)
+        elif file_ext == "gpx":
+            parsed = parse_gpx(content_str)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Formato de archivo no soportado: .{file_ext}. Utiliza .gpx, .kml o .geojson."
+            )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El archivo no tiene un formato válido: {str(e)}. Verifica que sea un archivo GPX, KML o GeoJSON correcto."
+        )
+
+    # Extraer y validar coordenadas
+    coordinates = parsed.get("coordinates", [])
+    if not coordinates:
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo no contiene coordenadas válidas. Asegúrate de que el archivo tenga polígonos o puntos geográficos definidos."
+        )
+
+    # Procesar datos geoespaciales
+    center_lat, center_lon = calculate_center(coordinates)
+    location = geocode_location(center_lat, center_lon)
+    area_hectareas = calculate_polygon_area(coordinates)
+    eudr_result = await validate_eudr_deforestation(coordinates)
+
+    return {
+        "coordenadas": coordinates,
+        "parsed": parsed,
+        "centro": (center_lat, center_lon),
+        "ubicacion": location,
+        "area_hectareas": area_hectareas,
+        "eudr_result": eudr_result,
+    }
+
+
 def parse_geojson(content: str) -> dict:
     """Parsea un archivo GeoJSON y extrae coordenadas y propiedades."""
     try:
@@ -283,79 +361,24 @@ async def cargar_poligono_publico(
     - Validación EUDR de deforestación
     """
     try:
-        if not archivo.filename:
-            raise HTTPException(status_code=400, detail="El archivo no tiene nombre. Por favor, verifica el archivo e intenta de nuevo.")
-
-        content = await archivo.read()
-        if not content:
-            raise HTTPException(status_code=400, detail="El archivo está vacío. Por favor, selecciona un archivo válido.")
-
-        try:
-            content_str = content.decode("utf-8")
-        except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="El archivo no está en formato UTF-8. Asegúrate de que sea un archivo de texto válido.")
-
-        # Detectar tipo de archivo
-        file_ext = archivo.filename.lower().split(".")[-1] if "." in archivo.filename else ""
-
-        if not file_ext:
-            raise HTTPException(status_code=400, detail="El archivo no tiene extensión. Usa .gpx, .kml o .geojson.")
-
-        try:
-            if file_ext == "geojson" or file_ext == "json":
-                parsed = parse_geojson(content_str)
-            elif file_ext == "kml":
-                parsed = parse_kml(content_str)
-            elif file_ext == "gpx":
-                parsed = parse_gpx(content_str)
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Formato de archivo no soportado: .{file_ext}. Utiliza .gpx, .kml o .geojson."
-                )
-        except HTTPException:
-            raise
-        except ValueError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"El archivo no tiene un formato válido: {str(e)}. Verifica que sea un archivo GPX, KML o GeoJSON correcto."
-            )
-
-        coordinates = parsed.get("coordinates", [])
-        if not coordinates:
-            raise HTTPException(
-                status_code=400,
-                detail="El archivo no contiene coordenadas válidas. Asegúrate de que el archivo tenga polígonos o puntos geográficos definidos."
-            )
-
-        # Calcular centro
-        center_lat, center_lon = calculate_center(coordinates)
-
-        # Geocodificar ubicación
-        location = geocode_location(center_lat, center_lon)
-
-        # Calcular área del polígono
-        area_hectareas = calculate_polygon_area(coordinates)
-
-        # Validar EUDR
-        eudr_result = await validate_eudr_deforestation(coordinates)
+        result = await _process_geospatial_file(archivo)
 
         return {
             "success": True,
-            "archivo_tipo": parsed["type"],
-            "coordenadas": coordinates,
-            "centro": {"latitud": center_lat, "longitud": center_lon},
-            "ubicacion": location,
-            "propiedades": parsed["properties"],
-            "validacion_eudr": eudr_result,
-            "area_hectareas": area_hectareas,
+            "archivo_tipo": result["parsed"]["type"],
+            "coordenadas": result["coordenadas"],
+            "centro": {"latitud": result["centro"][0], "longitud": result["centro"][1]},
+            "ubicacion": result["ubicacion"],
+            "propiedades": result["parsed"]["properties"],
+            "validacion_eudr": result["eudr_result"],
+            "area_hectareas": result["area_hectareas"],
             "sugerencias": {
-                "nombre": parsed["properties"].get("name", ""),
-                "provincia": location["provincia"],
-                "canton": location["canton"],
-                "parroquia": location.get("parroquia", ""),
-                "sector": location.get("sector", ""),
-                "area_total_ha": area_hectareas,
+                "nombre": result["parsed"]["properties"].get("name", ""),
+                "provincia": result["ubicacion"]["provincia"],
+                "canton": result["ubicacion"]["canton"],
+                "parroquia": result["ubicacion"].get("parroquia", ""),
+                "sector": result["ubicacion"].get("sector", ""),
+                "area_total_ha": result["area_hectareas"],
             }
         }
     except HTTPException:
@@ -394,78 +417,26 @@ async def cargar_poligono_crear_finca(
     4. Crea finca con polígono y datos extraídos
     """
     try:
-        if not archivo.filename:
-            raise HTTPException(status_code=400, detail="El archivo no tiene nombre. Por favor, verifica el archivo e intenta de nuevo.")
-
-        content = await archivo.read()
-        if not content:
-            raise HTTPException(status_code=400, detail="El archivo está vacío. Por favor, selecciona un archivo válido.")
-
-        try:
-            content_str = content.decode("utf-8")
-        except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="El archivo no está en formato UTF-8. Asegúrate de que sea un archivo de texto válido.")
-
-        # Detectar tipo de archivo
-        file_ext = archivo.filename.lower().split(".")[-1] if "." in archivo.filename else ""
-
-        if not file_ext:
-            raise HTTPException(status_code=400, detail="El archivo no tiene extensión. Usa .gpx, .kml o .geojson.")
-
-        try:
-            if file_ext == "geojson" or file_ext == "json":
-                parsed = parse_geojson(content_str)
-            elif file_ext == "kml":
-                parsed = parse_kml(content_str)
-            elif file_ext == "gpx":
-                parsed = parse_gpx(content_str)
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Formato de archivo no soportado: .{file_ext}. Utiliza .gpx, .kml o .geojson."
-                )
-        except HTTPException:
-            raise
-        except ValueError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"El archivo no tiene un formato válido: {str(e)}. Verifica que sea un archivo GPX, KML o GeoJSON correcto."
-            )
-
-        coordinates = parsed.get("coordinates", [])
-        if not coordinates:
-            raise HTTPException(
-                status_code=400,
-                detail="El archivo no contiene coordenadas válidas. Asegúrate de que el archivo tenga polígonos o puntos geográficos definidos."
-            )
-
-        # Calcular centro
-        center_lat, center_lon = calculate_center(coordinates)
-
-        # Geocodificar
-        location = geocode_location(center_lat, center_lon)
-
-        # Calcular área del polígono
-        area_hectareas = calculate_polygon_area(coordinates)
+        result = await _process_geospatial_file(archivo)
 
         # Crear finca con datos extraídos automáticamente
         finca_data = {
-            "nombre": nombre_finca or parsed["properties"].get("name", f"Finca {uuid4().hex[:8]}"),
+            "nombre": nombre_finca or result["parsed"]["properties"].get("name", f"Finca {uuid4().hex[:8]}"),
             "usuario_id": current_user.get("sub"),
-            "provincia": location["provincia"],
-            "canton": location["canton"],
-            "parroquia": location.get("parroquia"),
-            "sector": location.get("sector"),
-            "latitud": center_lat,
-            "longitud": center_lon,
-            "area_total_ha": area_hectareas,
-            "area_cultivada_ha": area_hectareas,
+            "provincia": result["ubicacion"]["provincia"],
+            "canton": result["ubicacion"]["canton"],
+            "parroquia": result["ubicacion"].get("parroquia"),
+            "sector": result["ubicacion"].get("sector"),
+            "latitud": result["centro"][0],
+            "longitud": result["centro"][1],
+            "area_total_ha": result["area_hectareas"],
+            "area_cultivada_ha": result["area_hectareas"],
             "poligono": Json({
                 "type": "Polygon",
-                "coordinates": [[[c[1], c[0]] for c in coordinates]],
-                "fuente": parsed["type"],
+                "coordinates": [[[c[1], c[0]] for c in result["coordenadas"]]],
+                "fuente": result["parsed"]["type"],
                 "archivo_original": archivo.filename,
-                "area_hectareas": area_hectareas
+                "area_hectareas": result["area_hectareas"]
             }),
             "eudr_id": f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}",
         }

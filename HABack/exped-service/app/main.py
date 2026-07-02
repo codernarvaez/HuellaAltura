@@ -1,11 +1,15 @@
 import os
 from contextlib import asynccontextmanager
+import json
 
 # Forzar compatibilidad de Prisma en entornos de producción (Render)
 os.environ["PRISMA_PY_DEBUG_GENERATOR"] = "1"
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
 from app.core import endpoints
@@ -20,6 +24,49 @@ from app.routers import (
     sync,
     geoespacial,
 )
+
+
+class ErrorMessageMiddleware(BaseHTTPMiddleware):
+    """Middleware para mejorar mensajes de error HTTP."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Si es un error 404 genérico de FastAPI, mejorarlo
+        if response.status_code == 404:
+            try:
+                body = b""
+                async for chunk in response.body_iterator:
+                    body += chunk
+                data = json.loads(body)
+                if data.get("detail") == "Not Found":
+                    return JSONResponse(
+                        status_code=404,
+                        content={
+                            "detail": f"La ruta solicitada no existe: {request.method} {request.url.path}"
+                        },
+                    )
+            except:
+                pass
+
+        # Si es error 403 sin autenticación, mejorarlo
+        if response.status_code == 403:
+            try:
+                body = b""
+                async for chunk in response.body_iterator:
+                    body += chunk
+                data = json.loads(body)
+                if data.get("detail") == "Not authenticated":
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": "Requiere autenticación. Proporciona un token JWT válido en el header 'Authorization: Bearer <token>'."
+                        },
+                    )
+            except:
+                pass
+
+        return response
 
 
 @asynccontextmanager
@@ -62,6 +109,7 @@ Esta API es el núcleo del sistema **GeoGuard EUDR**, encargada de gestionar el 
     redoc_url="/docs",
 )
 
+app.add_middleware(ErrorMessageMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

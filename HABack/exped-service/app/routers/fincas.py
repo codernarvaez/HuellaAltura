@@ -14,6 +14,16 @@ def generar_eudr_id() -> str:
     return f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}"
 
 
+def _build_finca_filter(provincia: str | None = None, canton: str | None = None) -> dict:
+    """Construye filtro para búsqueda de fincas."""
+    where: dict = {}
+    if provincia:
+        where["provincia"] = provincia
+    if canton:
+        where["canton"] = canton
+    return where
+
+
 # ===== ENDPOINTS PUBLICOS (Sin autenticacion) =====
 
 @router.get(
@@ -36,11 +46,7 @@ def listar_fincas_publico(
     - Sin restricción de autenticación
     """
     try:
-        where: dict = {}
-        if provincia:
-            where["provincia"] = provincia
-        if canton:
-            where["canton"] = canton
+        where = _build_finca_filter(provincia, canton)
         fincas = db.finca.find_many(where=where)
         return fincas if fincas else []
     except Exception as e:
@@ -89,11 +95,7 @@ def listar_fincas(
     - Esta entidad es complementaria a los expedientes y permite una gestión independiente de predios.
     """
     try:
-        where: dict = {}
-        if provincia:
-            where["provincia"] = provincia
-        if canton:
-            where["canton"] = canton
+        where = _build_finca_filter(provincia, canton)
         fincas = db.finca.find_many(where=where)
         return fincas if fincas else []
     except Exception as e:
