@@ -18,10 +18,10 @@
   "dependencies": {
     "@astrojs/node": "^10.1.4",
     "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.108.2",
-    "@tailwindcss/vite": "^4.3.1",
+    "@supabase/supabase-js": "^2.110.0",
+    "@tailwindcss/vite": "^4.3.2",
     "tailwindcss": "^4.3.0",
-    "viem": "^2.52.2"
+    "viem": "^2.54.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
