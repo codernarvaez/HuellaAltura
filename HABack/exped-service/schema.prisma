@@ -89,6 +89,11 @@ model Finca {
   longitud          Float?
   poligono          Json?
   creado_en         DateTime @default(now())
+  variedad_cafe       String?
+  densidad_siembra    String?
+  origen_semilla      String?
+  anio_establecimiento Int?
+  labores             LaborAgricola[]
 
   datos_agroambientales  Dato[]
 
@@ -124,4 +129,65 @@ model Certificado {
   expediente         Expediente @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
 
   @@map("certificados_dds")
+}
+
+
+model LaborAgricola {
+  id                  String           @id @default(uuid())
+  finca_id            String
+  nombre              String
+  tipo_proceso        String           
+  mes                 String           
+  cantidad_proyectada String
+  estado              String           @default("PLANIFICADO")
+  creado_en           DateTime         @default(now())
+  
+  finca               Finca            @relation(fields: [finca_id], references: [id], onDelete: Cascade)
+  ejecuciones         EjecucionLabor[]
+
+  @@map("labores_agricolas")
+}
+
+model EjecucionLabor {
+  id                 String             @id @default(uuid())
+  labor_id           String
+  finca_id           String
+  persona_desarrollo String             
+  nombre_jornalero   String?
+  detalle_aplicacion String
+  salario            Float?
+  foto_url           String?
+  foto_hash          String?
+  latitud            Float?
+  longitud           Float?
+  timestamp          DateTime           @default(now())
+  creado_en          DateTime           @default(now())
+  
+  labor              LaborAgricola      @relation(fields: [labor_id], references: [id], onDelete: Cascade)
+  insumos            InsumoLabor[]
+  herramientas       HerramientaLabor[]
+
+  @@map("ejecuciones_labores")
+}
+
+model InsumoLabor {
+  id           String         @id @default(uuid())
+  ejecucion_id String
+  nombre       String         
+  cantidad     Float
+  unidad       String        
+  
+  ejecucion    EjecucionLabor @relation(fields: [ejecucion_id], references: [id], onDelete: Cascade)
+
+  @@map("insumos_labores")
+}
+
+model HerramientaLabor {
+  id           String         @id @default(uuid())
+  ejecucion_id String
+  nombre       String         // Machete, Lampa, etc.
+  
+  ejecucion    EjecucionLabor @relation(fields: [ejecucion_id], references: [id], onDelete: Cascade)
+
+  @@map("herramientas_labores")
 }

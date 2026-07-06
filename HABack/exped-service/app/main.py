@@ -23,6 +23,7 @@ from app.routers import (
     variables,
     sync,
     geoespacial,
+    labores,
 )
 
 
@@ -149,6 +150,7 @@ app.include_router(
     prefix="/api/v1/geoespacial",
     tags=["Carga Geoespacial & EUDR"],
 )
+app.include_router(labores.router)
 
 
 @app.get(endpoints.ROOT)
