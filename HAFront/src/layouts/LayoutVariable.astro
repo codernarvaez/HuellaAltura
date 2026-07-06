@@ -15,26 +15,25 @@ const token = Astro.cookies.get("token")?.value;
 let userData = null;
 let hasFinca = false;
 let hasExpediente = false;
-let fincaId = null; // <-- NUEVA VARIABLE para almacenar el ID de la finca
+let fincaId = null;
+
+// Determinar si el usuario es INVESTIGADOR
+const esInvestigador = userRole === 'INVESTIGADOR' || userRole === 'AUDITOR_INTERNO';
 
 if (token) {
   try {
     userData = await AuthService.getMe(token);
     
-    // Verificar si tiene finca
     if (userData?.id) {
       try {
         const finca = await FincaService.getByProductorId(userData.id, token);
-        // Ahora verificamos si finca es un objeto válido
         hasFinca = finca !== null && typeof finca === 'object' && Object.keys(finca).length > 0;
         
-        // GUARDAMOS EL ID DE LA FINCA
         if (hasFinca && finca.id) {
           fincaId = finca.id;
           console.log('✅ Finca encontrada con ID:', fincaId);
         }
         
-        // Verificar si tiene expediente
         if (hasFinca) {
           try {
             const expedientes = await ExpedienteService.list(token, { productor_id: userData.id });
@@ -61,10 +60,13 @@ if (token) {
   console.warn('⚠️ No hay token de autenticación');
 }
 
-// Construir la URL de Información Agroambiental con el finca_id
+// Construir URLs con finca_id
 const infoAgroUrl = fincaId ? `/infoAgro?finca_id=${fincaId}` : '/infoAgro';
 const expedientesUrl = fincaId ? `/expedientes?finca_id=${fincaId}` : '/expedientes';
 const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
+
+// INVESTIGADOR siempre puede ver Info Agro
+const puedeVerInfoAgro = esInvestigador || hasExpediente;
 ---
 
 <!DOCTYPE html>
@@ -148,7 +150,7 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         </h2>
 
         <p class="text-xs text-on-surface-variant mt-1">
-          {isAdmin ? "Administración del Sistema" : "Gestión General"}
+          {isAdmin ? "Administración del Sistema" : (esInvestigador ? "Investigador" : "Gestión General")}
         </p>
       </div>
 
@@ -158,80 +160,111 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         {
           !isAdmin && (
             <>
-              <!-- PRODUCTOR Y FINCA -->
-              <a
-                href="/productorFinca"
-                id="link-productor"
-                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition enabled-link"
-              >
-                <span class="material-symbols-outlined">
-                  agriculture
-                </span>
+              {/* SI ES INVESTIGADOR - SOLO MUESTRA INFO AGROAMBIENTAL */}
+              {esInvestigador ? (
+                <>
+                  <!-- INFORMACIÓN AGROAMBIENTAL (único enlace visible) -->
+                  <a
+                    href={infoAgroUrl}
+                    id="link-infoagro"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition enabled-link bg-primary/5 border border-primary/20"
+                  >
+                    <span class="material-symbols-outlined text-primary">
+                      eco
+                    </span>
 
-                <span>Productor y Finca</span>
-              </a>
+                    <span class="font-medium">Información Agroambiental</span>
 
-              <!-- EXPEDIENTE -->
-              <a
-                href={expedientesUrl}
-                id="link-expediente"
-                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasFinca ? 'enabled-link' : 'disabled-link'}`}
-              >
-                <span class="material-symbols-outlined">
-                  folder_open
-                </span>
+                    <span class="ml-auto text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                      Acceso
+                    </span>
+                  </a>
 
-                <span>Expediente</span>
+                  {/* MENSAJE INFORMATIVO */}
+                  <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+                    <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
+                    Como Investigador, tienes acceso a la información agroambiental de las fincas.
+                  </div>
+                </>
+              ) : (
+                /* USUARIO NORMAL (PRODUCTOR) - MUESTRA TODOS LOS MÓDULOS */
+                <>
+                  <!-- PRODUCTOR Y FINCA -->
+                  <a
+                    href="/productorFinca"
+                    id="link-productor"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition enabled-link"
+                  >
+                    <span class="material-symbols-outlined">
+                      agriculture
+                    </span>
 
-                {!hasFinca && (
-                  <span id="badge-expediente" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                    Completar Finca
-                  </span>
-                )}
-              </a>
+                    <span>Productor y Finca</span>
+                  </a>
 
-              <!-- INFORMACIÓN AGROAMBIENTAL -->
-              <a
-                href={infoAgroUrl}
-                id="link-infoagro"
-                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
-              >
-                <span class="material-symbols-outlined">
-                  eco
-                </span>
+                  <!-- EXPEDIENTE -->
+                  <a
+                    href={expedientesUrl}
+                    id="link-expediente"
+                    class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasFinca ? 'enabled-link' : 'disabled-link'}`}
+                  >
+                    <span class="material-symbols-outlined">
+                      folder_open
+                    </span>
 
-                <span>Información Agroambiental</span>
+                    <span>Expediente</span>
 
-                {!hasExpediente && (
-                  <span id="badge-infoagro" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                    {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
-                  </span>
-                )}
-              </a>
+                    {!hasFinca && (
+                      <span id="badge-expediente" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
+                        Completar Finca
+                      </span>
+                    )}
+                  </a>
 
-              <!-- SATELITAL -->
-              <a
-                href={satelitalUrl}
-                id="link-satelital"
-                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
-              >
-                <span class="material-symbols-outlined">
-                  satellite_alt
-                </span>
+                  <!-- INFORMACIÓN AGROAMBIENTAL -->
+                  <a
+                    href={infoAgroUrl}
+                    id="link-infoagro"
+                    class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${puedeVerInfoAgro ? 'enabled-link' : 'disabled-link'}`}
+                  >
+                    <span class="material-symbols-outlined">
+                      eco
+                    </span>
 
-                <span>Reporte Satelital</span>
+                    <span>Información Agroambiental</span>
 
-                {!hasExpediente && (
-                  <span id="badge-satelital" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                    {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
-                  </span>
-                )}
-              </a>
+                    {!puedeVerInfoAgro && (
+                      <span id="badge-infoagro" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
+                        {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
+                      </span>
+                    )}
+                  </a>
+
+                  <!-- SATELITAL -->
+                  <a
+                    href={satelitalUrl}
+                    id="link-satelital"
+                    class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
+                  >
+                    <span class="material-symbols-outlined">
+                      satellite_alt
+                    </span>
+
+                    <span>Reporte Satelital</span>
+
+                    {!hasExpediente && (
+                      <span id="badge-satelital" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
+                        {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
+                      </span>
+                    )}
+                  </a>
+                </>
+              )}
             </>
           )
         }
 
-        <!-- SOLO ADMINISTRADOR -->
+        {/* SOLO ADMINISTRADOR */}
         {
           isAdmin && (
             <>
@@ -358,7 +391,6 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
   <div id="toast-container"></div>
 
   <script>
-    // Cliente script sin importaciones de TypeScript
     document.addEventListener('DOMContentLoaded', () => {
       
       function getCookie(name) {
@@ -366,12 +398,14 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         return match ? decodeURIComponent(match[1]) : "";
       }
 
-      const token = getCookie('token');
       const linkProductor = document.getElementById('link-productor');
       const linkExpediente = document.getElementById('link-expediente');
       const linkInfoAgro = document.getElementById('link-infoagro');
       const linkSatelital = document.getElementById('link-satelital');
       const btnVolver = document.getElementById('btn-volver');
+
+      // Datos inyectados desde el servidor
+      const esInvestigador = {esInvestigador ? 'true' : 'false'} === 'true';
 
       function showToast(message, timeout = 3500) {
         const container = document.getElementById('toast-container');
@@ -411,40 +445,42 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         setTimeout(() => location.reload(), 1000);
       });
 
-      // Manejar clics en enlaces deshabilitados
-      if (linkExpediente) {
-        linkExpediente.addEventListener('click', (ev) => {
-          if (linkExpediente.classList.contains('disabled-link')) {
-            ev.preventDefault();
-            showToast('⚠️ Completa Productor y Finca primero');
-          }
-        });
-      }
+      // Manejar clics en enlaces deshabilitados (solo para PRODUCTOR)
+      if (!esInvestigador) {
+        if (linkExpediente) {
+          linkExpediente.addEventListener('click', (ev) => {
+            if (linkExpediente.classList.contains('disabled-link')) {
+              ev.preventDefault();
+              showToast('⚠️ Completa Productor y Finca primero');
+            }
+          });
+        }
 
-      if (linkInfoAgro) {
-        linkInfoAgro.addEventListener('click', (ev) => {
-          if (linkInfoAgro.classList.contains('disabled-link')) {
-            ev.preventDefault();
-            const badge = document.getElementById('badge-infoagro');
-            const msg = badge && badge.textContent === 'Crear Expediente' 
-              ? '⚠️ Crea un expediente primero' 
-              : '⚠️ Completa Productor y Finca primero';
-            showToast(msg);
-          }
-        });
-      }
+        if (linkInfoAgro) {
+          linkInfoAgro.addEventListener('click', (ev) => {
+            if (linkInfoAgro.classList.contains('disabled-link')) {
+              ev.preventDefault();
+              const badge = document.getElementById('badge-infoagro');
+              const msg = badge && badge.textContent === 'Crear Expediente' 
+                ? '⚠️ Crea un expediente primero' 
+                : '⚠️ Completa Productor y Finca primero';
+              showToast(msg);
+            }
+          });
+        }
 
-      if (linkSatelital) {
-        linkSatelital.addEventListener('click', (ev) => {
-          if (linkSatelital.classList.contains('disabled-link')) {
-            ev.preventDefault();
-            const badge = document.getElementById('badge-satelital');
-            const msg = badge && badge.textContent === 'Crear Expediente' 
-              ? '⚠️ Crea un expediente primero' 
-              : '⚠️ Completa Productor y Finca primero';
-            showToast(msg);
-          }
-        });
+        if (linkSatelital) {
+          linkSatelital.addEventListener('click', (ev) => {
+            if (linkSatelital.classList.contains('disabled-link')) {
+              ev.preventDefault();
+              const badge = document.getElementById('badge-satelital');
+              const msg = badge && badge.textContent === 'Crear Expediente' 
+                ? '⚠️ Crea un expediente primero' 
+                : '⚠️ Completa Productor y Finca primero';
+              showToast(msg);
+            }
+          });
+        }
       }
     });
   </script>
