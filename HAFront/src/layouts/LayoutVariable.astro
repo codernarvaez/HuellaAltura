@@ -67,6 +67,10 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
 
 // INVESTIGADOR siempre puede ver Info Agro
 const puedeVerInfoAgro = esInvestigador || hasExpediente;
+
+// Convertir booleans a strings para el cliente
+const esInvestigadorStr = esInvestigador ? 'true' : 'false';
+const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
 ---
 
 <!DOCTYPE html>
@@ -180,7 +184,6 @@ const puedeVerInfoAgro = esInvestigador || hasExpediente;
                     </span>
                   </a>
 
-                  {/* MENSAJE INFORMATIVO */}
                   <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
                     <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
                     Como Investigador, tienes acceso a la información agroambiental de las fincas.
@@ -391,6 +394,10 @@ const puedeVerInfoAgro = esInvestigador || hasExpediente;
   <div id="toast-container"></div>
 
   <script>
+    // Datos inyectados desde el servidor como variables
+    const ES_INVESTIGADOR = {esInvestigadorStr};
+    const PUEDE_VER_INFO_AGRO = {puedeVerInfoAgroStr};
+
     document.addEventListener('DOMContentLoaded', () => {
       
       function getCookie(name) {
@@ -404,8 +411,9 @@ const puedeVerInfoAgro = esInvestigador || hasExpediente;
       const linkSatelital = document.getElementById('link-satelital');
       const btnVolver = document.getElementById('btn-volver');
 
-      // Datos inyectados desde el servidor
-      const esInvestigador = {esInvestigador ? 'true' : 'false'} === 'true';
+      // Convertir strings a booleanos
+      const esInvestigador = ES_INVESTIGADOR === 'true';
+      const puedeVerInfoAgro = PUEDE_VER_INFO_AGRO === 'true';
 
       function showToast(message, timeout = 3500) {
         const container = document.getElementById('toast-container');
