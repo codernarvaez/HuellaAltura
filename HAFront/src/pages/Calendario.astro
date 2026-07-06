@@ -1,0 +1,136 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+---
+
+<DashboardLayout title="Calendario Anual">
+
+  <div class="space-y-6">
+
+    <section class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-primary mb-2">
+          Calendario & Planificador Anual (Módulo 2)
+        </h1>
+        <p class="text-on-surface-variant max-w-3xl">
+          Planifica, registra y audita el manejo agronómico e insumos de la finca.
+        </p>
+      </div>
+
+      <button class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity shadow-sm text-sm font-semibold">
+        <span class="material-symbols-outlined text-[18px]">add_task</span>
+        Programar Nueva Labor
+      </button>
+    </section>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div class="bg-surface-container-low border border-outline-variant rounded-xl p-5 flex flex-col gap-1 shadow-sm">
+        <span class="text-[10px] font-bold text-outline uppercase tracking-widest">Establecimiento de Finca</span>
+        <span class="text-sm text-primary font-bold">Siembra: Año 2020</span>
+      </div>
+      <div class="bg-surface-container-low border border-outline-variant rounded-xl p-5 flex flex-col gap-1 shadow-sm">
+        <span class="text-[10px] font-bold text-outline uppercase tracking-widest">Variedad de Café</span>
+        <span class="text-sm text-primary font-bold">Bourbon Rojo</span>
+      </div>
+      <div class="bg-surface-container-low border border-outline-variant rounded-xl p-5 flex flex-col gap-1 shadow-sm">
+        <span class="text-[10px] font-bold text-outline uppercase tracking-widest">Densidad de Siembra</span>
+        <span class="text-sm text-primary font-bold">3k plantas/ha - 250 sombra/ha</span>
+      </div>
+      <div class="bg-surface-container-low border border-outline-variant rounded-xl p-5 flex flex-col gap-1 shadow-sm">
+        <span class="text-[10px] font-bold text-outline uppercase tracking-widest">Origen de Semilla</span>
+        <span class="text-sm text-primary font-bold">Propia</span>
+      </div>
+    </div>
+
+    <div class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+      
+      <div class="px-6 py-4 border-b border-outline-variant bg-surface-container flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary">calendar_month</span>
+          <h3 class="text-base font-bold text-on-surface">Planificador Anual 2026</h3>
+        </div>
+        <div class="flex gap-2">
+          <button class="p-2 hover:bg-surface-variant rounded-md transition-colors"><span class="material-symbols-outlined">chevron_left</span></button>
+          <button class="p-2 hover:bg-surface-variant rounded-md transition-colors"><span class="material-symbols-outlined">chevron_right</span></button>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <div class="space-y-6">
+          
+          <div class="flex gap-4">
+            <div class="w-16 flex flex-col items-center py-3 bg-surface-container rounded-lg border border-outline-variant">
+              <span class="text-[10px] font-bold text-outline uppercase">ENE</span>
+              <span class="text-2xl font-bold text-primary">15</span>
+            </div>
+            <div class="flex-1 p-5 border border-outline-variant rounded-xl hover:border-primary/40 transition-colors cursor-pointer group bg-white">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded uppercase">Fertilización</span>
+                  <h4 class="text-sm font-bold text-on-surface">Primera Aplicación de NPK</h4>
+                </div>
+                <span class="text-xs text-outline font-medium">08:00 AM</span>
+              </div>
+              <p class="text-sm text-on-surface-variant mb-4">Aplicación balanceada según análisis de suelo realizado en Noviembre 2025.</p>
+              <div class="flex items-center gap-5">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px] text-primary">person</span>
+                  <span class="text-xs text-on-surface-variant">Juan Perez + 4 operarios</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px] text-primary">inventory_2</span>
+                  <span class="text-xs text-on-surface-variant">Insumo: YaraMila (15-15-15)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-4 opacity-70">
+            <div class="w-16 flex flex-col items-center py-3 bg-surface-container rounded-lg border border-outline-variant">
+              <span class="text-[10px] font-bold text-outline uppercase">FEB</span>
+              <span class="text-2xl font-bold text-primary">02</span>
+            </div>
+            <div class="flex-1 p-5 border border-outline-variant rounded-xl bg-white">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-1 bg-red-100 text-red-800 text-[10px] font-bold rounded uppercase">Poda</span>
+                  <h4 class="text-sm font-bold text-on-surface">Poda de Mantenimiento</h4>
+                </div>
+                <span class="text-xs text-outline font-medium">07:30 AM</span>
+              </div>
+              <p class="text-sm text-on-surface-variant">Aclareo de ramas viejas y control de altura en lote Norte.</p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="w-16 flex flex-col items-center py-3 bg-surface-container rounded-lg border border-outline-variant">
+              <span class="text-[10px] font-bold text-outline uppercase">MAR</span>
+              <span class="text-2xl font-bold text-primary">20</span>
+            </div>
+            <div class="flex-1 p-5 border border-primary/30 bg-primary/5 rounded-xl border-dashed relative overflow-hidden">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-1 bg-primary text-white text-[10px] font-bold rounded uppercase">Muestreo</span>
+                  <h4 class="text-sm font-bold text-on-surface">Auditoría Satelital Programada</h4>
+                </div>
+                <div class="flex items-center gap-1.5 text-primary animate-pulse">
+                  <span class="material-symbols-outlined text-[16px]">sensors</span>
+                  <span class="text-xs font-bold uppercase">En Progreso</span>
+                </div>
+              </div>
+              <p class="text-sm text-on-surface-variant">Sincronización automática de índices NDVI y humedad del suelo.</p>
+            </div>
+          </div>
+
+        </div>
+        
+        <div class="mt-12 flex flex-col items-center justify-center py-12 border-2 border-dashed border-outline-variant rounded-xl bg-surface-container/30">
+          <span class="material-symbols-outlined text-[48px] text-outline-variant mb-4">event_note</span>
+          <p class="text-sm font-medium text-outline">No hay más labores programadas para este trimestre</p>
+          <button class="mt-4 text-primary font-bold hover:underline">Ver calendario completo</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</DashboardLayout>
