@@ -1,0 +1,522 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+---
+
+<DashboardLayout title="Calendario">
+
+<div class="space-y-8">
+
+    <!-- HEADER -->
+
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+
+        <div>
+
+            <h1 class="text-3xl font-bold text-primary">
+
+                Calendario & Planificador Anual (Módulo 2)
+
+            </h1>
+
+            <p class="mt-2 text-on-surface-variant max-w-2xl">
+
+                Planifica, registra y audita el manejo agronómico e insumos de la finca.
+
+            </p>
+
+        </div>
+
+        <button
+            class="flex items-center gap-2 bg-primary text-white px-5 h-12 rounded-xl hover:opacity-90">
+
+            <span class="material-symbols-outlined">
+
+                add_task
+
+            </span>
+
+            Programar Nueva Labor
+
+        </button>
+
+    </div>
+
+    <!-- TARJETAS -->
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
+
+            <p class="text-xs uppercase tracking-widest text-outline font-bold">
+
+                Establecimiento de Finca
+
+            </p>
+
+            <h3 class="mt-2 font-semibold text-primary">
+
+                Siembra: Año 2020
+
+            </h3>
+
+        </div>
+
+        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
+
+            <p class="text-xs uppercase tracking-widest text-outline font-bold">
+
+                Variedad de Café
+
+            </p>
+
+            <h3 class="mt-2 font-semibold text-primary">
+
+                Bourbon Rojo
+
+            </h3>
+
+        </div>
+
+        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
+
+            <p class="text-xs uppercase tracking-widest text-outline font-bold">
+
+                Densidad de Siembra
+
+            </p>
+
+            <h3 class="mt-2 font-semibold text-primary">
+
+                3k plantas/ha - 250 sombra/ha
+
+            </h3>
+
+        </div>
+
+        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
+
+            <p class="text-xs uppercase tracking-widest text-outline font-bold">
+
+                Origen de Semilla
+
+            </p>
+
+            <h3 class="mt-2 font-semibold text-primary">
+
+                Propia
+
+            </h3>
+
+        </div>
+
+    </div>
+
+    <!-- PLANIFICADOR -->
+
+    <section class="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+
+        <div class="flex justify-between items-center px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+
+            <div class="flex items-center gap-3">
+
+                <span class="material-symbols-outlined text-primary">
+
+                    calendar_month
+
+                </span>
+
+                <h2 class="font-semibold">
+
+                    Planificador Anual 2026
+
+                </h2>
+
+            </div>
+
+            <div class="flex gap-2">
+
+                <button class="p-2 rounded hover:bg-surface-container">
+
+                    <span class="material-symbols-outlined">
+
+                        chevron_left
+
+                    </span>
+
+                </button>
+
+                <button class="p-2 rounded hover:bg-surface-container">
+
+                    <span class="material-symbols-outlined">
+
+                        chevron_right
+
+                    </span>
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="p-8 space-y-8">
+                        <!-- EVENTO 1 -->
+
+            <div class="flex gap-6">
+
+                <div
+                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
+
+                    <span class="text-xs font-bold text-outline uppercase">
+
+                        ENE
+
+                    </span>
+
+                    <span class="text-2xl font-bold text-primary">
+
+                        15
+
+                    </span>
+
+                </div>
+
+                <div
+                    class="flex-1 border border-outline-variant rounded-xl p-6 hover:border-primary transition cursor-pointer">
+
+                    <div class="flex justify-between items-start">
+
+                        <div>
+
+                            <span
+                                class="px-2 py-1 bg-secondary-container rounded text-xs font-bold uppercase">
+
+                                Fertilización
+
+                            </span>
+
+                            <h3 class="mt-2 text-lg font-semibold">
+
+                                Primera Aplicación de NPK
+
+                            </h3>
+
+                        </div>
+
+                        <span class="text-sm text-on-surface-variant">
+
+                            08:00 AM
+
+                        </span>
+
+                    </div>
+
+                    <p class="mt-4 text-on-surface-variant">
+
+                        Aplicación balanceada según el análisis de suelo realizado
+                        en noviembre del año anterior.
+
+                    </p>
+
+                    <div class="flex gap-8 mt-5">
+
+                        <div class="flex items-center gap-2">
+
+                            <span class="material-symbols-outlined">
+
+                                person
+
+                            </span>
+
+                            <span>
+
+                                Juan Pérez + 4 operarios
+
+                            </span>
+
+                        </div>
+
+                        <div class="flex items-center gap-2">
+
+                            <span class="material-symbols-outlined">
+
+                                inventory_2
+
+                            </span>
+
+                            <span>
+
+                                Insumo: YaraMila (15-15-15)
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- EVENTO 2 -->
+
+            <div class="flex gap-6 opacity-80">
+
+                <div
+                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
+
+                    <span class="text-xs font-bold text-outline uppercase">
+
+                        FEB
+
+                    </span>
+
+                    <span class="text-2xl font-bold text-primary">
+
+                        02
+
+                    </span>
+
+                </div>
+
+                <div
+                    class="flex-1 border border-outline-variant rounded-xl p-6">
+
+                    <div class="flex justify-between">
+
+                        <div>
+
+                            <span
+                                class="px-2 py-1 rounded bg-tertiary-fixed text-xs font-bold uppercase">
+
+                                Poda
+
+                            </span>
+
+                            <h3 class="mt-2 text-lg font-semibold">
+
+                                Poda de mantenimiento
+
+                            </h3>
+
+                        </div>
+
+                        <span class="text-sm text-on-surface-variant">
+
+                            07:30 AM
+
+                        </span>
+
+                    </div>
+
+                    <p class="mt-4 text-on-surface-variant">
+
+                        Aclareo de ramas viejas y control de altura del cultivo.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <!-- EVENTO 3 -->
+
+            <div class="flex gap-6">
+
+                <div
+                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
+
+                    <span class="text-xs font-bold text-outline uppercase">
+
+                        MAR
+
+                    </span>
+
+                    <span class="text-2xl font-bold text-primary">
+
+                        20
+
+                    </span>
+
+                </div>
+
+                <div
+                    class="flex-1 rounded-xl border border-primary/30 bg-primary/5 p-6">
+
+                    <div class="flex justify-between">
+
+                        <div>
+
+                            <span
+                                class="px-2 py-1 bg-primary text-white rounded text-xs font-bold uppercase">
+
+                                Muestreo
+
+                            </span>
+
+                            <h3 class="mt-2 text-lg font-semibold">
+
+                                Auditoría Satelital Programada
+
+                            </h3>
+
+                        </div>
+
+                        <div
+                            class="flex items-center gap-2 text-primary animate-pulse">
+
+                            <span class="material-symbols-outlined">
+
+                                sensors
+
+                            </span>
+
+                            <span class="font-semibold uppercase">
+
+                                En progreso
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                    <p class="mt-4 text-on-surface-variant">
+
+                        Sincronización automática de índices NDVI y humedad del
+                        suelo.
+
+                    </p>
+
+                </div>
+
+            </div>
+                        <!-- ESTADO VACÍO -->
+
+            <div
+                class="mt-12 border-2 border-dashed border-outline-variant rounded-xl py-20 flex flex-col items-center justify-center bg-surface-container-low">
+
+                <span
+                    class="material-symbols-outlined text-6xl text-outline-variant">
+
+                    event_note
+
+                </span>
+
+                <h3
+                    class="mt-5 text-lg font-semibold text-on-surface">
+
+                    No hay más labores programadas para este trimestre
+
+                </h3>
+
+                <p
+                    class="mt-2 text-on-surface-variant text-center max-w-md">
+
+                    Puede registrar nuevas actividades agrícolas, auditorías,
+                    aplicaciones de insumos o labores culturales para continuar
+                    con la planificación anual.
+
+                </p>
+
+                <button
+                    class="mt-8 px-6 h-12 rounded-xl bg-primary text-white hover:opacity-90 transition">
+
+                    Ver calendario completo
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</div>
+
+</DashboardLayout>
+
+<script type="module">
+
+// =======================================================
+// DEMO
+// Posteriormente aquí se conectará con el backend.
+// =======================================================
+
+const eventos = [
+
+    {
+
+        fecha:"2026-01-15",
+
+        titulo:"Primera Aplicación de NPK",
+
+        categoria:"Fertilización"
+
+    },
+
+    {
+
+        fecha:"2026-02-02",
+
+        titulo:"Poda de mantenimiento",
+
+        categoria:"Poda"
+
+    },
+
+    {
+
+        fecha:"2026-03-20",
+
+        titulo:"Auditoría Satelital",
+
+        categoria:"Muestreo"
+
+    }
+
+];
+
+console.log("Calendario cargado");
+
+console.table(eventos);
+
+
+// =======================================================
+// Botón Nueva Labor
+// =======================================================
+
+const btnNuevaLabor = document.querySelector("button");
+
+if(btnNuevaLabor){
+
+    btnNuevaLabor.addEventListener("click",()=>{
+
+        alert("Aquí se abrirá el formulario para registrar una nueva labor.");
+
+    });
+
+}
+
+
+// =======================================================
+// Animación de las tarjetas
+// =======================================================
+
+document.querySelectorAll(".cursor-pointer").forEach(card=>{
+
+    card.addEventListener("mouseenter",()=>{
+
+        card.classList.add("shadow-lg");
+
+    });
+
+    card.addEventListener("mouseleave",()=>{
+
+        card.classList.remove("shadow-lg");
+
+    });
+
+});
+
+</script>
