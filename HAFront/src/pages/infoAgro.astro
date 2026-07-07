@@ -332,64 +332,32 @@ console.log("🔍 esProductor:", esProductor);
           <!-- Mensaje de estado -->
           <div id="infoagro-message" class="mt-6 hidden text-sm"></div>
 
+          <!-- BOTÓN SIGUIENTE - IR A SATELITAL -->
+          <div id="siguiente-container" class="mt-6 pt-4 border-t border-outline-variant hidden">
+            <div class="flex items-center justify-between">
+              <div class="text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-sm align-middle mr-1">check_circle</span>
+                Datos agroambientales cargados correctamente
+              </div>
+              <a
+                id="ir-satelital"
+                href="#"
+                class="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition flex items-center gap-2"
+              >
+                <span class="material-symbols-outlined text-sm">satellite_alt</span>
+                Ir a Reporte Satelital
+                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+              </a>
+            </div>
+          </div>
+
         </form>
       </div>
     </section>
 
-    <!-- PUNTO GEOGRÁFICO -->
-    <section
-      class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden"
-    >
-      <div
-        class="px-6 py-4 border-b border-outline-variant flex items-center gap-3"
-      >
-        <span class="material-symbols-outlined text-primary">
-          location_on
-        </span>
-        <h2 class="text-xl font-semibold text-primary">
-          Linderos / Punto Geográfico
-        </h2>
-      </div>
+    <!-- PUNTO GEOGRÁFICO - ELIMINADO -->
+    <!-- La sección de mapa y coordenadas ha sido removida -->
 
-      <div class="p-6">
-        <div
-          class="h-[450px] rounded-xl overflow-hidden border border-outline-variant mb-6 bg-surface-container-low flex items-center justify-center"
-        >
-          <div class="text-center text-on-surface-variant">
-            <span class="material-symbols-outlined text-6xl">map</span>
-            <p class="mt-2">Mapa interactivo próximamente</p>
-            <p class="text-sm mt-1">Coordenadas de la finca cargadas automáticamente</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-              Latitud (WGS84)
-            </label>
-            <input
-              id="finca-latitud"
-              type="text"
-              readonly
-              placeholder="Cargando..."
-              class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
-            />
-          </div>
-          <div>
-            <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-              Longitud (WGS84)
-            </label>
-            <input
-              id="finca-longitud"
-              type="text"
-              readonly
-              placeholder="Cargando..."
-              class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
-            />
-          </div>
-        </div>
-      </div>
-    </section>
   </div>
 </DashboardLayout>
 
@@ -405,8 +373,8 @@ console.log("🔍 esProductor:", esProductor);
   const guardarBtn = document.getElementById("guardar-infoagro");
   const limpiarBtn = document.getElementById("limpiar-infoagro");
   const volverBtn = document.getElementById("volver-btn");
-  const latitudInput = document.getElementById("finca-latitud");
-  const longitudInput = document.getElementById("finca-longitud");
+  const siguienteContainer = document.getElementById("siguiente-container");
+  const irSatelital = document.getElementById("ir-satelital");
 
   // Form fields
   const fields = {
@@ -440,6 +408,7 @@ console.log("🔍 esProductor:", esProductor);
 
   // Variable para almacenar el dato_id si existe
   let datoId = null;
+  let datosCargados = false;
 
   // Mapeo de valores para mostrar en modo solo lectura
   const mapUsoSuelo = {
@@ -468,6 +437,26 @@ console.log("🔍 esProductor:", esProductor);
     'TRADICIONAL': 'Tradicional',
     'OTRO': 'Otro'
   };
+
+  // Función para mostrar el botón "Siguiente" con el dato_id
+  function mostrarBotonSiguiente(mostrar, idAgroambiental = null) {
+    if (siguienteContainer) {
+      if (mostrar && fincaId) {
+        siguienteContainer.classList.remove('hidden');
+        // Construir URL con finca_id y dato_id
+        let url = `/satelital?finca_id=${fincaId}`;
+        if (idAgroambiental) {
+          url += `&dato_id=${idAgroambiental}`;
+        }
+        if (irSatelital) {
+          irSatelital.href = url;
+          console.log('🔗 URL Satelital:', url);
+        }
+      } else {
+        siguienteContainer.classList.add('hidden');
+      }
+    }
+  }
 
   // Calcular Total Stock de Carbono
   function calcularTotalStock() {
@@ -541,6 +530,7 @@ console.log("🔍 esProductor:", esProductor);
       if (datos && datos.length > 0) {
         const dato = datos[0];
         datoId = dato.id;
+        datosCargados = true;
         
         // Llenar campos con datos existentes
         if (fields.indice_shannon) fields.indice_shannon.value = dato.indice_shannon ?? '';
@@ -595,11 +585,15 @@ console.log("🔍 esProductor:", esProductor);
           dynamicVariablesEl.innerHTML = '';
         }
         
+        // Mostrar el botón "Siguiente" con el dato_id
+        mostrarBotonSiguiente(true, datoId);
+        
         if (!esProductor) {
           showMessage('✅ Datos cargados correctamente. Puedes modificarlos y guardar.', false);
           setTimeout(hideMessage, 3000);
         }
       } else {
+        datosCargados = false;
         dynamicVariablesContainer.classList.add('hidden');
         dynamicVariablesEl.innerHTML = '';
         if (esProductor) {
@@ -607,8 +601,12 @@ console.log("🔍 esProductor:", esProductor);
           if (fields.cobertura_forestal_text) fields.cobertura_forestal_text.value = 'No especificado';
           if (fields.sistema_produccion_text) fields.sistema_produccion_text.value = 'No especificado';
         }
+        // Ocultar el botón "Siguiente" si no hay datos
+        mostrarBotonSiguiente(false);
       }
     } catch (error) {
+      console.error('❌ Error cargando datos:', error);
+      datosCargados = false;
       dynamicVariablesContainer.classList.add('hidden');
       dynamicVariablesEl.innerHTML = '';
       if (esProductor) {
@@ -616,27 +614,13 @@ console.log("🔍 esProductor:", esProductor);
         if (fields.cobertura_forestal_text) fields.cobertura_forestal_text.value = 'Error al cargar';
         if (fields.sistema_produccion_text) fields.sistema_produccion_text.value = 'Error al cargar';
       }
+      // Ocultar el botón "Siguiente" en caso de error
+      mostrarBotonSiguiente(false);
     }
   }
 
-  // Cargar datos de la finca (solo coordenadas)
-  async function loadFincaData() {
-    if (!fincaId || !token) return;
-
-    try {
-      const finca = await FincaService.getById(fincaId, token);
-      
-      if (latitudInput) {
-        latitudInput.value = finca.latitud?.toString() || 'No disponible';
-      }
-      if (longitudInput) {
-        longitudInput.value = finca.longitud?.toString() || 'No disponible';
-      }
-    } catch (error) {
-      if (latitudInput) latitudInput.value = 'Error al cargar';
-      if (longitudInput) longitudInput.value = 'Error al cargar';
-    }
-  }
+  // Cargar datos de la finca (solo coordenadas - ELIMINADO)
+  // Ya no se cargan coordenadas porque se eliminó la sección
 
   // Guardar datos agroambientales (solo para INVESTIGADOR)
   async function guardarInfoAgro() {
@@ -680,6 +664,8 @@ console.log("🔍 esProductor:", esProductor);
       variables: getDynamicVariables()
     };
 
+    console.log('📤 [INFOAGRO] Guardando payload:', payload);
+
     try {
       showMessage('💾 Guardando información agroambiental...', false);
       
@@ -690,16 +676,22 @@ console.log("🔍 esProductor:", esProductor);
         delete updatePayload.variables;
         
         result = await AgroambientalService.update(datoId, updatePayload, token);
+        console.log('✅ [INFOAGRO] Actualizado:', result);
         showMessage('✅ Información agroambiental actualizada correctamente.', false);
       } else {
         result = await AgroambientalService.create(payload, token);
         datoId = result.id;
+        console.log('✅ [INFOAGRO] Creado:', result);
         showMessage('✅ Información agroambiental creada correctamente.', false);
       }
+      
+      // Mostrar el botón "Siguiente" después de guardar con el datoId
+      mostrarBotonSiguiente(true, datoId);
       
       setTimeout(hideMessage, 3000);
 
     } catch (error) {
+      console.error('❌ [INFOAGRO] Error guardando:', error);
       showMessage(`❌ Error: ${error instanceof Error ? error.message : 'Error al guardar'}`, true);
     }
   }
@@ -743,6 +735,6 @@ console.log("🔍 esProductor:", esProductor);
   }
 
   // Inicializar
-  loadFincaData();
+  console.log('🚀 [INFOAGRO] Inicializando página...');
   loadExistingData();
 </script>

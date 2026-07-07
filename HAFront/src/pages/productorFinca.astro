@@ -633,22 +633,33 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
   </section>
 
   <!-- SIGUIENTE PASO -->
-  <section class="bg-surface-container-low border border-outline-variant rounded-xl p-6">
-    <p class="text-xs uppercase tracking-wider text-on-surface-variant mb-2">Próximo Paso</p>
-    <p class="text-on-surface mb-4">Cargar el mapa de la finca para completar el registro.</p>
+<section class="bg-surface-container-low border border-outline-variant rounded-xl p-6">
+  <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div>
+      <p class="text-xs uppercase tracking-wider text-on-surface-variant mb-1">Siguiente Paso</p>
+      <p class="text-on-surface font-medium">
+        {fincaId 
+          ? 'Continúa con la información agroambiental de la finca.' 
+          : 'Guarda la información de la finca para continuar.'}
+      </p>
+      {!fincaId && (
+        <p class="text-sm text-warning mt-1">⚠️ Guarda la finca primero para continuar.</p>
+      )}
+    </div>
+    
     <a 
       id="ir-info-agro"
       href={fincaId ? `/infoAgro?finca_id=${fincaId}` : '#'}
-      class={fincaId ? 'flex items-center gap-2 text-primary font-semibold hover:underline' : 'flex items-center gap-2 text-on-surface-variant font-semibold cursor-not-allowed opacity-50'}
-      onclick={!fincaId ? "event.preventDefault(); alert('Primero debes guardar la información de la finca.');" : ''}
+      class={fincaId 
+        ? 'flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:opacity-90 transition shadow-sm' 
+        : 'flex items-center gap-2 px-6 py-3 bg-gray-300 text-gray-500 rounded-xl font-semibold cursor-not-allowed opacity-60'}
+      onclick={!fincaId ? "event.preventDefault(); alert('⚠️ Primero debes guardar la información de la finca.');" : ''}
     >
-      Ir al mapeo de campos dinámicos
+      <span>Siguiente Paso</span>
       <span class="material-symbols-outlined">arrow_forward</span>
     </a>
-    {!fincaId && (
-      <p class="text-sm text-on-surface-variant mt-2">⚠️ Guarda la finca primero para continuar.</p>
-    )}
-  </section>
+  </div>
+</section>
 
 </div>
 

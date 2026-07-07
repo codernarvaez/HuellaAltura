@@ -64,6 +64,8 @@ if (token) {
 const infoAgroUrl = fincaId ? `/infoAgro?finca_id=${fincaId}` : '/infoAgro';
 const expedientesUrl = fincaId ? `/expedientes?finca_id=${fincaId}` : '/expedientes';
 const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
+const auditoriaSatelitalUrl = '/auditoriaSatelital';
+const calendarioUrl = '/calendario';
 
 // INVESTIGADOR siempre puede ver Info Agro
 const puedeVerInfoAgro = esInvestigador || hasExpediente;
@@ -71,6 +73,7 @@ const puedeVerInfoAgro = esInvestigador || hasExpediente;
 // Convertir booleans a strings para el cliente
 const esInvestigadorStr = esInvestigador ? 'true' : 'false';
 const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
+const isAdminStr = isAdmin ? 'true' : 'false';
 ---
 
 <!DOCTYPE html>
@@ -171,7 +174,7 @@ const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
                   <a
                     href={infoAgroUrl}
                     id="link-infoagro"
-                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition enabled-link bg-primary/5 border border-primary/20"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition bg-primary/5 border border-primary/20"
                   >
                     <span class="material-symbols-outlined text-primary">
                       eco
@@ -190,13 +193,13 @@ const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
                   </div>
                 </>
               ) : (
-                /* USUARIO NORMAL (PRODUCTOR) - MUESTRA TODOS LOS MÓDULOS */
+                /* USUARIO NORMAL (PRODUCTOR) - NUEVO ORDEN */
                 <>
-                  <!-- PRODUCTOR Y FINCA -->
+                  <!-- 1. PRODUCTOR Y FINCA -->
                   <a
                     href="/productorFinca"
                     id="link-productor"
-                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition enabled-link"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
                   >
                     <span class="material-symbols-outlined">
                       agriculture
@@ -205,61 +208,56 @@ const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
                     <span>Productor y Finca</span>
                   </a>
 
-                  <!-- EXPEDIENTE -->
-                  <a
-                    href={expedientesUrl}
-                    id="link-expediente"
-                    class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasFinca ? 'enabled-link' : 'disabled-link'}`}
-                  >
-                    <span class="material-symbols-outlined">
-                      folder_open
-                    </span>
-
-                    <span>Expediente</span>
-
-                    {!hasFinca && (
-                      <span id="badge-expediente" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                        Completar Finca
-                      </span>
-                    )}
-                  </a>
-
-                  <!-- INFORMACIÓN AGROAMBIENTAL -->
+                  <!-- 2. INFORMACIÓN AGROAMBIENTAL -->
                   <a
                     href={infoAgroUrl}
                     id="link-infoagro"
-                    class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${puedeVerInfoAgro ? 'enabled-link' : 'disabled-link'}`}
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
                   >
                     <span class="material-symbols-outlined">
                       eco
                     </span>
 
                     <span>Información Agroambiental</span>
-
-                    {!puedeVerInfoAgro && (
-                      <span id="badge-infoagro" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                        {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
-                      </span>
-                    )}
                   </a>
 
-                  <!-- SATELITAL -->
+                  <!-- 3. SATELITAL -->
                   <a
                     href={satelitalUrl}
                     id="link-satelital"
-                    class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
                   >
                     <span class="material-symbols-outlined">
                       satellite_alt
                     </span>
 
-                    <span>Reporte Satelital</span>
+                    <span>Satelital</span>
+                  </a>
 
-                    {!hasExpediente && (
-                      <span id="badge-satelital" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                        {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
-                      </span>
-                    )}
+                  <!-- 4. EXPEDIENTE -->
+                  <a
+                    href={expedientesUrl}
+                    id="link-expediente"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                  >
+                    <span class="material-symbols-outlined">
+                      folder_open
+                    </span>
+
+                    <span>Expediente</span>
+                  </a>
+
+                  <!-- 5. CALENDARIO -->
+                  <a
+                    href={calendarioUrl}
+                    id="link-calendario"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                  >
+                    <span class="material-symbols-outlined">
+                      calendar_month
+                    </span>
+
+                    <span>Calendario</span>
                   </a>
                 </>
               )}
@@ -311,7 +309,20 @@ const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
                 </span>
 
                 <span>Variables Dinámicas</span>
-              </a>   
+              </a>
+
+              <!-- AUDITORÍA SATELITAL -->
+              <a
+                href={auditoriaSatelitalUrl}
+                id="link-auditoria-satelital"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  satellite
+                </span>
+
+                <span>Auditoría Satelital</span>
+              </a>
             </>
           )
         }
@@ -397,6 +408,7 @@ const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
     // Datos inyectados desde el servidor como variables
     const ES_INVESTIGADOR = {esInvestigadorStr};
     const PUEDE_VER_INFO_AGRO = {puedeVerInfoAgroStr};
+    const IS_ADMIN = {isAdminStr};
 
     document.addEventListener('DOMContentLoaded', () => {
       
@@ -409,11 +421,14 @@ const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
       const linkExpediente = document.getElementById('link-expediente');
       const linkInfoAgro = document.getElementById('link-infoagro');
       const linkSatelital = document.getElementById('link-satelital');
+      const linkCalendario = document.getElementById('link-calendario');
+      const linkAuditoria = document.getElementById('link-auditoria-satelital');
       const btnVolver = document.getElementById('btn-volver');
 
       // Convertir strings a booleanos
       const esInvestigador = ES_INVESTIGADOR === 'true';
       const puedeVerInfoAgro = PUEDE_VER_INFO_AGRO === 'true';
+      const isAdmin = IS_ADMIN === 'true';
 
       function showToast(message, timeout = 3500) {
         const container = document.getElementById('toast-container');
@@ -453,42 +468,12 @@ const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
         setTimeout(() => location.reload(), 1000);
       });
 
-      // Manejar clics en enlaces deshabilitados (solo para PRODUCTOR)
-      if (!esInvestigador) {
-        if (linkExpediente) {
-          linkExpediente.addEventListener('click', (ev) => {
-            if (linkExpediente.classList.contains('disabled-link')) {
-              ev.preventDefault();
-              showToast('⚠️ Completa Productor y Finca primero');
-            }
-          });
-        }
-
-        if (linkInfoAgro) {
-          linkInfoAgro.addEventListener('click', (ev) => {
-            if (linkInfoAgro.classList.contains('disabled-link')) {
-              ev.preventDefault();
-              const badge = document.getElementById('badge-infoagro');
-              const msg = badge && badge.textContent === 'Crear Expediente' 
-                ? '⚠️ Crea un expediente primero' 
-                : '⚠️ Completa Productor y Finca primero';
-              showToast(msg);
-            }
-          });
-        }
-
-        if (linkSatelital) {
-          linkSatelital.addEventListener('click', (ev) => {
-            if (linkSatelital.classList.contains('disabled-link')) {
-              ev.preventDefault();
-              const badge = document.getElementById('badge-satelital');
-              const msg = badge && badge.textContent === 'Crear Expediente' 
-                ? '⚠️ Crea un expediente primero' 
-                : '⚠️ Completa Productor y Finca primero';
-              showToast(msg);
-            }
-          });
-        }
+      // 🔥 ELIMINAR BLOQUEO DE ENLACES - Ahora todos los enlaces están habilitados
+      // Ya no hay lógica de bloqueo para productores
+      
+      // Para administradores, mostrar mensaje de bienvenida
+      if (isAdmin) {
+        console.log('👑 Administrador: Todos los enlaces están disponibles');
       }
     });
   </script>

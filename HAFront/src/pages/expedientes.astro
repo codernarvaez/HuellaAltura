@@ -1,162 +1,327 @@
 ---
-import DashboardLayout from "../layouts/LayoutVariable.astro";
+import Layout from "../layouts/LayoutVariable.astro";
+import { AuthService } from "../services/auth.service.ts";
+import { ExpedienteService } from "../services/expediente.service.ts";
+import { FincaService } from "../services/finca.service.ts";
+import { AgroambientalService } from "../services/InfoAgroambiental.ts";
+
+// Obtener token de las cookies
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let expedientes = [];
+let error = null;
+let isLoading = true;
+let userRole = null;
+let expedienteCreado = false;
+let fincaData = null;
+let datosAgroambientales = null;
+
+if (token) {
+  try {
+    // 🔥 OBTENER DATOS DEL USUARIO PRIMERO
+    userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
+    console.log("🎭 Rol del usuario:", userRole);
+    console.log("👤 Datos del usuario:", {
+      id: userData.id,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      email: userData.email
+    });
+    
+    const urlParams = Astro.url.searchParams;
+    const fincaIdFilter = urlParams.get("finca_id");
+    console.log("🔍 Filtro por finca_id:", fincaIdFilter);
+    
+    if (fincaIdFilter) {
+      console.log(`🔄 Verificando expediente para finca: ${fincaIdFilter}`);
+      
+      // Obtener la finca
+      try {
+        fincaData = await FincaService.getById(fincaIdFilter, token);
+        console.log(`✅ Finca encontrada: ${fincaData.nombre}`);
+        console.log(`👤 Productor en finca: ${fincaData.usuario_nombre || 'No especificado'}`);
+        
+        // Obtener datos agroambientales
+        try {
+          datosAgroambientales = await AgroambientalService.getByFinca(fincaIdFilter, token);
+          console.log(`📊 Datos agroambientales: ${datosAgroambientales?.length || 0} registros`);
+        } catch (e) {
+          console.warn("⚠️ Error obteniendo datos agroambientales:", e.message);
+        }
+      } catch (e) {
+        console.warn("⚠️ Error obteniendo finca:", e.message);
+      }
+      
+      // 🔥 PASAR userData AL MÉTODO getOrCreate
+      const resultado = await ExpedienteService.getOrCreate(fincaIdFilter, token, userData);
+      
+      if (resultado.expediente) {
+        // Asegurarnos de que el expediente tenga la finca
+        if (!resultado.expediente.finca && fincaData) {
+          resultado.expediente.finca = fincaData;
+        }
+        expedientes = [resultado.expediente];
+        expedienteCreado = resultado.creado;
+        
+        if (expedienteCreado) {
+          console.log(`✅ Expediente creado automáticamente para finca ${fincaIdFilter}`);
+          console.log(`📝 Organización: ${resultado.expediente.organizacion_inquilino}`);
+        } else {
+          console.log(`✅ Expediente existente encontrado para finca ${fincaIdFilter}`);
+        }
+      } else {
+        console.warn(`⚠️ No se pudo crear expediente para finca ${fincaIdFilter}`);
+      }
+      
+    } else {
+      console.log(`📋 Obteniendo todos los expedientes`);
+      try {
+        const expedientesData = await ExpedienteService.list(token);
+        expedientes = expedientesData;
+        console.log(`📋 Total expedientes: ${expedientes.length}`);
+      } catch (e) {
+        console.warn("⚠️ Error obteniendo expedientes:", e.message);
+      }
+    }
+    
+    isLoading = false;
+  } catch (e) {
+    error = e.message;
+    console.error("❌ Error cargando expedientes:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+// Determinar si es PRODUCTOR
+const esProductor = userRole === 'PRODUCTOR';
+
+// Función para obtener iniciales
+function getInitials(nombre) {
+  if (!nombre) return "U";
+  const partes = nombre.trim().split(' ');
+  if (partes.length === 1) return partes[0].charAt(0).toUpperCase();
+  return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
+}
+
+// Función para formatear área
+function formatArea(area) {
+  if (!area) return "0.00 Hectáreas";
+  return `${Number(area).toFixed(2)} Hectáreas`;
+}
+
+// Función para obtener badge de estado
+function getStatusBadge(estado) {
+  const estados = {
+    'APROBADO': { label: 'Aprobado', color: 'bg-green-100 text-green-700', icon: 'check_circle' },
+    'VALIDADO': { label: 'Validado', color: 'bg-green-100 text-green-700', icon: 'check_circle' },
+    'PRE_VALIDADO': { label: 'Pre-validado', color: 'bg-yellow-100 text-yellow-700', icon: 'pending' },
+    'PREVALIDADO': { label: 'Pre-validado', color: 'bg-yellow-100 text-yellow-700', icon: 'pending' },
+    'PENDIENTE': { label: 'Pendiente', color: 'bg-blue-100 text-blue-700', icon: 'hourglass_empty' },
+    'ALERTA': { label: '¡Alerta!', color: 'bg-red-100 text-red-700', icon: 'warning' },
+    'DEFORESTACION': { label: 'Deforestación', color: 'bg-red-100 text-red-700', icon: 'warning' },
+    'RECHAZADO': { label: 'Rechazado', color: 'bg-red-100 text-red-700', icon: 'cancel' },
+  };
+  return estados[estado] || { label: estado || 'Desconocido', color: 'bg-gray-100 text-gray-700', icon: 'help' };
+}
+
+const urlParams = Astro.url.searchParams;
+const fincaIdFilter = urlParams.get("finca_id");
+
+console.log(`📊 Total expedientes cargados: ${expedientes.length}`);
+if (expedientes.length > 0) {
+  console.log("📊 Detalle:", expedientes.map(e => ({
+    id: e.id,
+    estado: e.estado,
+    organizacion: e.organizacion_inquilino,
+    tieneFinca: !!e.finca,
+    fincaNombre: e.finca?.nombre || 'Sin finca'
+  })));
+}
 ---
 
-<DashboardLayout title="Expedientes">
+<Layout title="Expedientes">
+  <div class="space-y-6">
 
-<div class="space-y-6">
+    <!-- HEADER -->
+    <section class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-on-surface">
+          Expedientes y Trazabilidad Guardada
+        </h1>
+        <p class="text-on-surface-variant mt-2 max-w-3xl">
+          {esProductor 
+            ? 'Visualización de tus expedientes de trazabilidad para la gestión de diligencia debida EUDR.' 
+            : 'Listado de expedientes de productores y fincas registrados para la gestión de diligencia debida EUDR.'}
+        </p>
+      </div>
+    </section>
 
-  <!-- HEADER -->
-  <section class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <!-- NOTIFICACIÓN DE EXPEDIENTE CREADO -->
+    {expedienteCreado && (
+      <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
+        <span class="material-symbols-outlined text-emerald-600">check_circle</span>
+        <div>
+          <p class="font-semibold text-emerald-800">✅ Expediente creado automáticamente</p>
+          <p class="text-sm text-emerald-700">
+            Se ha creado un nuevo expediente para la finca <strong>{fincaData?.nombre || 'desconocida'}</strong> 
+            con estado <strong>PENDIENTE</strong>.
+          </p>
+          <p class="text-xs text-emerald-600 mt-1">
+            Organización: {expedientes[0]?.organizacion_inquilino || 'No especificado'}
+          </p>
+        </div>
+      </div>
+    )}
 
-    <div>
-      <h1 class="text-3xl font-bold text-on-surface">
-        Expedientes y Trazabilidad Guardada
-      </h1>
+    <!-- TABLA -->
+    <div class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
 
-      <p class="text-on-surface-variant mt-2 max-w-3xl">
-        Listado de productores y fincas registrados localmente para la gestión
-        de diligencia debida EUDR.
-      </p>
+      {isLoading ? (
+        <div class="p-8 text-center text-on-surface-variant">
+          <span class="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span>
+          <p class="mt-2">Cargando expedientes...</p>
+        </div>
+      ) : error ? (
+        <div class="p-8 text-center text-error">
+          <span class="material-symbols-outlined text-3xl">error</span>
+          <p class="mt-2">{error}</p>
+        </div>
+      ) : expedientes.length === 0 ? (
+        <div class="p-8 text-center text-on-surface-variant">
+          <span class="material-symbols-outlined text-3xl">folder_open</span>
+          <p class="mt-2 font-semibold">No hay expedientes registrados</p>
+          <p class="text-sm mt-1">
+            {esProductor 
+              ? 'Aún no tienes expedientes. Contacta a un investigador para generar tu expediente.' 
+              : 'Los expedientes se generarán cuando se complete la auditoría satelital.'}
+          </p>
+        </div>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-surface-container">
+              <tr>
+                <th class="p-4 text-left">Productor</th>
+                <th class="p-4 text-left">Finca</th>
+                <th class="p-4 text-left">Área</th>
+                <th class="p-4 text-left">Estado Expediente</th>
+                <th class="p-4 text-left">Expediente</th>
+                <th class="p-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody class="divide-y divide-outline-variant">
+              {expedientes.map((expediente) => {
+                const finca = expediente.finca || fincaData;
+                
+                const nombreProductor = finca?.usuario_nombre || 'Productor no especificado';
+                const nombreFinca = finca?.nombre || 'Finca no especificada';
+                const provincia = finca?.provincia || '';
+                const canton = finca?.canton || '';
+                const area = finca?.area_total_ha || 0;
+                const usuarioId = finca?.usuario_id || 'N/A';
+                
+                const estado = expediente.estado || 'PENDIENTE';
+                const status = getStatusBadge(estado);
+                const initials = getInitials(nombreProductor);
+                const idExpediente = expediente.id?.substring(0, 8) || 'N/A';
+                const fechaCreacion = expediente.creado_en 
+                  ? new Date(expediente.creado_en).toLocaleDateString('es-ES') 
+                  : 'N/A';
+                
+                // 🔥 MOSTRAR LA ORGANIZACIÓN DEL EXPEDIENTE
+                const organizacion = expediente.organizacion_inquilino || 'No especificado';
+
+                return (
+                  <tr class="hover:bg-surface-container transition" key={expediente.id}>
+                    <td class="p-4">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                          {initials}
+                        </div>
+                        <div>
+                          <p class="font-semibold">{nombreProductor}</p>
+                          <p class="text-xs text-on-surface-variant">
+                            ID: {usuarioId.substring(0, 8) || 'N/A'}
+                          </p>
+                          <p class="text-xs text-emerald-600 mt-0.5">
+                            📋 {organizacion}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td class="p-4">
+                      <p class="font-medium">{nombreFinca}</p>
+                      <p class="text-xs text-on-surface-variant">
+                        {provincia}{canton ? `, ${canton}` : ''}
+                      </p>
+                    </td>
+
+                    <td class="p-4">{formatArea(area)}</td>
+
+                    <td class="p-4">
+                      <span class={`inline-flex items-center gap-1 px-3 py-1 rounded-full ${status.color} text-xs font-semibold`}>
+                        <span class="material-symbols-outlined text-sm">{status.icon}</span>
+                        {status.label}
+                      </span>
+                      <div class="text-[10px] text-on-surface-variant mt-1">
+                        Creado: {fechaCreacion}
+                      </div>
+                    </td>
+
+                    <td class="p-4">
+                      <span class="font-mono text-xs bg-surface-container px-2 py-1 rounded">{idExpediente}</span>
+                    </td>
+
+                    <td class="p-4 text-right">
+                      <div class="flex justify-end gap-2">
+                        {estado === 'APROBADO' || estado === 'VALIDADO' ? (
+                          <button
+                            class="bg-secondary-container px-3 py-2 rounded-lg text-sm hover:bg-secondary-container/80 transition flex items-center gap-1"
+                            onclick={`window.location.href='/satelital?finca_id=${finca?.id || ''}&expediente_id=${expediente.id}'`}
+                          >
+                            <span class="material-symbols-outlined text-sm">file_download</span>
+                            DDS
+                          </button>
+                        ) : (
+                          <button
+                            class="bg-surface-container px-3 py-2 rounded-lg text-sm text-on-surface-variant cursor-not-allowed opacity-50 flex items-center gap-1"
+                            disabled
+                            title="El expediente debe estar aprobado para generar el certificado DDS"
+                          >
+                            <span class="material-symbols-outlined text-sm">file_download</span>
+                            DDS
+                          </button>
+                        )}
+
+                        <button
+                          class="border border-outline-variant p-2 rounded-lg hover:bg-surface-container transition"
+                          onclick={`window.location.href='/infoAgro?finca_id=${finca?.id || ''}&expediente_id=${expediente.id}'`}
+                        >
+                          <span class="material-symbols-outlined">visibility</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          
+          <div class="p-4 border-t border-outline-variant flex justify-between items-center text-xs text-on-surface-variant">
+            <span>Total: {expedientes.length} expedientes</span>
+            {fincaIdFilter && (
+              <span>Filtrado por finca: <span class="font-mono">{fincaIdFilter.substring(0, 8)}...</span></span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
-
-    <button
-      class="flex items-center gap-2 px-4 py-2 border border-error text-error rounded-lg hover:bg-error-container transition"
-    >
-      <span class="material-symbols-outlined">
-        delete_sweep
-      </span>
-
-      Limpiar Memoria
-    </button>
-
-  </section>
-
-  <!-- TABLA -->
-  <div
-    class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm"
-  >
-
-    <table class="w-full text-sm">
-
-      <thead class="bg-surface-container">
-
-        <tr>
-
-          <th class="p-4 text-left">
-            Productor
-          </th>
-
-          <th class="p-4 text-left">
-            Finca
-          </th>
-
-          <th class="p-4 text-left">
-            Área
-          </th>
-
-          <th class="p-4 text-left">
-            Estado
-          </th>
-
-          <th class="p-4 text-right">
-            Acciones
-          </th>
-
-        </tr>
-
-      </thead>
-
-      <tbody class="divide-y divide-outline-variant">
-
-        <!-- FILA 1 -->
-
-        <tr class="hover:bg-surface-container transition">
-
-          <td class="p-4">
-
-            <div class="flex items-center gap-3">
-
-              <div
-                class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold"
-              >
-                JM
-              </div>
-
-              <div>
-                <p class="font-semibold">
-                  José Miguel Mosquera
-                </p>
-
-                <p class="text-xs text-on-surface-variant">
-                  ID: 1100433455
-                </p>
-              </div>
-
-            </div>
-
-          </td>
-
-          <td class="p-4">
-
-            <p>
-              El Ahuacate
-            </p>
-
-            <p class="text-xs text-on-surface-variant">
-              Vilcabamba, Loja
-            </p>
-
-          </td>
-
-          <td class="p-4">
-            3.00 Hectáreas
-          </td>
-
-          <td class="p-4">
-
-            <span
-              class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold"
-            >
-              <span class="material-symbols-outlined text-sm">
-                check_circle
-              </span>
-
-              Approved
-            </span>
-
-          </td>
-
-          <td class="p-4 text-right">
-
-            <div class="flex justify-end gap-2">
-
-              <button
-                class="bg-secondary-container px-3 py-2 rounded-lg text-sm"
-              >
-                DDS
-              </button>
-
-              <button
-                class="border border-outline-variant p-2 rounded-lg"
-              >
-                <span class="material-symbols-outlined">
-                  edit_note
-                </span>
-              </button>
-
-            </div>
-
-          </td>
-
-        </tr>
-
-      </tbody>
-
-    </table>
-
   </div>
-
-</div>
-
-</DashboardLayout>
+</Layout>
