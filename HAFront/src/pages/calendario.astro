@@ -1,522 +1,288 @@
 ---
+// src/pages/calendario.astro
 import DashboardLayout from "../layouts/LayoutVariable.astro";
 ---
 
-<DashboardLayout title="Calendario">
+<DashboardLayout title="Calendario Anual">
 
 <div class="space-y-8">
 
     <!-- HEADER -->
-
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-
         <div>
-
-            <h1 class="text-3xl font-bold text-primary">
-
+            <h1 class="text-3xl font-bold text-slate-950">
                 Calendario & Planificador Anual (Módulo 2)
-
             </h1>
-
-            <p class="mt-2 text-on-surface-variant max-w-2xl">
-
-                Planifica, registra y audita el manejo agronómico e insumos de la finca.
-
+            <p class="mt-2 text-slate-500 max-w-2xl">
+                Distribución simétrica anual. Cada mes mantiene su tamaño uniforme y cuenta con scroll interno si acumula demasiadas labores.
             </p>
-
         </div>
-
-        <button
-            class="flex items-center gap-2 bg-primary text-white px-5 h-12 rounded-xl hover:opacity-90">
-
-            <span class="material-symbols-outlined">
-
-                add_task
-
-            </span>
-
+        <button id="btn-nueva-labor-global" class="flex items-center gap-2 bg-emerald-600 text-white px-5 h-12 rounded-xl hover:bg-emerald-500 transition shadow-sm font-medium text-sm whitespace-nowrap">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
             Programar Nueva Labor
-
         </button>
-
     </div>
 
-    <!-- TARJETAS -->
-
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
-
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
-
-                Establecimiento de Finca
-
-            </p>
-
-            <h3 class="mt-2 font-semibold text-primary">
-
-                Siembra: Año 2020
-
-            </h3>
-
+    <!-- MATRIZ DEL CALENDARIO ANUAL -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
+        
+        <div class="flex items-center space-x-3 pb-6 border-b border-slate-100">
+            <div class="bg-emerald-500/10 p-2.5 rounded-xl text-emerald-600">
+                <i data-lucide="calendar-days" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Plan de Manejo Integral 2026</h2>
+                <p class="text-xs text-slate-400">Cuadrícula fija alineada con scroll adaptativo para múltiples actividades concurrentes</p>
+            </div>
         </div>
 
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
+        <!-- Matriz con grid-rows automáticos perfectos -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch" id="matriz-calendario-anual">
+            
+            <!-- ENERO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Enero 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">ENE</span>
+                </div>
+                <!-- Contenedor con scroll interno para que no rompa el diseño -->
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="0"></div>
+            </div>
 
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
+            <!-- FEBRERO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Febrero 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">FEB</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="1"></div>
+            </div>
 
-                Variedad de Café
+            <!-- MARZO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Marzo 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">MAR</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="2"></div>
+            </div>
 
-            </p>
+            <!-- ABRIL -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Abril 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">ABR</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="3"></div>
+            </div>
 
-            <h3 class="mt-2 font-semibold text-primary">
+            <!-- MAYO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Mayo 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">MAY</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="4"></div>
+            </div>
 
-                Bourbon Rojo
+            <!-- JUNIO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Junio 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">JUN</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="5"></div>
+            </div>
 
-            </h3>
+            <!-- JULIO (MES ACTUAL) -->
+            <div class="bg-emerald-50/10 border-2 border-emerald-500 rounded-2xl p-5 flex flex-col h-[380px] ring-4 ring-emerald-500/5">
+                <div class="flex justify-between items-center border-b border-emerald-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-emerald-900 tracking-wider uppercase flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Julio 2026
+                    </h3>
+                    <span class="text-[9px] bg-emerald-600 font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wider">Actual</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="6"></div>
+            </div>
+
+            <!-- AGOSTO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Agosto 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">AGO</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="7"></div>
+            </div>
+
+            <!-- SEPTIEMBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Septiembre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">SEP</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="8"></div>
+            </div>
+
+            <!-- OCTUBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Octubre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">OCT</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="9"></div>
+            </div>
+
+            <!-- NOVIEMBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Noviembre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">NOV</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="10"></div>
+            </div>
+
+            <!-- DICIEMBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Diciembre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">DIC</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="11"></div>
+            </div>
 
         </div>
-
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
-
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
-
-                Densidad de Siembra
-
-            </p>
-
-            <h3 class="mt-2 font-semibold text-primary">
-
-                3k plantas/ha - 250 sombra/ha
-
-            </h3>
-
-        </div>
-
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
-
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
-
-                Origen de Semilla
-
-            </p>
-
-            <h3 class="mt-2 font-semibold text-primary">
-
-                Propia
-
-            </h3>
-
-        </div>
-
     </div>
-
-    <!-- PLANIFICADOR -->
-
-    <section class="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
-
-        <div class="flex justify-between items-center px-6 py-4 border-b border-outline-variant bg-surface-container-low">
-
-            <div class="flex items-center gap-3">
-
-                <span class="material-symbols-outlined text-primary">
-
-                    calendar_month
-
-                </span>
-
-                <h2 class="font-semibold">
-
-                    Planificador Anual 2026
-
-                </h2>
-
-            </div>
-
-            <div class="flex gap-2">
-
-                <button class="p-2 rounded hover:bg-surface-container">
-
-                    <span class="material-symbols-outlined">
-
-                        chevron_left
-
-                    </span>
-
-                </button>
-
-                <button class="p-2 rounded hover:bg-surface-container">
-
-                    <span class="material-symbols-outlined">
-
-                        chevron_right
-
-                    </span>
-
-                </button>
-
-            </div>
-
-        </div>
-
-        <div class="p-8 space-y-8">
-                        <!-- EVENTO 1 -->
-
-            <div class="flex gap-6">
-
-                <div
-                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
-
-                    <span class="text-xs font-bold text-outline uppercase">
-
-                        ENE
-
-                    </span>
-
-                    <span class="text-2xl font-bold text-primary">
-
-                        15
-
-                    </span>
-
-                </div>
-
-                <div
-                    class="flex-1 border border-outline-variant rounded-xl p-6 hover:border-primary transition cursor-pointer">
-
-                    <div class="flex justify-between items-start">
-
-                        <div>
-
-                            <span
-                                class="px-2 py-1 bg-secondary-container rounded text-xs font-bold uppercase">
-
-                                Fertilización
-
-                            </span>
-
-                            <h3 class="mt-2 text-lg font-semibold">
-
-                                Primera Aplicación de NPK
-
-                            </h3>
-
-                        </div>
-
-                        <span class="text-sm text-on-surface-variant">
-
-                            08:00 AM
-
-                        </span>
-
-                    </div>
-
-                    <p class="mt-4 text-on-surface-variant">
-
-                        Aplicación balanceada según el análisis de suelo realizado
-                        en noviembre del año anterior.
-
-                    </p>
-
-                    <div class="flex gap-8 mt-5">
-
-                        <div class="flex items-center gap-2">
-
-                            <span class="material-symbols-outlined">
-
-                                person
-
-                            </span>
-
-                            <span>
-
-                                Juan Pérez + 4 operarios
-
-                            </span>
-
-                        </div>
-
-                        <div class="flex items-center gap-2">
-
-                            <span class="material-symbols-outlined">
-
-                                inventory_2
-
-                            </span>
-
-                            <span>
-
-                                Insumo: YaraMila (15-15-15)
-
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- EVENTO 2 -->
-
-            <div class="flex gap-6 opacity-80">
-
-                <div
-                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
-
-                    <span class="text-xs font-bold text-outline uppercase">
-
-                        FEB
-
-                    </span>
-
-                    <span class="text-2xl font-bold text-primary">
-
-                        02
-
-                    </span>
-
-                </div>
-
-                <div
-                    class="flex-1 border border-outline-variant rounded-xl p-6">
-
-                    <div class="flex justify-between">
-
-                        <div>
-
-                            <span
-                                class="px-2 py-1 rounded bg-tertiary-fixed text-xs font-bold uppercase">
-
-                                Poda
-
-                            </span>
-
-                            <h3 class="mt-2 text-lg font-semibold">
-
-                                Poda de mantenimiento
-
-                            </h3>
-
-                        </div>
-
-                        <span class="text-sm text-on-surface-variant">
-
-                            07:30 AM
-
-                        </span>
-
-                    </div>
-
-                    <p class="mt-4 text-on-surface-variant">
-
-                        Aclareo de ramas viejas y control de altura del cultivo.
-
-                    </p>
-
-                </div>
-
-            </div>
-
-            <!-- EVENTO 3 -->
-
-            <div class="flex gap-6">
-
-                <div
-                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
-
-                    <span class="text-xs font-bold text-outline uppercase">
-
-                        MAR
-
-                    </span>
-
-                    <span class="text-2xl font-bold text-primary">
-
-                        20
-
-                    </span>
-
-                </div>
-
-                <div
-                    class="flex-1 rounded-xl border border-primary/30 bg-primary/5 p-6">
-
-                    <div class="flex justify-between">
-
-                        <div>
-
-                            <span
-                                class="px-2 py-1 bg-primary text-white rounded text-xs font-bold uppercase">
-
-                                Muestreo
-
-                            </span>
-
-                            <h3 class="mt-2 text-lg font-semibold">
-
-                                Auditoría Satelital Programada
-
-                            </h3>
-
-                        </div>
-
-                        <div
-                            class="flex items-center gap-2 text-primary animate-pulse">
-
-                            <span class="material-symbols-outlined">
-
-                                sensors
-
-                            </span>
-
-                            <span class="font-semibold uppercase">
-
-                                En progreso
-
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                    <p class="mt-4 text-on-surface-variant">
-
-                        Sincronización automática de índices NDVI y humedad del
-                        suelo.
-
-                    </p>
-
-                </div>
-
-            </div>
-                        <!-- ESTADO VACÍO -->
-
-            <div
-                class="mt-12 border-2 border-dashed border-outline-variant rounded-xl py-20 flex flex-col items-center justify-center bg-surface-container-low">
-
-                <span
-                    class="material-symbols-outlined text-6xl text-outline-variant">
-
-                    event_note
-
-                </span>
-
-                <h3
-                    class="mt-5 text-lg font-semibold text-on-surface">
-
-                    No hay más labores programadas para este trimestre
-
-                </h3>
-
-                <p
-                    class="mt-2 text-on-surface-variant text-center max-w-md">
-
-                    Puede registrar nuevas actividades agrícolas, auditorías,
-                    aplicaciones de insumos o labores culturales para continuar
-                    con la planificación anual.
-
-                </p>
-
-                <button
-                    class="mt-8 px-6 h-12 rounded-xl bg-primary text-white hover:opacity-90 transition">
-
-                    Ver calendario completo
-
-                </button>
-
-            </div>
-
-        </div>
-
-    </section>
-
 </div>
 
 </DashboardLayout>
 
-<script type="module">
+<!-- Estilos CSS Inyectados para un scrollbar ultra sutil -->
+<style is:global>
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 4px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 20px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
+    }
+</style>
 
-// =======================================================
-// DEMO
-// Posteriormente aquí se conectará con el backend.
-// =======================================================
+<script is:inline src="https://unpkg.com/lucide@latest"></script>
 
-const eventos = [
-
-    {
-
-        fecha:"2026-01-15",
-
-        titulo:"Primera Aplicación de NPK",
-
-        categoria:"Fertilización"
-
-    },
-
-    {
-
-        fecha:"2026-02-02",
-
-        titulo:"Poda de mantenimiento",
-
-        categoria:"Poda"
-
-    },
-
-    {
-
-        fecha:"2026-03-20",
-
-        titulo:"Auditoría Satelital",
-
-        categoria:"Muestreo"
-
+<script>
+    declare global {
+        interface Window {
+            lucide: any;
+        }
     }
 
-];
+    // Datos simulando múltiples labores acumuladas en Julio
+    const laberDatasetAnual = [
+        { id: 1, fecha: "2026-01-15", titulo: "Primera Aplicación NPK", categoria: "Fertilización", hora: "08:00 AM", descripcion: "Aplicación balanceada según el análisis de suelo de lote principal.", insumo: "YaraMila", status: "completado" },
+        { id: 2, fecha: "2026-02-10", titulo: "Poda de Mantenimiento", categoria: "Poda", hora: "07:30 AM", descripcion: "Aclareo selectivo de ramas viejas e improductivas.", insumo: "Tijeras manuales", status: "completado" },
+        { id: 3, fecha: "2026-03-20", titulo: "Auditoría Satelital", categoria: "Muestreo", hora: "05:00 PM", descripcion: "Cálculo automático de índices de estrés hídrico.", insumo: "Sentinel-2", status: "completado" },
+        
+        // MÚLTIPLES LABORES SIMULTÁNEAS EN JULIO (Prueba de resistencia visual)
+        { id: 4, fecha: "2026-07-05", titulo: "Análisis Satelital", categoria: "Muestreo", hora: "09:00 AM", descripcion: "Monitoreo preventivo del dosel forestal y sombríos.", insumo: "Sentinel-2", status: "progreso" },
+        { id: 5, fecha: "2026-07-12", titulo: "Deshierbe Manual", categoria: "Manejo", hora: "07:00 AM", descripcion: "Control mecánico selectivo protegiendo coberturas nobles.", insumo: "Ninguno", status: "pendiente" },
+        { id: 6, fecha: "2026-07-19", titulo: "Monitoreo de Trampas", categoria: "Manejo", hora: "11:30 AM", descripcion: "Auditoría física de niveles de captura de broca.", insumo: "Alcohol + Trampa", status: "pendiente" },
+        { id: 7, fecha: "2026-07-26", titulo: "Muestreo de Plagas", categoria: "Muestreo", hora: "02:00 PM", descripcion: "Evaluación porcentual de roya en hojas del lote bajo.", insumo: "Hojas", status: "pendiente" },
+        
+        { id: 8, fecha: "2026-11-15", titulo: "Tercera Fertilización", categoria: "Fertilización", hora: "08:00 AM", descripcion: "Nutrición final enfocada en el cuajado de la cereza.", insumo: "Fórmula Producción", status: "pendiente" }
+    ];
 
-console.log("Calendario cargado");
+    const mesesCortos = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
 
-console.table(eventos);
+    function renderMatrizAnual() {
+        for (let m = 0; m < 12; m++) {
+            const contenedorMes = document.querySelector(`[data-mes="${m}"]`);
+            if (!contenedorMes) continue;
 
+            contenedorMes.innerHTML = '';
 
-// =======================================================
-// Botón Nueva Labor
-// =======================================================
+            const laboresDelMes = laberDatasetAnual.filter(ev => {
+                return new Date(ev.fecha + 'T00:00:00').getMonth() === m;
+            });
 
-const btnNuevaLabor = document.querySelector("button");
+            if (laboresDelMes.length === 0) {
+                contenedorMes.innerHTML = `
+                    <div class="border border-dashed border-slate-200 rounded-xl h-full flex flex-col items-center justify-center bg-white/40 p-4 text-center">
+                        <div class="text-slate-300 mb-1">
+                            <i data-lucide="calendar-x" class="w-5 h-5"></i>
+                        </div>
+                        <p class="text-[11px] font-bold text-slate-700">Sin labores agendadas</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5 max-w-[150px] leading-tight">Periodo de descanso vegetativo.</p>
+                    </div>
+                `;
+                continue;
+            }
 
-if(btnNuevaLabor){
+            laboresDelMes.forEach(ev => {
+                const dateObj = new Date(ev.fecha + 'T00:00:00');
+                const diaTexto = String(dateObj.getDate()).padStart(2, '0');
 
-    btnNuevaLabor.addEventListener("click",()=>{
+                const cardBox = document.createElement('div');
+                let cardStyle = "border-slate-200 bg-white shadow-xs";
+                let badgeStyle = "bg-slate-100 text-slate-700";
+                let statusHTML = `<span class="text-[9px] text-slate-400 font-medium whitespace-nowrap">${ev.hora}</span>`;
 
-        alert("Aquí se abrirá el formulario para registrar una nueva labor.");
+                if (ev.status === 'progreso') {
+                    cardStyle = "border-emerald-300 bg-emerald-50/30";
+                    badgeStyle = "bg-emerald-600 text-white";
+                    statusHTML = `
+                        <div class="flex items-center gap-1 text-emerald-600 font-bold text-[9px] uppercase tracking-wide">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Hoy
+                        </div>
+                    `;
+                }
 
+                cardBox.className = `border rounded-xl p-3 flex flex-col justify-between min-h-[105px] ${cardStyle}`;
+                cardBox.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start gap-1">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-extrabold px-1.5 py-0.5 rounded text-[10px] shrink-0">${diaTexto}</span>
+                                    <span class="px-1 py-0.2 rounded text-[8px] font-extrabold uppercase tracking-wide truncate max-w-[70px] ${badgeStyle}">${ev.categoria}</span>
+                                </div>
+                                <h4 class="mt-1 text-xs font-bold text-slate-900 leading-tight truncate" title="${ev.titulo}">${ev.titulo}</h4>
+                            </div>
+                            ${statusHTML}
+                        </div>
+                        <p class="mt-1 text-[10px] text-slate-500 leading-snug line-clamp-1">${ev.descripcion}</p>
+                    </div>
+                    
+                    <div class="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1 text-[9px]">
+                        <span class="truncate font-medium text-slate-400 max-w-[80px]">Insumo: ${ev.insumo}</span>
+                        <button class="btn-subir-foto-matriz flex items-center gap-1 bg-slate-50 border border-slate-200 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 text-slate-600 px-1.5 py-0.5 rounded-md transition font-bold" data-id="${ev.id}">
+                            <i data-lucide="camera" class="w-3 h-3"></i>
+                            Evidencia
+                        </button>
+                    </div>
+                `;
+
+                cardBox.querySelector('.btn-subir-foto-matriz')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    alert(`Subir evidencia para:\n"${ev.titulo}"`);
+                });
+
+                contenedorMes.appendChild(cardBox);
+            });
+        }
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderMatrizAnual();
     });
-
-}
-
-
-// =======================================================
-// Animación de las tarjetas
-// =======================================================
-
-document.querySelectorAll(".cursor-pointer").forEach(card=>{
-
-    card.addEventListener("mouseenter",()=>{
-
-        card.classList.add("shadow-lg");
-
+    document.addEventListener('astro:after-swap', () => {
+        renderMatrizAnual();
     });
-
-    card.addEventListener("mouseleave",()=>{
-
-        card.classList.remove("shadow-lg");
-
-    });
-
-});
-
 </script>
