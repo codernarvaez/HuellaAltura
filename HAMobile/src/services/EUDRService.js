@@ -1,15 +1,14 @@
-import { EXPED_API_URL, API_BASE_URL } from '@env';
-
 export class EUDRService {
   constructor(token) {
+    if (!token) throw new Error('Se requiere token de autenticación');
     this.token = token;
     this.headers = {
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.token}`
     };
     
-    // Si EXPED_API_URL no está definido, usamos API_BASE_URL/v1 como fallback
-    this.baseUrl = EXPED_API_URL || `${API_BASE_URL}/v1`;
+    // Updated to use EXPO_PUBLIC env vars
+    this.baseUrl = process.env.EXPO_PUBLIC_EXPED_API_URL || `${process.env.EXPO_PUBLIC_API_BASE_URL}/v1`;
   }
 
   async checkResponse(response) {

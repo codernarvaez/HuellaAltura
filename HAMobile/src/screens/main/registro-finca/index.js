@@ -9,7 +9,6 @@ import { useRegistroFinca } from './hooks/useRegistroFinca';
 import { ProgressBar } from './components/ProgressBar';
 import { Step1Productor } from './components/Step1Productor';
 import { Step2Finca } from './components/Step2Finca';
-import { Step3Agroambiental } from './components/Step3Agroambiental';
 import { FarmMapEditor } from '../../../components/map/FarmMapEditor';
 
 const RegistroFincaScreen = ({ navigation }) => {
@@ -44,7 +43,6 @@ const RegistroFincaScreen = ({ navigation }) => {
         <ScrollView style={styles.formScroll} contentContainerStyle={styles.formContent}>
           {state.step === 1 && <Step1Productor {...state} />}
           {state.step === 2 && <Step2Finca {...state} />}
-          {state.step === 3 && <Step3Agroambiental {...state} />}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -58,7 +56,7 @@ const RegistroFincaScreen = ({ navigation }) => {
 
             <View style={{ flex: 1 }} />
 
-            {state.step < 3 ? (
+            {state.step < 2 ? (
               <TouchableOpacity style={styles.navButtonMinimal} onPress={() => state.setStep(state.step + 1)}>
                 <Text style={styles.navButtonMinimalText}>Sig.</Text>
                 <ChevronRight size={20} color={theme.colors.primary} style={{ marginLeft: 4 }} />

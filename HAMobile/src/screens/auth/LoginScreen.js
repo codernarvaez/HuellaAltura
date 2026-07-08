@@ -101,7 +101,7 @@ const LoginScreen = ({ navigation }) => {
               <View style={styles.titleRow}>
                 <View style={styles.smallIconContainer}>
                   <Image 
-                    source={require('../../../assets/Icon.png')}
+                    source={require('../../../assets/Logo.png')}
                     style={styles.smallLogoImage}
                     resizeMode="contain"
                   />
