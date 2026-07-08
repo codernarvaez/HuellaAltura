@@ -298,13 +298,20 @@ class EjecucionLaborCreate(BaseModel):
     foto_hash: str | None = None
     latitud: float | None = None
     longitud: float | None = None
+    watermark_text: str | None = None
 
 class EjecucionLaborOut(BaseModel):
     id: str
     labor_id: str
     finca_id: str
     persona_desarrollo: str
+    nombre_jornalero: str | None = None
     detalle_aplicacion: str
+    salario: float | None = None
+    foto_url: str | None = None
+    foto_hash: str | None = None
+    latitud: float | None = None
+    longitud: float | None = None
     estado: str = "REGISTRADO"
     timestamp: datetime
     

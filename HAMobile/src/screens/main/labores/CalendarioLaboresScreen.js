@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Picker } from '@react-native-picker/picker';
+import actividadesData from '../../../data/actividades.json';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, SafeAreaView, Modal, TextInput, Alert, Image } from 'react-native';
 import { theme } from '../../../theme/theme';
 import { ChevronLeft, Plus, Calendar, CheckCircle2, Clock, PlayCircle, Camera as CameraIcon } from 'lucide-react-native';
@@ -29,6 +31,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
   const [nombreForm, setNombreForm] = useState('');
   const [tipoProcesoForm, setTipoProcesoForm] = useState('');
   const [cantidadProyectadaForm, setCantidadProyectadaForm] = useState('');
+  const [mesForm, setMesForm] = useState(MESES[new Date().getMonth()]);
 
   // Form State - Ejecutar
   const [personaDesarrollo, setPersonaDesarrollo] = useState('');
@@ -70,7 +73,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
     try {
       const token = await obtenerToken();
       if (!token) return;
-      const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/labores/calendario/${finca.id}`, {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/calendario/${finca.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -170,7 +173,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           finca_id: finca.id
         };
 
-        const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/labores/agendar`, {
+        const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/agendar`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -237,7 +240,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           watermark_text: `Fecha: ${locationData.timestamp} | Lat: ${locationData.latitude} | Lon: ${locationData.longitude}`
         };
 
-        const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/labores/${selectedLabor.id}/ejecutar`, {
+        const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/${selectedLabor.id}/ejecutar`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -364,11 +367,32 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
             {modalMode === 'AGENDAR' ? (
               <>
-                <Text style={styles.inputLabel}>Nombre de la labor *</Text>
-                <TextInput style={styles.input} value={nombreForm} onChangeText={setNombreForm} placeholder="Ej. Poda de formación" />
+                <Text style={styles.inputLabel}>Mes programado *</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker selectedValue={mesForm} onValueChange={(val) => { setMesForm(val); }}>
+                    {MESES.map(m => <Picker.Item key={m} label={m} value={m} />)}
+                  </Picker>
+                </View>
 
-                <Text style={styles.inputLabel}>Tipo de proceso *</Text>
-                <TextInput style={styles.input} value={tipoProcesoForm} onChangeText={setTipoProcesoForm} placeholder="Ej. Agrícola" />
+                <Text style={styles.inputLabel}>Actividad *</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker selectedValue={nombreForm} onValueChange={(val) => {
+                    setNombreForm(val);
+                    const act = actividadesData.find(a => a.actividad === val);
+                    if (act) {
+                      setTipoProcesoForm(act.etapa);
+                      setCantidadProyectadaForm(act.cantidad_ha ? `${act.cantidad_ha} ${act.unidad}` : '');
+                    }
+                  }}>
+                    <Picker.Item label="Seleccione una actividad..." value="" />
+                    {actividadesData.filter(a => a.mes.toLowerCase() === mesForm.toLowerCase()).map((a, i) => (
+                      <Picker.Item key={i} label={a.actividad} value={a.actividad} />
+                    ))}
+                  </Picker>
+                </View>
+
+                <Text style={styles.inputLabel}>Etapa *</Text>
+                <TextInput style={styles.input} value={tipoProcesoForm} onChangeText={setTipoProcesoForm} placeholder="Ej. Producción" />
 
                 <Text style={styles.inputLabel}>Cantidad Proyectada *</Text>
                 <TextInput style={styles.input} value={cantidadProyectadaForm} onChangeText={setCantidadProyectadaForm} placeholder="Ej. 2 hectáreas" />
@@ -376,9 +400,17 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
             ) : (
               <>
                 <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 16 }}>Labor: {selectedLabor?.nombre}</Text>
+                <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Mes programado: {selectedLabor?.mes} (Visual)</Text>
 
-                <Text style={styles.inputLabel}>Persona que desarrolla</Text>
-                <TextInput style={styles.input} value={personaDesarrollo} onChangeText={setPersonaDesarrollo} placeholder="TITULAR, TERCERO..." />
+                <Text style={styles.inputLabel}>Persona que desarrolla (Roles)</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker selectedValue={personaDesarrollo} onValueChange={setPersonaDesarrollo}>
+                    <Picker.Item label="TITULAR" value="TITULAR" />
+                    <Picker.Item label="JORNALERO" value="JORNALERO" />
+                    <Picker.Item label="TECNICO CAMPO" value="TECNICO_CAMPO" />
+                    <Picker.Item label="TERCERO" value="TERCERO" />
+                  </Picker>
+                </View>
 
                 <Text style={styles.inputLabel}>Nombre Jornalero (si aplica)</Text>
                 <TextInput style={styles.input} value={nombreJornalero} onChangeText={setNombreJornalero} placeholder="Ej. Juan Pérez" />
@@ -579,6 +611,13 @@ const styles = StyleSheet.create({
     color: theme.colors.onSurfaceVariant,
     marginBottom: 6,
     marginTop: 12,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginBottom: 16,
+    backgroundColor: '#f8fafc',
   },
   input: {
     borderWidth: 1,

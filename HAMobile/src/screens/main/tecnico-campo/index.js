@@ -49,7 +49,7 @@ export default function TecnicoCampoScreen() {
     try {
       const token = await obtenerToken();
       if (!token) return;
-      const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/fincas/`, {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/fincas/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -68,7 +68,7 @@ export default function TecnicoCampoScreen() {
     setLoading(true);
     try {
       const token = await obtenerToken();
-      const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/agroambiental/${finca.id}`, {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/agroambiental/${finca.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -114,7 +114,7 @@ export default function TecnicoCampoScreen() {
         total_stock_carbono: parseFloat(totalStockCarbono) || 0,
       };
 
-      const url = datoId ? `${process.env.EXPO_PUBLIC_API_BASE_URL}/agroambiental/${datoId}` : `${process.env.EXPO_PUBLIC_API_BASE_URL}/agroambiental/`;
+      const url = datoId ? `${process.env.EXPO_PUBLIC_EXPED_API_URL}/agroambiental/${datoId}` : `${process.env.EXPO_PUBLIC_EXPED_API_URL}/agroambiental/`;
       const method = datoId ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {

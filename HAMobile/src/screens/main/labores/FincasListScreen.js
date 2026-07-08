@@ -43,18 +43,24 @@ export default function FincasListScreen({ navigation }) {
       const token = await obtenerToken();
       if (!token) return;
       const url = user?.role_name === 'PRODUCTOR' 
-        ? `${process.env.EXPO_PUBLIC_API_BASE_URL}/fincas/por-usuario/${user.id}`
-        : `${process.env.EXPO_PUBLIC_API_BASE_URL}/fincas/`;
+        ? `${process.env.EXPO_PUBLIC_EXPED_API_URL}/fincas/por-usuario/${user.id}`
+        : `${process.env.EXPO_PUBLIC_EXPED_API_URL}/fincas/`;
       
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      console.log('Fetch URL:', url);
+      console.log('Fetch Status:', res.status);
       if (res.ok) {
         const json = await res.json();
+        console.log('Fetch Response Length:', json?.length);
         setFincas(json);
+      } else {
+        const errJson = await res.text();
+        console.log('Fetch Error:', errJson);
       }
     } catch (error) {
-      console.warn(error);
+      console.warn('Fetch Exception:', error);
     } finally {
       setLoading(false);
     }
