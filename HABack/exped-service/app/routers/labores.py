@@ -4,7 +4,6 @@ from prisma import Prisma
 
 from app.database import get_db
 from app.schemas.schemas import LaborAgricolaCreate, LaborAgricolaOut, EjecucionLaborCreate, EjecucionLaborOut
-from app.core import endpoints
 from app.services.normativa_service import NormativaService
 
 router = APIRouter(prefix="/api/v1/labores", tags=["Labores Agrícolas"])
@@ -16,16 +15,17 @@ router = APIRouter(prefix="/api/v1/labores", tags=["Labores Agrícolas"])
     summary="Agendar Nueva Labor Agrícola",
     description="Crea una nueva labor planeada para un mes específico en una finca."
 )
-async def agendar_labor(
+def agendar_labor(
     labor_in: LaborAgricolaCreate,
     db: Annotated[Prisma, Depends(get_db)]
 ):
     try:
-        finca = await db.finca.find_unique(where={"id": labor_in.finca_id})
+        # Sin 'await' porque tu cliente Prisma es síncrono
+        finca = db.finca.find_unique(where={"id": labor_in.finca_id})
         if not finca:
             raise HTTPException(status_code=404, detail="La finca especificada no existe")
 
-        nueva_labor = await db.laboragricola.create(
+        nueva_labor = db.laboragricola.create(
             data={
                 "finca_id": labor_in.finca_id,
                 "nombre": labor_in.nombre,
@@ -48,16 +48,16 @@ async def agendar_labor(
     summary="Vista Calendario Anual",
     description="Muestra el calendario de 12 meses con las labores agendadas para una finca."
 )
-async def obtener_calendario(
+def obtener_calendario(
     finca_id: str,
     db: Annotated[Prisma, Depends(get_db)]
 ):
     try:
-        finca = await db.finca.find_unique(where={"id": finca_id})
+        finca = db.finca.find_unique(where={"id": finca_id})
         if not finca:
             raise HTTPException(status_code=404, detail="La finca especificada no existe")
 
-        labores_db = await db.laboragricola.find_many(
+        labores_db = db.laboragricola.find_many(
             where={"finca_id": finca_id},
             order={"creado_en": "asc"}
         )
@@ -103,21 +103,22 @@ async def obtener_calendario(
     summary="Registrar Ejecución de Labor Agrícola",
     description="Registra la ejecución real de una labor con insumos, herramientas y evidencia fotográfica."
 )
-async def ejecutar_labor(
+def ejecutar_labor(
     labor_id: str,
     ejecucion_in: EjecucionLaborCreate,
     db: Annotated[Prisma, Depends(get_db)]
 ):
     try:
-        labor = await db.laboragricola.find_unique(where={"id": labor_id})
+        labor = db.laboragricola.find_unique(where={"id": labor_id})
         if not labor:
             raise HTTPException(status_code=404, detail="La labor especificada no existe")
         
         if labor.estado == "EJECUTADO":
             raise HTTPException(status_code=400, detail="Esta labor ya ha sido registrada como ejecutada")
 
-        async with db.tx() as transaction:
-            ejecucion = await transaction.ejecucionlabor.create(
+        # Cambiamos 'async with' a 'with'
+        with db.tx() as transaction:
+            ejecucion = transaction.ejecucionlabor.create(
                 data={
                     "labor_id": labor_id,
                     "finca_id": labor.finca_id,
@@ -146,7 +147,7 @@ async def ejecutar_labor(
                 }
             )
 
-            await transaction.laboragricola.update(
+            transaction.laboragricola.update(
                 where={"id": labor_id},
                 data={"estado": "EJECUTADO"}
             )
@@ -159,23 +160,21 @@ async def ejecutar_labor(
         raise HTTPException(status_code=500, detail=f"Error interno al registrar ejecución: {str(e)}")
     
 
-
-
 @router.get(
     "/ledger/{finca_id}",
     summary="Ledger de Labores (Trazabilidad Completa)",
     description="Vista consolidada de todas las labores ejecutadas con trazabilidad completa para auditorías."
 )
-async def obtener_ledger(
+def obtener_ledger(
     finca_id: str,
     db: Annotated[Prisma, Depends(get_db)]
 ):
     try:
-        finca = await db.finca.find_unique(where={"id": finca_id})
+        finca = db.finca.find_unique(where={"id": finca_id})
         if not finca:
             raise HTTPException(status_code=404, detail="La finca especificada no existe")
 
-        ejecuciones = await db.ejecucionlabor.find_many(
+        ejecuciones = db.ejecucionlabor.find_many(
             where={"finca_id": finca_id},
             include={
                 "labor": True,
@@ -228,7 +227,7 @@ async def obtener_ledger(
     
 
 @router.get("/sugerencias/{mes}", summary="Sugerencias Parametrizadas")
-async def obtener_sugerencias(mes: str):
+def obtener_sugerencias(mes: str):
     try:
         sugerencias = NormativaService.obtener_sugerencias(mes)
         return {"mes": mes.capitalize(), "sugerencias_disponibles": sugerencias}
@@ -236,9 +235,9 @@ async def obtener_sugerencias(mes: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/{labor_id}/validar-norma", summary="Pre-validar contra normativa")
-async def validar_normativa(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
+def validar_normativa(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
     try:
-        ejecucion = await db.ejecucionlabor.find_first(
+        ejecucion = db.ejecucionlabor.find_first(
             where={"labor_id": labor_id},
             include={"insumos": True, "herramientas": True}
         )
@@ -248,7 +247,7 @@ async def validar_normativa(labor_id: str, db: Annotated[Prisma, Depends(get_db)
         evaluacion = NormativaService.evaluar_cumplimiento(ejecucion)
 
         if evaluacion["estado_sugerido"] == "PRE_VALIDADO":
-            await db.laboragricola.update(
+            db.laboragricola.update(
                 where={"id": labor_id},
                 data={"estado": "PRE_VALIDADO"}
             )
@@ -264,16 +263,16 @@ async def validar_normativa(labor_id: str, db: Annotated[Prisma, Depends(get_db)
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @router.post("/{labor_id}/aprobar", summary="Aprobación Manual de Auditoría")
-async def aprobar_auditoria(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
+def aprobar_auditoria(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
     try:
-        labor = await db.laboragricola.find_unique(where={"id": labor_id})
+        labor = db.laboragricola.find_unique(where={"id": labor_id})
         if not labor:
             raise HTTPException(status_code=404, detail="Labor no encontrada.")
         
         if labor.estado != "PRE_VALIDADO":
             raise HTTPException(status_code=400, detail="La labor debe estar PRE_VALIDADA por el sistema antes de la confirmación manual.")
 
-        labor_auditada = await db.laboragricola.update(
+        labor_auditada = db.laboragricola.update(
             where={"id": labor_id},
             data={"estado": "AUDITADO"}
         )
