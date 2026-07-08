@@ -50,3 +50,9 @@ services:
         sync: false
       - key: SESSION_VALIDATION_ENABLED
         value: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

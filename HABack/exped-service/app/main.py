@@ -106,7 +106,7 @@ Esta API es el núcleo del sistema **GeoGuard EUDR**, encargada de gestionar el 
         "name": "Proprietary",
     },
     lifespan=lifespan,
-    docs_url=None,
+    docs_url="/swagger",
     redoc_url="/docs",
 )
 

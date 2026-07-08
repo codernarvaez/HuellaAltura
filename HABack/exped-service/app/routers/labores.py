@@ -1,10 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import cloudinary
+import cloudinary.uploader
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from typing import Annotated, List
 from prisma import Prisma
 
 from app.database import get_db
 from app.schemas.schemas import LaborAgricolaCreate, LaborAgricolaOut, EjecucionLaborCreate, EjecucionLaborOut
 from app.services.normativa_service import NormativaService
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+)
 
 router = APIRouter(prefix="/api/v1/labores", tags=["Labores Agrícolas"])
 
@@ -282,3 +291,30 @@ def aprobar_auditoria(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en aprobación: {str(e)}")
+
+
+
+@router.post(
+    "/subir-evidencia",
+    status_code=status.HTTP_200_OK,
+    summary="Subir Foto de Evidencia",
+    description="Recibe un archivo de imagen desde el móvil, lo sube a Cloudinary y devuelve la URL cruda."
+)
+def subir_foto_evidencia(file: UploadFile = File(...)):
+    try:
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+
+        resultado = cloudinary.uploader.upload(file.file)
+        
+        foto_url = resultado.get("secure_url")
+        foto_hash = resultado.get("signature") 
+        
+        return {
+            "mensaje": "Imagen subida exitosamente",
+            "foto_url": foto_url,
+            "foto_hash": foto_hash
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno al subir imagen: {str(e)}")
