@@ -66,6 +66,7 @@ const expedientesUrl = fincaId ? `/expedientes?finca_id=${fincaId}` : '/expedien
 const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
 const auditoriaSatelitalUrl = '/auditoriaSatelital';
 const calendarioUrl = '/calendario';
+const ledgerUrl = fincaId ? `/labores?finca_id=${fincaId}` : '/labores';
 
 // INVESTIGADOR siempre puede ver Info Agro
 const puedeVerInfoAgro = esInvestigador || hasExpediente;
@@ -259,6 +260,19 @@ const isAdminStr = isAdmin ? 'true' : 'false';
 
                     <span>Calendario</span>
                   </a>
+
+                  <!-- 6. LEDGER DE LABORES -->
+                  <a
+                    href={ledgerUrl}
+                    id="link-ledger"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                  >
+                    <span class="material-symbols-outlined">
+                      receipt_long
+                    </span>
+
+                    <span>Ledger de Labores</span>
+                  </a>
                 </>
               )}
             </>
@@ -323,6 +337,12 @@ const isAdminStr = isAdmin ? 'true' : 'false';
 
                 <span>Auditoría Satelital</span>
               </a>
+
+              <!-- 🔥 LEDGER DE LABORES PARA ADMIN (ELIMINADO) -->
+              <!-- Ya no está disponible para administradores -->
+
+              <!-- CALENDARIO PARA ADMIN (ELIMINADO) -->
+              <!-- Ya no está disponible para administradores -->
             </>
           )
         }
@@ -422,6 +442,7 @@ const isAdminStr = isAdmin ? 'true' : 'false';
       const linkInfoAgro = document.getElementById('link-infoagro');
       const linkSatelital = document.getElementById('link-satelital');
       const linkCalendario = document.getElementById('link-calendario');
+      const linkLedger = document.getElementById('link-ledger');
       const linkAuditoria = document.getElementById('link-auditoria-satelital');
       const btnVolver = document.getElementById('btn-volver');
 
@@ -468,9 +489,6 @@ const isAdminStr = isAdmin ? 'true' : 'false';
         setTimeout(() => location.reload(), 1000);
       });
 
-      // 🔥 ELIMINAR BLOQUEO DE ENLACES - Ahora todos los enlaces están habilitados
-      // Ya no hay lógica de bloqueo para productores
-      
       // Para administradores, mostrar mensaje de bienvenida
       if (isAdmin) {
         console.log('👑 Administrador: Todos los enlaces están disponibles');

@@ -13,21 +13,23 @@ export interface InsumoCreate {
   unidad: string;
 }
 
+// 🔥 CORREGIDO: cantidad_proyectada es string
 export interface LaborAgricolaCreate {
   finca_id: string;
   nombre: string;
   tipo_proceso: string;
   mes: string;
-  cantidad_proyectada: number;
+  cantidad_proyectada: string;  // 🔥 CAMBIADO a string
 }
 
+// 🔥 CORREGIDO: cantidad_proyectada es string en la salida también
 export interface LaborAgricolaOut {
   id: string;
   finca_id: string;
   nombre: string;
   tipo_proceso: string;
   mes: string;
-  cantidad_proyectada: number;
+  cantidad_proyectada: string;  // 🔥 CAMBIADO a string
   estado: string;
   creado_en: string;
   actualizado_en: string;
@@ -171,17 +173,31 @@ export class LaboresService {
     payload: LaborAgricolaCreate,
     token?: string
   ): Promise<LaborAgricolaOut> {
-    console.log('Agendando labor:', payload);
+    // 🔥 Asegurar que el payload sea exactamente como espera el backend
+    const cleanPayload = {
+      nombre: payload.nombre,
+      tipo_proceso: payload.tipo_proceso,
+      mes: payload.mes,
+      cantidad_proyectada: payload.cantidad_proyectada,  // 🔥 Ya es string
+      finca_id: payload.finca_id
+    };
+    
+    console.log('📦 Agendando labor (payload limpio):', cleanPayload);
     
     const response = await fetch(`${LABORES_BASE}/agendar`, {
       method: "POST",
       headers: authHeaders(token),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(cleanPayload),
     });
     
     const data = await response.json();
     console.log('📡 Response:', data);
-    return handleResponse<LaborAgricolaOut>(response, data);
+    
+    if (!response.ok) {
+      throw new Error(data.detail || data.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return data;
   }
 
   /**
