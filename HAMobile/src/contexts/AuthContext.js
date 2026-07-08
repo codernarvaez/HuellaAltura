@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { API_BASE_URL } from '@env';
+
 import SafeStorage from '../utils/SafeStorage';
 import { jwtDecode } from 'jwt-decode';
 import CryptoJS from 'crypto-js';
@@ -8,7 +8,7 @@ import { DatabaseManager, db } from '../data/local/database';
 import { productores } from '../data/local/esquema/productores';
 import { eq } from 'drizzle-orm';
 
-const AuthContext = createContext();
+export const AuthContext = createContext({});
 
 const TOKEN_KEY = 'auth_token_enc';
 const USER_KEY = 'user_data';
@@ -119,7 +119,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const fetchUserData = async (token) => {
-    const url = `${API_BASE_URL}/auth/me`;
+    const url = `${process.env.EXPO_PUBLIC_API_BASE_URL}/auth/me`;
     try {
       const response = await fetch(url, {
         headers: {
@@ -139,7 +139,7 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password) => {
     setLoading(true);
-    const url = `${API_BASE_URL}/auth/login`;
+    const url = `${process.env.EXPO_PUBLIC_API_BASE_URL}/auth/login`;
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -213,7 +213,7 @@ export const AuthProvider = ({ children }) => {
         payload.nivel_educativo = payload.nivel_educativo.toUpperCase();
       }
       
-      const url = `${API_BASE_URL}/auth/register`;
+      const url = `${process.env.EXPO_PUBLIC_API_BASE_URL}/auth/register`;
 
       const response = await fetch(url, {
         method: 'POST',

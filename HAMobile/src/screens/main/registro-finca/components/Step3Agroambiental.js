@@ -12,23 +12,6 @@ export const Step3Agroambiental = ({
   totalStockCarbono, camposDinamicos, actualizarCampoDinamico, eliminarCampoDinamico, agregarCampoDinamico
 }) => (
   <View style={styles.stepContent}>
-    <View style={styles.card}>
-      <View style={styles.sectionHeader}>
-        <Trees size={20} color={theme.colors.secondaryFixed} />
-        <Text style={styles.sectionTitle}>Datos del Expediente</Text>
-      </View>
-
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>Organización / Inquilino</Text>
-      <TextInput 
-        style={styles.input} 
-        value={organizacion} 
-        onChangeText={setOrganizacion} 
-        placeholder="Ej. Cooperativa ACRIM"
-      />
-    </View>
-
-    </View>
 
     <View style={styles.card}>
       <View style={styles.sectionHeader}>

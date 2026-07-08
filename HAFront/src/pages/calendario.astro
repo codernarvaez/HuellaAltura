@@ -1,522 +1,1307 @@
 ---
+// src/pages/calendario.astro
 import DashboardLayout from "../layouts/LayoutVariable.astro";
+import { AuthService } from "../services/auth.service.ts";
+import { FincaService } from "../services/finca.service.ts";
+import { LaboresService } from "../services/labores.service.ts";
+
+// Obtener token de las cookies
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let fincaId = null;
+let error = null;
+let isLoading = true;
+let calendarioData = null;
+
+if (token) {
+  try {
+    userData = await AuthService.getMe(token);
+    console.log("👤 Usuario:", userData?.first_name, userData?.last_name);
+    
+    if (userData?.id) {
+      try {
+        const fincas = await FincaService.getByUsuarioId(userData.id, token);
+        if (fincas && fincas.length > 0) {
+          fincaId = fincas[0].id;
+          console.log("✅ Finca encontrada:", fincas[0].nombre);
+          console.log("🆔 Finca ID:", fincaId);
+          
+          try {
+            const response = await LaboresService.obtenerCalendario(fincaId, token);
+            calendarioData = response;
+            console.log("📋 Calendario cargado:", calendarioData);
+          } catch (e) {
+            console.warn("⚠️ Error obteniendo calendario:", e.message);
+            calendarioData = null;
+          }
+        }
+      } catch (e) {
+        console.warn("⚠️ Error obteniendo finca:", e.message);
+      }
+    }
+    
+    isLoading = false;
+  } catch (e) {
+    error = e.message;
+    console.error("❌ Error:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+// Lista de meses en español
+const meses = [
+  { value: "1", label: "Enero" },
+  { value: "2", label: "Febrero" },
+  { value: "3", label: "Marzo" },
+  { value: "4", label: "Abril" },
+  { value: "5", label: "Mayo" },
+  { value: "6", label: "Junio" },
+  { value: "7", label: "Julio" },
+  { value: "8", label: "Agosto" },
+  { value: "9", label: "Septiembre" },
+  { value: "10", label: "Octubre" },
+  { value: "11", label: "Noviembre" },
+  { value: "12", label: "Diciembre" }
+];
+
+// Tipos de Proceso disponibles (Etapas)
+const tiposProceso = [
+  { value: "Producción", label: "🌱 Producción" },
+  { value: "Cosecha", label: "🌾 Cosecha" },
+  { value: "Pos-cosecha", label: "📦 Pos-cosecha" }
+];
+
+// Actividades del Excel (solo para el combobox del modal)
+const actividadesPorMes = {
+  "Enero": [
+    { actividad: "Elaboración Plan de Producción Certificada (PPC)", etapa: "Producción" },
+    { actividad: "Monitoreo fitosanitario (broca, roya, ojo de gallo)", etapa: "Producción" },
+    { actividad: "Fertilización orgánica sólida (refuerzo llenado de grano)", etapa: "Producción" }
+  ],
+  "Febrero": [
+    { actividad: "Continuación PPC y diagnóstico agrícola-social-económico", etapa: "Producción" },
+    { actividad: "Manejo de malezas (limpia manual selectiva)", etapa: "Producción" },
+    { actividad: "Preparación de semillero / vivero (si hay renovación)", etapa: "Producción" }
+  ],
+  "Marzo": [
+    { actividad: "Trasplante a vivero / funda (chapolas)", etapa: "Producción" },
+    { actividad: "Fertilización orgánica líquida (biol) — llenado de grano", etapa: "Producción" },
+    { actividad: "Control de malezas y manejo de coberturas", etapa: "Producción" }
+  ],
+  "Abril": [
+    { actividad: "Manejo de sombra (raleo/regulación previo a época seca)", etapa: "Producción" },
+    { actividad: "Preparación de infraestructura de beneficio (pre-cosecha)", etapa: "Producción" },
+    { actividad: "Monitoreo de maduración y trampeo de broca", etapa: "Producción" }
+  ],
+  "Mayo": [
+    { actividad: "Mantenimiento de trampas y control biológico de broca", etapa: "Producción" },
+    { actividad: "Inicio de maduración de frutos (control visual)", etapa: "Producción" },
+    { actividad: "Preparación logística de cosecha", etapa: "Cosecha" }
+  ],
+  "Junio": [
+    { actividad: "Recolección selectiva (inicio de cosecha)", etapa: "Cosecha" },
+    { actividad: "Pasadas de recolección (repaso de cafetal)", etapa: "Cosecha" },
+    { actividad: "Boyado (clasificación por flotación)", etapa: "Pos-cosecha" },
+    { actividad: "Despulpado (mismo día de cosecha)", etapa: "Pos-cosecha" },
+    { actividad: "Fermentación", etapa: "Pos-cosecha" },
+    { actividad: "Lavado", etapa: "Pos-cosecha" },
+    { actividad: "Secado", etapa: "Pos-cosecha" },
+    { actividad: "Almacenamiento en finca", etapa: "Pos-cosecha" }
+  ],
+  "Julio": [
+    { actividad: "Cosecha pico (recolección diaria)", etapa: "Cosecha" },
+    { actividad: "Primera entrega de café pergamino a PROCAFEQ", etapa: "Pos-cosecha" }
+  ],
+  "Agosto": [
+    { actividad: "Cosecha pico / continuación", etapa: "Cosecha" },
+    { actividad: "Segunda entrega de café pergamino a PROCAFEQ", etapa: "Pos-cosecha" }
+  ],
+  "Septiembre": [
+    { actividad: "Podas fitosanitarias y de formación (post-cosecha inmediata)", etapa: "Producción" },
+    { actividad: "Repela / recolección de frutos remanentes", etapa: "Producción" },
+    { actividad: "Cierre de cosecha principal", etapa: "Cosecha" },
+    { actividad: "Entrega final de café pergamino a PROCAFEQ", etapa: "Pos-cosecha" },
+    { actividad: "Transporte a planta de procesamiento (FAPECAFES)", etapa: "Pos-cosecha" }
+  ],
+  "Octubre": [
+    { actividad: "Poda de recepa (renovación, cafetales >20 años)", etapa: "Producción" },
+    { actividad: "Regulación de sombra en época seca", etapa: "Producción" },
+    { actividad: "Elaboración de compost / biol para próxima campaña", etapa: "Producción" }
+  ],
+  "Noviembre": [
+    { actividad: "Fertilización orgánica principal (antes de lluvias)", etapa: "Producción" },
+    { actividad: "Inspección interna anual de finca (SIC PROCAFEQ)", etapa: "Producción" },
+    { actividad: "Manejo de malezas (post-fertilización)", etapa: "Producción" }
+  ],
+  "Diciembre": [
+    { actividad: "Floración (monitoreo, sin intervención directa)", etapa: "Producción" },
+    { actividad: "Resiembra de fallas", etapa: "Producción" },
+    { actividad: "Cierre de registros anuales", etapa: "Producción" }
+  ]
+};
+
+// 🔥 Asegurar que fincaId se pase correctamente al cliente
+const fincaIdStr = fincaId ? String(fincaId) : '';
+const calendarioDataStr = calendarioData ? JSON.stringify(calendarioData) : 'null';
+const userDataStr = userData ? JSON.stringify(userData) : 'null';
 ---
 
-<DashboardLayout title="Calendario">
+<DashboardLayout title="Calendario Anual">
 
 <div class="space-y-8">
 
     <!-- HEADER -->
-
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-
         <div>
-
-            <h1 class="text-3xl font-bold text-primary">
-
+            <h1 class="text-3xl font-bold text-slate-950">
                 Calendario & Planificador Anual (Módulo 2)
-
             </h1>
-
-            <p class="mt-2 text-on-surface-variant max-w-2xl">
-
-                Planifica, registra y audita el manejo agronómico e insumos de la finca.
-
+            <p class="mt-2 text-slate-500 max-w-2xl">
+                Planificación de labores agrícolas basada en el calendario cafetalero.
             </p>
-
         </div>
-
-        <button
-            class="flex items-center gap-2 bg-primary text-white px-5 h-12 rounded-xl hover:opacity-90">
-
-            <span class="material-symbols-outlined">
-
-                add_task
-
-            </span>
-
+        <button id="btn-nueva-labor-global" class="flex items-center gap-2 bg-emerald-600 text-white px-5 h-12 rounded-xl hover:bg-emerald-500 transition shadow-sm font-medium text-sm whitespace-nowrap">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
             Programar Nueva Labor
-
         </button>
-
     </div>
 
-    <!-- TARJETAS -->
-
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
-
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
-
-                Establecimiento de Finca
-
-            </p>
-
-            <h3 class="mt-2 font-semibold text-primary">
-
-                Siembra: Año 2020
-
-            </h3>
-
+    <!-- MATRIZ DEL CALENDARIO ANUAL -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
+        
+        <div class="flex items-center space-x-3 pb-6 border-b border-slate-100">
+            <div class="bg-emerald-500/10 p-2.5 rounded-xl text-emerald-600">
+                <i data-lucide="calendar-days" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Plan de Manejo Integral 2026</h2>
+                <p class="text-xs text-slate-400">Labores registradas por mes</p>
+            </div>
         </div>
 
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
+        <!-- Matriz con grid-rows automáticos perfectos -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch" id="matriz-calendario-anual">
+            
+            <!-- ENERO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Enero 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">ENE</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Enero"></div>
+            </div>
 
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
+            <!-- FEBRERO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Febrero 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">FEB</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Febrero"></div>
+            </div>
 
-                Variedad de Café
+            <!-- MARZO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Marzo 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">MAR</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Marzo"></div>
+            </div>
 
-            </p>
+            <!-- ABRIL -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Abril 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">ABR</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Abril"></div>
+            </div>
 
-            <h3 class="mt-2 font-semibold text-primary">
+            <!-- MAYO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Mayo 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">MAY</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Mayo"></div>
+            </div>
 
-                Bourbon Rojo
+            <!-- JUNIO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Junio 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">JUN</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Junio"></div>
+            </div>
 
-            </h3>
+            <!-- JULIO (MES ACTUAL) -->
+            <div class="bg-emerald-50/10 border-2 border-emerald-500 rounded-2xl p-5 flex flex-col h-[380px] ring-4 ring-emerald-500/5">
+                <div class="flex justify-between items-center border-b border-emerald-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-emerald-900 tracking-wider uppercase flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Julio 2026
+                    </h3>
+                    <span class="text-[9px] bg-emerald-600 font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wider">Actual</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Julio"></div>
+            </div>
+
+            <!-- AGOSTO -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Agosto 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">AGO</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Agosto"></div>
+            </div>
+
+            <!-- SEPTIEMBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Septiembre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">SEP</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Septiembre"></div>
+            </div>
+
+            <!-- OCTUBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Octubre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">OCT</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Octubre"></div>
+            </div>
+
+            <!-- NOVIEMBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Noviembre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">NOV</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Noviembre"></div>
+            </div>
+
+            <!-- DICIEMBRE -->
+            <div class="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 flex flex-col h-[380px]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3 shrink-0">
+                    <h3 class="text-sm font-extrabold text-slate-800 tracking-wider uppercase">Diciembre 2026</h3>
+                    <span class="text-[10px] bg-slate-200/60 font-bold text-slate-500 px-2 py-0.5 rounded-md">DIC</span>
+                </div>
+                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" data-mes="Diciembre"></div>
+            </div>
 
         </div>
-
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
-
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
-
-                Densidad de Siembra
-
-            </p>
-
-            <h3 class="mt-2 font-semibold text-primary">
-
-                3k plantas/ha - 250 sombra/ha
-
-            </h3>
-
-        </div>
-
-        <div class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm">
-
-            <p class="text-xs uppercase tracking-widest text-outline font-bold">
-
-                Origen de Semilla
-
-            </p>
-
-            <h3 class="mt-2 font-semibold text-primary">
-
-                Propia
-
-            </h3>
-
-        </div>
-
     </div>
+</div>
 
-    <!-- PLANIFICADOR -->
-
-    <section class="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
-
-        <div class="flex justify-between items-center px-6 py-4 border-b border-outline-variant bg-surface-container-low">
-
+<!-- ============================================================ -->
+<!-- MODAL PARA CREAR LABOR                                      -->
+<!-- ============================================================ -->
+<div id="modal-nueva-labor" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
             <div class="flex items-center gap-3">
-
-                <span class="material-symbols-outlined text-primary">
-
-                    calendar_month
-
-                </span>
-
-                <h2 class="font-semibold">
-
-                    Planificador Anual 2026
-
-                </h2>
-
+                <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-600">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Programar Nueva Labor</h2>
             </div>
-
-            <div class="flex gap-2">
-
-                <button class="p-2 rounded hover:bg-surface-container">
-
-                    <span class="material-symbols-outlined">
-
-                        chevron_left
-
-                    </span>
-
-                </button>
-
-                <button class="p-2 rounded hover:bg-surface-container">
-
-                    <span class="material-symbols-outlined">
-
-                        chevron_right
-
-                    </span>
-
-                </button>
-
-            </div>
-
+            <button id="btn-cerrar-modal" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
 
-        <div class="p-8 space-y-8">
-                        <!-- EVENTO 1 -->
-
-            <div class="flex gap-6">
-
-                <div
-                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
-
-                    <span class="text-xs font-bold text-outline uppercase">
-
-                        ENE
-
+        <!-- Formulario -->
+        <form id="form-nueva-labor" class="space-y-4">
+            <!-- Nombre de la Labor (Actividad) -->
+            <div>
+                <label for="labor-nombre" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Actividad <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="labor-nombre"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white"
+                    required
+                >
+                    <option value="">Selecciona una actividad</option>
+                </select>
+                <p id="actividad-descripcion" class="mt-1.5 text-xs text-slate-500 hidden">
+                    <span class="inline-flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-200">
+                        <i data-lucide="info" class="w-3 h-3"></i>
+                        <span id="actividad-descripcion-texto"></span>
                     </span>
-
-                    <span class="text-2xl font-bold text-primary">
-
-                        15
-
-                    </span>
-
-                </div>
-
-                <div
-                    class="flex-1 border border-outline-variant rounded-xl p-6 hover:border-primary transition cursor-pointer">
-
-                    <div class="flex justify-between items-start">
-
-                        <div>
-
-                            <span
-                                class="px-2 py-1 bg-secondary-container rounded text-xs font-bold uppercase">
-
-                                Fertilización
-
-                            </span>
-
-                            <h3 class="mt-2 text-lg font-semibold">
-
-                                Primera Aplicación de NPK
-
-                            </h3>
-
-                        </div>
-
-                        <span class="text-sm text-on-surface-variant">
-
-                            08:00 AM
-
-                        </span>
-
-                    </div>
-
-                    <p class="mt-4 text-on-surface-variant">
-
-                        Aplicación balanceada según el análisis de suelo realizado
-                        en noviembre del año anterior.
-
-                    </p>
-
-                    <div class="flex gap-8 mt-5">
-
-                        <div class="flex items-center gap-2">
-
-                            <span class="material-symbols-outlined">
-
-                                person
-
-                            </span>
-
-                            <span>
-
-                                Juan Pérez + 4 operarios
-
-                            </span>
-
-                        </div>
-
-                        <div class="flex items-center gap-2">
-
-                            <span class="material-symbols-outlined">
-
-                                inventory_2
-
-                            </span>
-
-                            <span>
-
-                                Insumo: YaraMila (15-15-15)
-
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- EVENTO 2 -->
-
-            <div class="flex gap-6 opacity-80">
-
-                <div
-                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
-
-                    <span class="text-xs font-bold text-outline uppercase">
-
-                        FEB
-
-                    </span>
-
-                    <span class="text-2xl font-bold text-primary">
-
-                        02
-
-                    </span>
-
-                </div>
-
-                <div
-                    class="flex-1 border border-outline-variant rounded-xl p-6">
-
-                    <div class="flex justify-between">
-
-                        <div>
-
-                            <span
-                                class="px-2 py-1 rounded bg-tertiary-fixed text-xs font-bold uppercase">
-
-                                Poda
-
-                            </span>
-
-                            <h3 class="mt-2 text-lg font-semibold">
-
-                                Poda de mantenimiento
-
-                            </h3>
-
-                        </div>
-
-                        <span class="text-sm text-on-surface-variant">
-
-                            07:30 AM
-
-                        </span>
-
-                    </div>
-
-                    <p class="mt-4 text-on-surface-variant">
-
-                        Aclareo de ramas viejas y control de altura del cultivo.
-
-                    </p>
-
-                </div>
-
-            </div>
-
-            <!-- EVENTO 3 -->
-
-            <div class="flex gap-6">
-
-                <div
-                    class="w-16 flex flex-col items-center py-2 bg-surface-container rounded-lg border border-outline-variant">
-
-                    <span class="text-xs font-bold text-outline uppercase">
-
-                        MAR
-
-                    </span>
-
-                    <span class="text-2xl font-bold text-primary">
-
-                        20
-
-                    </span>
-
-                </div>
-
-                <div
-                    class="flex-1 rounded-xl border border-primary/30 bg-primary/5 p-6">
-
-                    <div class="flex justify-between">
-
-                        <div>
-
-                            <span
-                                class="px-2 py-1 bg-primary text-white rounded text-xs font-bold uppercase">
-
-                                Muestreo
-
-                            </span>
-
-                            <h3 class="mt-2 text-lg font-semibold">
-
-                                Auditoría Satelital Programada
-
-                            </h3>
-
-                        </div>
-
-                        <div
-                            class="flex items-center gap-2 text-primary animate-pulse">
-
-                            <span class="material-symbols-outlined">
-
-                                sensors
-
-                            </span>
-
-                            <span class="font-semibold uppercase">
-
-                                En progreso
-
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                    <p class="mt-4 text-on-surface-variant">
-
-                        Sincronización automática de índices NDVI y humedad del
-                        suelo.
-
-                    </p>
-
-                </div>
-
-            </div>
-                        <!-- ESTADO VACÍO -->
-
-            <div
-                class="mt-12 border-2 border-dashed border-outline-variant rounded-xl py-20 flex flex-col items-center justify-center bg-surface-container-low">
-
-                <span
-                    class="material-symbols-outlined text-6xl text-outline-variant">
-
-                    event_note
-
-                </span>
-
-                <h3
-                    class="mt-5 text-lg font-semibold text-on-surface">
-
-                    No hay más labores programadas para este trimestre
-
-                </h3>
-
-                <p
-                    class="mt-2 text-on-surface-variant text-center max-w-md">
-
-                    Puede registrar nuevas actividades agrícolas, auditorías,
-                    aplicaciones de insumos o labores culturales para continuar
-                    con la planificación anual.
-
                 </p>
-
-                <button
-                    class="mt-8 px-6 h-12 rounded-xl bg-primary text-white hover:opacity-90 transition">
-
-                    Ver calendario completo
-
-                </button>
-
             </div>
 
+            <!-- Tipo de Proceso (Etapa) - AUTOMÁTICO -->
+            <div>
+                <label for="labor-tipo" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Etapa <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="labor-tipo"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white"
+                    required
+                >
+                    <option value="">Selecciona primero una actividad</option>
+                    {tiposProceso.map((tipo) => (
+                        <option key={tipo.value} value={tipo.value}>
+                            {tipo.label}
+                        </option>
+                    ))}
+                </select>
+                <p class="text-xs text-slate-400 mt-1">
+                    <i data-lucide="magic" class="w-3 h-3 inline"></i>
+                    Se autocompleta al seleccionar la actividad
+                </p>
+            </div>
+
+            <!-- Mes -->
+            <div>
+                <label for="labor-mes" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Mes <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="labor-mes"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white"
+                    required
+                >
+                    <option value="">Selecciona un mes</option>
+                    {meses.map((mes) => (
+                        <option key={mes.value} value={mes.label}>{mes.label}</option>
+                    ))}
+                </select>
+            </div>
+
+            <!-- Cantidad Proyectada -->
+            <div>
+                <label for="labor-cantidad" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Cantidad Proyectada <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="labor-cantidad"
+                    type="text"
+                    placeholder="Ej: 100 kg, 50 árboles, 2 ha"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    required
+                />
+            </div>
+
+            <!-- Mensaje de error -->
+            <div id="labor-error" class="hidden text-red-500 text-sm flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span id="labor-error-text">Error al crear la labor</span>
+            </div>
+
+            <!-- Botones -->
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                    type="button"
+                    id="btn-cancelar-labor"
+                    class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    id="btn-guardar-labor"
+                    class="flex-1 h-12 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Guardar Labor
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA REGISTRAR EJECUCIÓN DE LABOR                     -->
+<!-- ============================================================ -->
+<div id="modal-ejecutar-labor" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-600">
+                    <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Registrar Ejecución de Labor Agrícola</h2>
+            </div>
+            <button id="btn-cerrar-ejecucion" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
 
-    </section>
+        <!-- Formulario de Ejecución -->
+        <form id="form-ejecutar-labor" class="space-y-4">
+            <!-- Labor ID (oculto) -->
+            <input type="hidden" id="ejecucion-labor-id" />
+            <input type="hidden" id="ejecucion-labor-mes-hidden" />
 
+            <!-- Labor Agronómica (solo lectura) -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Labor Agronómica
+                </label>
+                <input
+                    id="ejecucion-labor-nombre"
+                    type="text"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-700"
+                    readonly
+                />
+            </div>
+
+            <!-- Mes Programado (solo lectura - visual) -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Mes Programado
+                </label>
+                <input
+                    id="ejecucion-labor-mes"
+                    type="text"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-700"
+                    readonly
+                />
+            </div>
+
+            <!-- Detalle de Aplicación / Dosificación -->
+            <div>
+                <label for="ejecucion-detalle" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Detalle de Aplicación / Dosificación <span class="text-red-500">*</span>
+                </label>
+                <textarea
+                    id="ejecucion-detalle"
+                    rows="3"
+                    placeholder="Describe la aplicación, dosis, productos utilizados..."
+                    class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition resize-none"
+                    required
+                ></textarea>
+            </div>
+
+            <!-- Persona Desarrollo -->
+            <div>
+                <label for="ejecucion-persona" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Persona Desarrollo <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="ejecucion-persona"
+                    type="text"
+                    placeholder="Nombre de la persona responsable"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    required
+                />
+            </div>
+
+            <!-- Nombre Jornalero -->
+            <div>
+                <label for="ejecucion-jornalero" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Nombre Jornalero
+                </label>
+                <input
+                    id="ejecucion-jornalero"
+                    type="text"
+                    placeholder="Nombre del jornalero (opcional)"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                />
+            </div>
+
+            <!-- Salario -->
+            <div>
+                <label for="ejecucion-salario" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Salario (USD)
+                </label>
+                <input
+                    id="ejecucion-salario"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                />
+            </div>
+
+            <!-- Insumos -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Insumos Utilizados
+                </label>
+                <div id="insumos-container" class="space-y-2">
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Nombre del insumo"
+                            class="insumo-nombre flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm"
+                        />
+                        <input
+                            type="number"
+                            step="0.01"
+                            placeholder="Cantidad"
+                            class="insumo-cantidad w-24 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Unidad"
+                            class="insumo-unidad w-20 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm"
+                        />
+                        <button type="button" class="btn-eliminar-insumo text-red-500 hover:text-red-700 px-2">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" id="btn-agregar-insumo" class="mt-2 text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Agregar insumo
+                </button>
+            </div>
+
+            <!-- Herramientas -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Herramientas Utilizadas
+                </label>
+                <div id="herramientas-container" class="space-y-2">
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Nombre de la herramienta"
+                            class="herramienta-nombre flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm"
+                        />
+                        <button type="button" class="btn-eliminar-herramienta text-red-500 hover:text-red-700 px-2">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" id="btn-agregar-herramienta" class="mt-2 text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Agregar herramienta
+                </button>
+            </div>
+
+            <!-- Captura de Evidencia Fotográfica -->
+            <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-emerald-400 transition">
+                <div class="flex flex-col items-center gap-2">
+                    <i data-lucide="camera" class="w-10 h-10 text-slate-400"></i>
+                    <p class="text-sm font-medium text-slate-700">Captura de Evidencia Fotográfica Digital In-Situ</p>
+                    <label class="cursor-pointer">
+                        <span class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-500 transition">
+                            <i data-lucide="camera" class="w-4 h-4"></i>
+                            Tomar Foto de Labor
+                        </span>
+                        <input type="file" id="ejecucion-foto" accept="image/*" capture="environment" class="hidden" />
+                    </label>
+                    <div id="foto-preview" class="hidden mt-2">
+                        <img id="foto-preview-img" src="#" alt="Vista previa" class="max-h-40 rounded-lg border border-slate-200" />
+                        <button type="button" id="btn-eliminar-foto" class="mt-1 text-sm text-red-500 hover:text-red-700">
+                            Eliminar foto                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones -->
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                    type="button"
+                    id="btn-cancelar-ejecucion"
+                    class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    id="btn-guardar-ejecucion"
+                    class="flex-1 h-12 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    Verificar e Incorporar al Ledger
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 </DashboardLayout>
 
-<script type="module">
-
-// =======================================================
-// DEMO
-// Posteriormente aquí se conectará con el backend.
-// =======================================================
-
-const eventos = [
-
-    {
-
-        fecha:"2026-01-15",
-
-        titulo:"Primera Aplicación de NPK",
-
-        categoria:"Fertilización"
-
-    },
-
-    {
-
-        fecha:"2026-02-02",
-
-        titulo:"Poda de mantenimiento",
-
-        categoria:"Poda"
-
-    },
-
-    {
-
-        fecha:"2026-03-20",
-
-        titulo:"Auditoría Satelital",
-
-        categoria:"Muestreo"
-
+<!-- Estilos CSS Inyectados -->
+<style is:global>
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 4px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 20px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
     }
 
-];
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    .animate-modal-in {
+        animation: modalIn 0.2s ease-out;
+    }
+</style>
 
-console.log("Calendario cargado");
+<script is:inline src="https://unpkg.com/lucide@latest"></script>
 
-console.table(eventos);
+<!-- 🔥 SCRIPTS CON DATOS -->
+<script define:vars={{ 
+    fincaId: fincaIdStr, 
+    meses, 
+    tiposProceso, 
+    actividadesPorMes,
+    calendarioData: calendarioDataStr,
+    userData: userDataStr
+}}>
+    console.log("🏠 Finca ID:", fincaId);
+    console.log("📋 Calendario Data:", calendarioData);
 
+    // ============================================================
+    // DATOS QUEMADOS DEL EXCEL (solo para el combobox)
+    // ============================================================
+    const actividadesData = actividadesPorMes;
 
-// =======================================================
-// Botón Nueva Labor
-// =======================================================
+    function getActividadesByMes(mes) {
+        return actividadesData[mes] || [];
+    }
 
-const btnNuevaLabor = document.querySelector("button");
+    function getEtapaByActividad(mes, actividad) {
+        const actividades = getActividadesByMes(mes);
+        const found = actividades.find(a => a.actividad === actividad);
+        return found ? found.etapa : '';
+    }
 
-if(btnNuevaLabor){
+    // ============================================================
+    // FUNCIONES GENERALES
+    // ============================================================
 
-    btnNuevaLabor.addEventListener("click",()=>{
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : "";
+    }
 
-        alert("Aquí se abrirá el formulario para registrar una nueva labor.");
+    function mostrarError(id, mensaje) {
+        const errorDiv = document.getElementById(id);
+        if (errorDiv) {
+            errorDiv.classList.remove('hidden', 'text-emerald-500');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById(id + '-text')?.textContent(mensaje);
+        }
+    }
 
+    // ============================================================
+    // MODAL CREAR LABOR
+    // ============================================================
+
+    function toggleModalCrear(show) {
+        const modal = document.getElementById('modal-nueva-labor');
+        if (show) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('form-nueva-labor').reset();
+            document.getElementById('labor-error').classList.add('hidden');
+            document.getElementById('actividad-descripcion').classList.add('hidden');
+            actualizarActividades();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function actualizarActividades() {
+        const mesSelect = document.getElementById('labor-mes');
+        const actividadSelect = document.getElementById('labor-nombre');
+        const tipoSelect = document.getElementById('labor-tipo');
+        const descripcionDiv = document.getElementById('actividad-descripcion');
+        const descripcionTexto = document.getElementById('actividad-descripcion-texto');
+
+        const mesSeleccionado = mesSelect.value;
+        
+        actividadSelect.innerHTML = '<option value="">Selecciona una actividad</option>';
+        tipoSelect.value = '';
+        descripcionDiv.classList.add('hidden');
+
+        if (!mesSeleccionado) return;
+
+        const actividades = getActividadesByMes(mesSeleccionado);
+        
+        if (actividades.length === 0) {
+            actividadSelect.innerHTML = '<option value="">No hay actividades para este mes</option>';
+            return;
+        }
+
+        actividades.forEach((item) => {
+            const option = document.createElement('option');
+            option.value = item.actividad;
+            option.textContent = item.actividad;
+            option.dataset.etapa = item.etapa;
+            actividadSelect.appendChild(option);
+        });
+    }
+
+    function actualizarEtapa() {
+        const mesSelect = document.getElementById('labor-mes');
+        const actividadSelect = document.getElementById('labor-nombre');
+        const tipoSelect = document.getElementById('labor-tipo');
+        const descripcionDiv = document.getElementById('actividad-descripcion');
+        const descripcionTexto = document.getElementById('actividad-descripcion-texto');
+
+        const mes = mesSelect.value;
+        const actividad = actividadSelect.value;
+
+        if (!mes || !actividad) {
+            tipoSelect.value = '';
+            descripcionDiv.classList.add('hidden');
+            return;
+        }
+
+        const etapa = getEtapaByActividad(mes, actividad);
+        if (etapa) {
+            tipoSelect.value = etapa;
+            descripcionTexto.textContent = `Etapa: ${etapa}`;
+            descripcionDiv.classList.remove('hidden');
+        } else {
+            tipoSelect.value = '';
+            descripcionDiv.classList.add('hidden');
+        }
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================
+    // MODAL EJECUTAR LABOR
+    // ============================================================
+
+    let laborSeleccionada = null;
+
+    function toggleModalEjecutar(show, laborData = null) {
+        const modal = document.getElementById('modal-ejecutar-labor');
+        if (show) {
+            if (laborData) {
+                laborSeleccionada = laborData;
+                document.getElementById('ejecucion-labor-id').value = laborData.labor_id;
+                document.getElementById('ejecucion-labor-nombre').value = laborData.nombre || '';
+                // 🔥 El mes se toma de donde se hizo clic (es solo visual)
+                document.getElementById('ejecucion-labor-mes').value = laborData.mes || '';
+                document.getElementById('ejecucion-labor-mes-hidden').value = laborData.mes || '';
+                
+                // Resetear campos
+                document.getElementById('ejecucion-detalle').value = '';
+                document.getElementById('ejecucion-persona').value = '';
+                document.getElementById('ejecucion-jornalero').value = '';
+                document.getElementById('ejecucion-salario').value = '';
+                
+                // Resetear insumos y herramientas
+                document.getElementById('insumos-container').innerHTML = `
+                    <div class="flex gap-2">
+                        <input type="text" placeholder="Nombre del insumo" class="insumo-nombre flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                        <input type="number" step="0.01" placeholder="Cantidad" class="insumo-cantidad w-24 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                        <input type="text" placeholder="Unidad" class="insumo-unidad w-20 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                        <button type="button" class="btn-eliminar-insumo text-red-500 hover:text-red-700 px-2">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+                document.getElementById('herramientas-container').innerHTML = `
+                    <div class="flex gap-2">
+                        <input type="text" placeholder="Nombre de la herramienta" class="herramienta-nombre flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                        <button type="button" class="btn-eliminar-herramienta text-red-500 hover:text-red-700 px-2">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+                document.getElementById('foto-preview').classList.add('hidden');
+                document.getElementById('ejecucion-foto').value = '';
+            }
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            if (window.lucide) window.lucide.createIcons();
+            
+            agregarEventListenersInsumos();
+            agregarEventListenersHerramientas();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // ============================================================
+    // INSUMOS Y HERRAMIENTAS DINÁMICOS
+    // ============================================================
+
+    function agregarEventListenersInsumos() {
+        document.querySelectorAll('.btn-eliminar-insumo').forEach(btn => {
+            btn.removeEventListener('click', eliminarInsumo);
+            btn.addEventListener('click', eliminarInsumo);
+        });
+    }
+
+    function eliminarInsumo(e) {
+        const container = document.getElementById('insumos-container');
+        if (container.children.length > 1) {
+            e.target.closest('.flex').remove();
+        }
+    }
+
+    function agregarEventListenersHerramientas() {
+        document.querySelectorAll('.btn-eliminar-herramienta').forEach(btn => {
+            btn.removeEventListener('click', eliminarHerramienta);
+            btn.addEventListener('click', eliminarHerramienta);
+        });
+    }
+
+    function eliminarHerramienta(e) {
+        const container = document.getElementById('herramientas-container');
+        if (container.children.length > 1) {
+            e.target.closest('.flex').remove();
+        }
+    }
+
+    // ============================================================
+    // RENDERIZAR MATRIZ ANUAL CON DATOS DEL BACKEND
+    // ============================================================
+
+    function renderMatrizAnual() {
+        const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+        let calendario = null;
+        try {
+            if (calendarioData && calendarioData !== 'null') {
+                calendario = typeof calendarioData === 'string' ? JSON.parse(calendarioData) : calendarioData;
+            }
+        } catch (e) {
+            console.warn("⚠️ Error parseando calendarioData:", e);
+        }
+
+        const laboresPorMes = {};
+        if (calendario && calendario.calendario) {
+            calendario.calendario.forEach(mesData => {
+                laboresPorMes[mesData.mes] = mesData.labores || [];
+            });
+        }
+
+        for (let m = 0; m < 12; m++) {
+            const nombreMes = nombresMeses[m];
+            const contenedorMes = document.querySelector(`[data-mes="${nombreMes}"]`);
+            if (!contenedorMes) continue;
+
+            contenedorMes.innerHTML = '';
+
+            const labores = laboresPorMes[nombreMes] || [];
+
+            if (labores.length === 0) {
+                contenedorMes.innerHTML = `
+                    <div class="border border-dashed border-slate-200 rounded-xl h-full flex flex-col items-center justify-center bg-white/40 p-4 text-center">
+                        <div class="text-slate-300 mb-1">
+                            <i data-lucide="calendar-x" class="w-5 h-5"></i>
+                        </div>
+                        <p class="text-[11px] font-bold text-slate-700">Sin labores programadas</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5 max-w-[150px] leading-tight">No hay labores registradas para este mes.</p>
+                    </div>
+                `;
+                continue;
+            }
+
+            labores.forEach((labor) => {
+                const cardBox = document.createElement('div');
+                
+                let estadoColor = "bg-slate-100 text-slate-700";
+                if (labor.estado === "PLANIFICADO") {
+                    estadoColor = "bg-blue-100 text-blue-700";
+                } else if (labor.estado === "EJECUTADO") {
+                    estadoColor = "bg-green-100 text-green-700";
+                } else if (labor.estado === "PRE_VALIDADO") {
+                    estadoColor = "bg-yellow-100 text-yellow-700";
+                } else if (labor.estado === "AUDITADO") {
+                    estadoColor = "bg-purple-100 text-purple-700";
+                }
+
+                cardBox.className = `border border-slate-200 rounded-xl p-3 flex flex-col justify-between min-h-[80px] bg-white shadow-xs hover:shadow-md transition-shadow cursor-pointer hover:border-emerald-300`;
+                cardBox.dataset.laborId = labor.labor_id;
+                cardBox.dataset.laborNombre = labor.nombre;
+                cardBox.dataset.laborMes = nombreMes;
+                cardBox.dataset.laborEstado = labor.estado;
+
+                cardBox.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide ${estadoColor}">${labor.estado || 'PENDIENTE'}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-600">${labor.tipo_proceso || 'N/A'}</span>
+                        </div>
+                        <h4 class="mt-1 text-xs font-bold text-slate-900 leading-tight" title="${labor.nombre}">${labor.nombre}</h4>
+                        ${labor.cantidad_proyectada ? `<p class="text-[9px] text-slate-500 mt-0.5">📊 ${labor.cantidad_proyectada}</p>` : ''}
+                    </div>
+                    <div class="mt-2 pt-1.5 border-t border-slate-100 flex justify-end">
+                        <button class="btn-registrar-labor text-[9px] bg-emerald-50 text-emerald-600 px-3 py-0.5 rounded hover:bg-emerald-100 transition font-medium flex items-center gap-1">
+                            <i data-lucide="clipboard-check" class="w-3 h-3"></i>
+                            Registrar Labor
+                        </button>
+                    </div>
+                `;
+
+                // Evento click en la tarjeta
+                cardBox.addEventListener('click', function(e) {
+                    if (e.target.closest('.btn-registrar-labor')) return;
+                    
+                    const laborId = this.dataset.laborId;
+                    const laborNombre = this.dataset.laborNombre;
+                    const laborMes = this.dataset.laborMes;
+                    
+                    toggleModalEjecutar(true, {
+                        labor_id: laborId,
+                        nombre: laborNombre,
+                        mes: laborMes
+                    });
+                });
+
+                contenedorMes.appendChild(cardBox);
+            });
+        }
+
+        if (window.lucide) window.lucide.createIcons();
+
+        // 🔥 Eventos para los botones "Registrar Labor"
+        document.querySelectorAll('.btn-registrar-labor').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const card = this.closest('[data-labor-id]');
+                if (card) {
+                    const laborId = card.dataset.laborId;
+                    const laborNombre = card.dataset.laborNombre || 'Labor';
+                    const laborMes = card.dataset.laborMes || 'Mes no especificado';
+                    
+                    toggleModalEjecutar(true, {
+                        labor_id: laborId,
+                        nombre: laborNombre,
+                        mes: laborMes
+                    });
+                }
+            });
+        });
+    }
+
+    // ============================================================
+    // CREAR LABOR
+    // ============================================================
+
+    async function crearLabor(event) {
+        event.preventDefault();
+
+        const nombre = document.getElementById('labor-nombre').value;
+        const tipo = document.getElementById('labor-tipo').value;
+        const mesSelect = document.getElementById('labor-mes');
+        const mes = mesSelect.value;
+        const cantidad = document.getElementById('labor-cantidad').value.trim();
+
+        if (!nombre || !tipo || !mes || !cantidad) {
+            const errorDiv = document.getElementById('labor-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('labor-error-text').textContent = 'Todos los campos son obligatorios';
+            return;
+        }
+
+        if (!fincaId || fincaId === 'null' || fincaId === '') {
+            const errorDiv = document.getElementById('labor-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('labor-error-text').textContent = 'No se encontró una finca asociada al usuario.';
+            return;
+        }
+
+        const payload = {
+            nombre: nombre,
+            tipo_proceso: tipo,
+            mes: mes,
+            cantidad_proyectada: cantidad,
+            finca_id: String(fincaId).trim()
+        };
+
+        console.log('📦 Payload crear labor:', JSON.stringify(payload, null, 2));
+
+        try {
+            const token = getCookie('token');
+            if (!token) {
+                const errorDiv = document.getElementById('labor-error');
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('labor-error-text').textContent = 'No hay sesión activa';
+                return;
+            }
+
+            const btnGuardar = document.getElementById('btn-guardar-labor');
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Guardando...';
+
+            const { LaboresService } = await import('/src/services/labores.service.ts');
+            const resultado = await LaboresService.agendarLabor(payload, token);
+            console.log('✅ Labor creada:', resultado);
+
+            const errorDiv = document.getElementById('labor-error');
+            errorDiv.classList.remove('hidden', 'text-red-500');
+            errorDiv.classList.add('text-emerald-500');
+            document.getElementById('labor-error-text').textContent = '✅ Labor creada correctamente';
+
+            setTimeout(() => {
+                toggleModalCrear(false);
+                window.location.reload();
+            }, 1500);
+
+        } catch (error) {
+            console.error('❌ Error al crear labor:', error);
+            const errorDiv = document.getElementById('labor-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('labor-error-text').textContent = error.message || 'Error al crear la labor';
+            
+            const btnGuardar = document.getElementById('btn-guardar-labor');
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Guardar Labor';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    // ============================================================
+    // EJECUTAR LABOR - SOLO ENVÍA LOS CAMPOS REQUERIDOS
+    // ============================================================
+
+    async function ejecutarLabor(event) {
+        event.preventDefault();
+
+        const laborId = document.getElementById('ejecucion-labor-id').value;
+        const detalle = document.getElementById('ejecucion-detalle').value.trim();
+        const persona = document.getElementById('ejecucion-persona').value.trim();
+        const jornalero = document.getElementById('ejecucion-jornalero').value.trim() || null;
+        const salario = parseFloat(document.getElementById('ejecucion-salario').value) || null;
+
+        // Recolectar insumos
+        const insumoElements = document.querySelectorAll('.insumo-nombre');
+        const insumos = [];
+        insumoElements.forEach((el, index) => {
+            const nombre = el.value.trim();
+            const cantidad = parseFloat(document.querySelectorAll('.insumo-cantidad')[index]?.value) || 0;
+            const unidad = document.querySelectorAll('.insumo-unidad')[index]?.value.trim() || '';
+            if (nombre) {
+                insumos.push({ nombre, cantidad, unidad });
+            }
+        });
+
+        // Recolectar herramientas
+        const herramientaElements = document.querySelectorAll('.herramienta-nombre');
+        const herramientas = [];
+        herramientaElements.forEach(el => {
+            const nombre = el.value.trim();
+            if (nombre) {
+                herramientas.push(nombre);
+            }
+        });
+
+        if (!detalle || !persona) {
+            alert('Detalle de Aplicación y Persona Desarrollo son obligatorios');
+            return;
+        }
+
+        // 🔥 PAYLOAD SOLO CON LOS CAMPOS REQUERIDOS POR EL BACKEND
+        const payload = {
+            persona_desarrollo: persona,
+            detalle_aplicacion: detalle,
+            insumos: insumos.length > 0 ? insumos : [],
+            herramientas: herramientas.length > 0 ? herramientas : []
+        };
+
+        // Solo agregar campos opcionales si tienen valor
+        if (jornalero) payload.nombre_jornalero = jornalero;
+        if (salario !== null && !isNaN(salario)) payload.salario = salario;
+
+        console.log('📦 Payload ejecución (solo campos requeridos):', JSON.stringify(payload, null, 2));
+
+        try {
+            const token = getCookie('token');
+            if (!token) {
+                alert('No hay sesión activa');
+                return;
+            }
+
+            const btnGuardar = document.getElementById('btn-guardar-ejecucion');
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Guardando...';
+
+            const { LaboresService } = await import('/src/services/labores.service.ts');
+            const resultado = await LaboresService.ejecutarLabor(laborId, payload, token);
+            console.log('✅ Ejecución registrada:', resultado);
+
+            alert('✅ Ejecución registrada correctamente');
+
+            setTimeout(() => {
+                toggleModalEjecutar(false);
+                window.location.reload();
+            }, 1500);
+
+        } catch (error) {
+            console.error('❌ Error al ejecutar labor:', error);
+            alert('Error al registrar ejecución: ' + (error.message || 'Error desconocido'));
+            
+            const btnGuardar = document.getElementById('btn-guardar-ejecucion');
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Verificar e Incorporar al Ledger';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderMatrizAnual();
+
+        // ---- Modal Crear Labor ----
+        const mesSelect = document.getElementById('labor-mes');
+        const actividadSelect = document.getElementById('labor-nombre');
+        const btnNuevaLabor = document.getElementById('btn-nueva-labor-global');
+        const btnCerrarModal = document.getElementById('btn-cerrar-modal');
+        const btnCancelarLabor = document.getElementById('btn-cancelar-labor');
+        const formNuevaLabor = document.getElementById('form-nueva-labor');
+
+        if (mesSelect) {
+            mesSelect.addEventListener('change', () => {
+                actualizarActividades();
+                document.getElementById('labor-tipo').value = '';
+                document.getElementById('actividad-descripcion').classList.add('hidden');
+            });
+        }
+
+        if (actividadSelect) {
+            actividadSelect.addEventListener('change', actualizarEtapa);
+        }
+
+        if (btnNuevaLabor) {
+            btnNuevaLabor.addEventListener('click', () => {
+                if (!fincaId || fincaId === 'null' || fincaId === '') {
+                    alert('⚠️ No se encontró una finca asociada a tu usuario. Primero debes crear una finca en el módulo de Productor y Finca.');
+                    return;
+                }
+                toggleModalCrear(true);
+                if (window.lucide) window.lucide.createIcons();
+            });
+        }
+
+        if (btnCerrarModal) {
+            btnCerrarModal.addEventListener('click', () => toggleModalCrear(false));
+        }
+
+        if (btnCancelarLabor) {
+            btnCancelarLabor.addEventListener('click', () => toggleModalCrear(false));
+        }
+
+        document.getElementById('modal-nueva-labor')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                toggleModalCrear(false);
+            }
+        });
+
+        if (formNuevaLabor) {
+            formNuevaLabor.addEventListener('submit', crearLabor);
+        }
+
+        // ---- Modal Ejecutar Labor ----
+        const btnCerrarEjecucion = document.getElementById('btn-cerrar-ejecucion');
+        const btnCancelarEjecucion = document.getElementById('btn-cancelar-ejecucion');
+        const formEjecutarLabor = document.getElementById('form-ejecutar-labor');
+
+        if (btnCerrarEjecucion) {
+            btnCerrarEjecucion.addEventListener('click', () => toggleModalEjecutar(false));
+        }
+
+        if (btnCancelarEjecucion) {
+            btnCancelarEjecucion.addEventListener('click', () => toggleModalEjecutar(false));
+        }
+
+        document.getElementById('modal-ejecutar-labor')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                toggleModalEjecutar(false);
+            }
+        });
+
+        if (formEjecutarLabor) {
+            formEjecutarLabor.addEventListener('submit', ejecutarLabor);
+        }
+
+        // ---- Agregar insumos ----
+        document.getElementById('btn-agregar-insumo')?.addEventListener('click', () => {
+            const container = document.getElementById('insumos-container');
+            const div = document.createElement('div');
+            div.className = 'flex gap-2';
+            div.innerHTML = `
+                <input type="text" placeholder="Nombre del insumo" class="insumo-nombre flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                <input type="number" step="0.01" placeholder="Cantidad" class="insumo-cantidad w-24 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                <input type="text" placeholder="Unidad" class="insumo-unidad w-20 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                <button type="button" class="btn-eliminar-insumo text-red-500 hover:text-red-700 px-2">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            `;
+            container.appendChild(div);
+            agregarEventListenersInsumos();
+            if (window.lucide) window.lucide.createIcons();
+        });
+
+        // ---- Agregar herramientas ----
+        document.getElementById('btn-agregar-herramienta')?.addEventListener('click', () => {
+            const container = document.getElementById('herramientas-container');
+            const div = document.createElement('div');
+            div.className = 'flex gap-2';
+            div.innerHTML = `
+                <input type="text" placeholder="Nombre de la herramienta" class="herramienta-nombre flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm" />
+                <button type="button" class="btn-eliminar-herramienta text-red-500 hover:text-red-700 px-2">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            `;
+            container.appendChild(div);
+            agregarEventListenersHerramientas();
+            if (window.lucide) window.lucide.createIcons();
+        });
+
+        // ---- Subir foto ----
+        document.getElementById('ejecucion-foto')?.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const preview = document.getElementById('foto-preview');
+                    const img = document.getElementById('foto-preview-img');
+                    img.src = event.target.result;
+                    preview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('btn-eliminar-foto')?.addEventListener('click', () => {
+            document.getElementById('foto-preview').classList.add('hidden');
+            document.getElementById('ejecucion-foto').value = '';
+        });
     });
 
-}
-
-
-// =======================================================
-// Animación de las tarjetas
-// =======================================================
-
-document.querySelectorAll(".cursor-pointer").forEach(card=>{
-
-    card.addEventListener("mouseenter",()=>{
-
-        card.classList.add("shadow-lg");
-
+    document.addEventListener('astro:after-swap', () => {
+        renderMatrizAnual();
     });
-
-    card.addEventListener("mouseleave",()=>{
-
-        card.classList.remove("shadow-lg");
-
-    });
-
-});
-
 </script>
