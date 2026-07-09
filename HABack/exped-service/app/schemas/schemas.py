@@ -144,6 +144,12 @@ class FincaCreate(BaseModel):
     latitud: float | None = Field(None, example=-4.2625)
     longitud: float | None = Field(None, example=-79.2231)
     poligono: Any | None = Field(None, description="Datos del polígono de la finca (GeoJSON o lista de coordenadas)")
+    
+    # --- Nuevos campos agregados ---
+    variedad_cafe: str | None = None
+    densidad_siembra: str | None = None
+    origen_semilla: str | None = None
+    anio_establecimiento: int | None = None
 
     @field_validator("poligono")
     @classmethod
@@ -174,6 +180,12 @@ class FincaUpdate(BaseModel):
     latitud: float | None = None
     longitud: float | None = None
     poligono: Any | None = None
+    
+    # --- Nuevos campos agregados ---
+    variedad_cafe: str | None = None
+    densidad_siembra: str | None = None
+    origen_semilla: str | None = None
+    anio_establecimiento: int | None = None
 
     @field_validator("poligono")
     @classmethod
