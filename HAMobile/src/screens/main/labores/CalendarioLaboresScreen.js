@@ -168,7 +168,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
         const payload = {
           nombre: nombreForm,
           tipo_proceso: tipoProcesoForm,
-          mes: selectedMes,
+          mes: mesForm,
           cantidad_proyectada: cantidadProyectadaForm,
           finca_id: finca.id
         };
@@ -185,6 +185,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
         if (res.ok) {
           Alert.alert('Éxito', 'Labor agendada correctamente.');
           setModalVisible(false);
+          setSelectedMes(mesForm);
           fetchLabores();
         } else {
           Alert.alert('Error', 'No se pudo agendar la labor.');
