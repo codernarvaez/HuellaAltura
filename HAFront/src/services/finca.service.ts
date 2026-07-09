@@ -1,7 +1,7 @@
 import { API_URL } from "./Api_Base";
-import { API_URL_LOCAL } from "./Api_Base";
+//import { API_URL_LOCAL } from "./Api_Base";
 const FINCAS_BASE = `${API_URL}/api/v1/fincas`;
-const FINCAS_BASE_LOCAL = `${API_URL_LOCAL}/api/v1/fincas/publico/listar`;
+const FINCAS_BASE_LOCAL = `${API_URL}/api/v1/fincas/publico/listar`;
 
 
 export interface FincaCreate {
