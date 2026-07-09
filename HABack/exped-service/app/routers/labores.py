@@ -87,9 +87,11 @@ def obtener_calendario(
                 "labores": [
                     {
                         "labor_id": l.id,
+                        "id": l.id,
                         "nombre": l.nombre,
                         "tipo_proceso": l.tipo_proceso,
-                        "estado": l.estado
+                        "estado": l.estado,
+                        "cantidad_proyectada": l.cantidad_proyectada
                     } for l in labores_del_mes
                 ]
             })

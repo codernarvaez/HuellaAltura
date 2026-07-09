@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, TextInput, SafeAreaView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../theme/theme';
 import { Search } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import SafeStorage from '../../../utils/SafeStorage';
 import CryptoJS from 'crypto-js';
-
+import { db } from '../../../data/local/database';
+import { fincas as fincasSchema } from '../../../data/local/esquema';
 const getEncryptionKey = () => 'ha_emergency_key_js_only';
 
 export default function FincasListScreen({ navigation }) {
@@ -13,6 +15,7 @@ export default function FincasListScreen({ navigation }) {
   const [fincas, setFincas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const insets = useSafeAreaInsets();
 
   const obtenerToken = async () => {
     try {
@@ -42,6 +45,7 @@ export default function FincasListScreen({ navigation }) {
     try {
       const token = await obtenerToken();
       if (!token) return;
+      let remoteFincas = [];
       const url = user?.role_name === 'PRODUCTOR' 
         ? `${process.env.EXPO_PUBLIC_EXPED_API_URL}/fincas/por-usuario/${user.id}`
         : `${process.env.EXPO_PUBLIC_EXPED_API_URL}/fincas/`;
@@ -49,16 +53,23 @@ export default function FincasListScreen({ navigation }) {
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      console.log('Fetch URL:', url);
-      console.log('Fetch Status:', res.status);
       if (res.ok) {
-        const json = await res.json();
-        console.log('Fetch Response Length:', json?.length);
-        setFincas(json);
-      } else {
-        const errJson = await res.text();
-        console.log('Fetch Error:', errJson);
+        remoteFincas = await res.json();
       }
+
+      let localFincas = [];
+      try {
+        const sqlite = db();
+        localFincas = await sqlite.select().from(fincasSchema);
+      } catch(e) {
+        console.warn('Error reading local fincas', e);
+      }
+
+      // Combinar priorizando locales y quitando duplicados
+      const combined = [...localFincas, ...remoteFincas];
+      const uniqueFincas = Array.from(new Map(combined.map(item => [item.id, item])).values());
+      
+      setFincas(uniqueFincas);
     } catch (error) {
       console.warn('Fetch Exception:', error);
     } finally {
@@ -69,8 +80,8 @@ export default function FincasListScreen({ navigation }) {
   const filteredFincas = fincas.filter(f => f.nombre?.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View style={styles.header}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.title}>Labores Agrícolas</Text>
         <Text style={styles.subtitle}>Selecciona una finca</Text>
       </View>
@@ -80,6 +91,7 @@ export default function FincasListScreen({ navigation }) {
           <TextInput 
             style={styles.searchInput} 
             placeholder="Buscar finca..." 
+            placeholderTextColor={theme.colors.outline}
             value={search}
             onChangeText={setSearch}
           />
@@ -101,48 +113,57 @@ export default function FincasListScreen({ navigation }) {
               <Text style={styles.fincaSub}>{item.provincia || ''}, {item.canton || ''}</Text>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: '#666' }}>No se encontraron fincas</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No se encontraron fincas</Text>
+            </View>
+          }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: theme.colors.primary,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    elevation: 4,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: theme.colors.primary,
+    color: theme.colors.onPrimary,
   },
   subtitle: {
     fontSize: 14,
-    color: theme.colors.onSurfaceVariant,
+    color: theme.colors.primaryFixedDim,
     marginTop: 4,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.onPrimary,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.outlineVariant,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
     marginLeft: 8,
     height: 36,
+    color: theme.colors.onSurface,
+    fontSize: 16,
   },
   fincaCard: {
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: theme.colors.onPrimary,
+    padding: 18,
     borderRadius: 12,
     marginBottom: 12,
     elevation: 2,
@@ -150,6 +171,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
   },
   fincaNombre: {
     fontSize: 16,
@@ -161,4 +184,15 @@ const styles = StyleSheet.create({
     color: theme.colors.onSurfaceVariant,
     marginTop: 4,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: theme.colors.outline,
+    fontWeight: '500',
+  }
 });

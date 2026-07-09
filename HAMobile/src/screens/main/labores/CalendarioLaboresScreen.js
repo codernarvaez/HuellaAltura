@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Picker } from '@react-native-picker/picker';
 import actividadesData from '../../../data/actividades.json';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, SafeAreaView, Modal, TextInput, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Modal, TextInput, Alert, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../theme/theme';
 import { ChevronLeft, Plus, Calendar, CheckCircle2, Clock, PlayCircle, Camera as CameraIcon } from 'lucide-react-native';
 import SafeStorage from '../../../utils/SafeStorage';
@@ -20,6 +21,8 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
   const [labores, setLabores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMes, setSelectedMes] = useState(MESES[new Date().getMonth()]);
+  const [viewMode, setViewMode] = useState('GRID');
+  const insets = useSafeAreaInsets();
   
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -78,8 +81,25 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
       });
       if (res.ok) {
         const json = await res.json();
-        // Assume json is array of labores
-        setLabores(Array.isArray(json) ? json : json.data || []);
+        let fetchedLabores = [];
+        if (json.calendario && Array.isArray(json.calendario)) {
+          json.calendario.forEach(mesData => {
+            if (mesData.labores && Array.isArray(mesData.labores)) {
+              mesData.labores.forEach(labor => {
+                fetchedLabores.push({
+                  ...labor,
+                  id: labor.labor_id || labor.id, // Compatibilidad
+                  mes: mesData.mes
+                });
+              });
+            }
+          });
+        } else if (Array.isArray(json)) {
+          fetchedLabores = json;
+        } else if (json.data && Array.isArray(json.data)) {
+          fetchedLabores = json.data;
+        }
+        setLabores(fetchedLabores);
       }
     } catch (error) {
       console.warn('Error fetching labores:', error);
@@ -199,33 +219,34 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           return;
         }
 
-        // Capture watermarked image
-        const watermarkedBase64 = await viewShotRef.current.capture();
+        // Capture watermarked image as a temporary file URI
+        const capturedUri = await viewShotRef.current.capture();
 
-        // Upload to Cloudinary
-        const timestamp = Math.round(new Date().getTime() / 1000);
-        const stringToSign = `timestamp=${timestamp}${process.env.EXPO_PUBLIC_CLOUDINARY_API_SECRET}`;
-        const signature = CryptoJS.SHA1(stringToSign).toString();
-
+        // Upload to our own backend's subir-evidencia endpoint
         const formData = new FormData();
-        formData.append('file', `data:image/jpeg;base64,${watermarkedBase64}`);
-        formData.append('api_key', process.env.EXPO_PUBLIC_CLOUDINARY_API_KEY);
-        formData.append('timestamp', timestamp);
-        formData.append('signature', signature);
+        formData.append('file', {
+          uri: capturedUri,
+          name: 'evidencia.jpg',
+          type: 'image/jpeg'
+        });
 
-        const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        const uploadRes = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/subir-evidencia`, {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
           body: formData
         });
 
-        if (!cloudinaryRes.ok) {
-          Alert.alert('Error', 'No se pudo subir la imagen a Cloudinary.');
+        if (!uploadRes.ok) {
+          Alert.alert('Error', 'No se pudo subir la imagen al servidor.');
           setIsSubmitting(false);
           return;
         }
 
-        const cloudinaryData = await cloudinaryRes.json();
-        const uploadedFotoUrl = cloudinaryData.secure_url;
+        const uploadData = await uploadRes.json();
+        const uploadedFotoUrl = uploadData.foto_url;
+        const uploadedFotoHash = uploadData.foto_hash || 'generated_hash';
 
         const payload = {
           persona_desarrollo: personaDesarrollo || 'TITULAR',
@@ -235,7 +256,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           insumos: insumoNombre ? [{ nombre: insumoNombre, cantidad: parseFloat(insumoCantidad)||0, unidad: insumoUnidad||'unidad' }] : [],
           herramientas: herramientas.split(',').map(s=>s.trim()).filter(Boolean),
           foto_url: uploadedFotoUrl,
-          foto_hash: cloudinaryData.public_id || 'generated_hash',
+          foto_hash: uploadedFotoHash,
           latitud: locationData.latitude,
           longitud: locationData.longitude,
           watermark_text: `Fecha: ${locationData.timestamp} | Lat: ${locationData.latitude} | Lon: ${locationData.longitude}`
@@ -289,95 +310,117 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
     </View>
   );
 
+  const getLaboresCount = (mes) => labores.filter(l => l.mes?.toLowerCase() === mes.toLowerCase()).length;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-          <ChevronLeft size={24} color={theme.colors.primary} />
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <TouchableOpacity onPress={() => viewMode === 'MONTH_DETAIL' ? setViewMode('GRID') : navigation.goBack()} style={{ padding: 8 }}>
+          <ChevronLeft size={24} color={theme.colors.onPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>{finca.nombre}</Text>
-          <Text style={styles.subtitle}>Calendario de Labores</Text>
+          <Text style={styles.title} numberOfLines={1}>{viewMode === 'GRID' ? finca.nombre : `${selectedMes} - ${finca.nombre}`}</Text>
+          <Text style={styles.subtitle}>{viewMode === 'GRID' ? 'Calendario de Labores' : 'Labores del mes'}</Text>
         </View>
-        <TouchableOpacity onPress={openAgendar} style={styles.addButton}>
-          <Plus size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.monthsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
-          {MESES.map(mes => (
-            <TouchableOpacity
-              key={mes}
-              onPress={() => setSelectedMes(mes)}
-              style={[styles.mesChip, selectedMes === mes && styles.mesChipActive]}
-            >
-              <Text style={[styles.mesChipText, selectedMes === mes && styles.mesChipTextActive]}>{mes}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
-        {loading ? (
-          <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
-        ) : laboresDelMes.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Calendar size={48} color="#ccc" />
-            <Text style={styles.emptyStateText}>No hay labores agendadas para {selectedMes}</Text>
-            <TouchableOpacity style={styles.emptyAddBtn} onPress={openAgendar}>
-              <Text style={styles.emptyAddBtnText}>Agendar Labor</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            {planificados.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Planificado</Text>
-                {planificados.map(l => renderLaborCard(l, '#f59e0b', <Clock size={18} color="#f59e0b" />))}
-              </View>
-            )}
-            
-            {enEjecucion.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>En Ejecución</Text>
-                {enEjecucion.map(l => renderLaborCard(l, '#3b82f6', <PlayCircle size={18} color="#3b82f6" />))}
-              </View>
-            )}
-
-            {terminados.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Terminado</Text>
-                {terminados.map(l => renderLaborCard(l, '#10b981', <CheckCircle2 size={18} color="#10b981" />))}
-              </View>
-            )}
-          </>
+        {viewMode === 'MONTH_DETAIL' && (
+          <TouchableOpacity onPress={openAgendar} style={styles.addButton}>
+            <Plus size={24} color={theme.colors.primary} />
+          </TouchableOpacity>
         )}
-      </ScrollView>
+      </View>
+
+      {viewMode === 'GRID' ? (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+          <View style={styles.gridContainer}>
+            {MESES.map(mes => {
+              const count = getLaboresCount(mes);
+              return (
+                <TouchableOpacity
+                  key={mes}
+                  style={styles.monthCard}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setSelectedMes(mes);
+                    setViewMode('MONTH_DETAIL');
+                  }}
+                >
+                  <View style={styles.monthCardHeader}>
+                    <Text style={styles.monthCardTitle}>{mes.substring(0, 3).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.monthCardBody}>
+                    <Calendar size={28} color={count > 0 ? theme.colors.primary : theme.colors.outlineVariant} style={{ marginBottom: 8 }} />
+                    <View style={[styles.badge, count > 0 && styles.badgeActive]}>
+                      <Text style={[styles.badgeText, count > 0 && styles.badgeTextActive]}>{count}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, flexGrow: 1 }}>
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
+          ) : laboresDelMes.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Calendar size={48} color={theme.colors.outlineVariant} />
+              <Text style={styles.emptyStateText}>No hay labores agendadas</Text>
+              <TouchableOpacity style={styles.emptyAddBtn} onPress={openAgendar}>
+                <Text style={styles.emptyAddBtnText}>Agendar Labor</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {planificados.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Planificado</Text>
+                  {planificados.map(l => renderLaborCard(l, '#f59e0b', <Clock size={18} color="#f59e0b" />))}
+                </View>
+              )}
+              
+              {enEjecucion.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>En Ejecución</Text>
+                  {enEjecucion.map(l => renderLaborCard(l, '#3b82f6', <PlayCircle size={18} color="#3b82f6" />))}
+                </View>
+              )}
+
+              {terminados.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Terminado</Text>
+                  {terminados.map(l => renderLaborCard(l, '#10b981', <CheckCircle2 size={18} color="#10b981" />))}
+                </View>
+              )}
+            </>
+          )}
+        </ScrollView>
+      )}
 
       {/* Modal para Agendar o Ejecutar */}
-      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-          <View style={styles.modalHeader}>
+      <Modal visible={modalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.floatingModalContent}>
+            <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{modalMode === 'AGENDAR' ? `Agendar Labor (${selectedMes})` : 'Ejecutar Labor'}</Text>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Text style={styles.modalCloseText}>Cerrar</Text>
             </TouchableOpacity>
           </View>
           
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ padding: 20 }}>
             {modalMode === 'AGENDAR' ? (
               <>
                 <Text style={styles.inputLabel}>Mes programado *</Text>
                 <View style={styles.pickerContainer}>
-                  <Picker selectedValue={mesForm} onValueChange={(val) => { setMesForm(val); }}>
+                  <Picker style={{ color: theme.colors.onSurface }} dropdownIconColor={theme.colors.onSurface} selectedValue={mesForm} onValueChange={(val) => { setMesForm(val); }}>
                     {MESES.map(m => <Picker.Item key={m} label={m} value={m} />)}
                   </Picker>
                 </View>
 
                 <Text style={styles.inputLabel}>Actividad *</Text>
                 <View style={styles.pickerContainer}>
-                  <Picker selectedValue={nombreForm} onValueChange={(val) => {
+                  <Picker style={{ color: theme.colors.onSurface }} dropdownIconColor={theme.colors.onSurface} selectedValue={nombreForm} onValueChange={(val) => {
                     setNombreForm(val);
                     const act = actividadesData.find(a => a.actividad === val);
                     if (act) {
@@ -393,19 +436,19 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
                 </View>
 
                 <Text style={styles.inputLabel}>Etapa *</Text>
-                <TextInput style={styles.input} value={tipoProcesoForm} onChangeText={setTipoProcesoForm} placeholder="Ej. Producción" />
+                <TextInput style={styles.input} value={tipoProcesoForm} onChangeText={setTipoProcesoForm} placeholder="Ej. Producción" placeholderTextColor={theme.colors.outline} />
 
                 <Text style={styles.inputLabel}>Cantidad Proyectada *</Text>
-                <TextInput style={styles.input} value={cantidadProyectadaForm} onChangeText={setCantidadProyectadaForm} placeholder="Ej. 2 hectáreas" />
+                <TextInput style={styles.input} value={cantidadProyectadaForm} onChangeText={setCantidadProyectadaForm} placeholder="Ej. 2 hectáreas" placeholderTextColor={theme.colors.outline} />
               </>
             ) : (
               <>
-                <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 16 }}>Labor: {selectedLabor?.nombre}</Text>
-                <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Mes programado: {selectedLabor?.mes} (Visual)</Text>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 16, color: theme.colors.onSurface }}>Labor: {selectedLabor?.nombre}</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, marginBottom: 16 }}>Mes programado: {selectedLabor?.mes} (Visual)</Text>
 
                 <Text style={styles.inputLabel}>Persona que desarrolla (Roles)</Text>
                 <View style={styles.pickerContainer}>
-                  <Picker selectedValue={personaDesarrollo} onValueChange={setPersonaDesarrollo}>
+                  <Picker style={{ color: theme.colors.onSurface }} dropdownIconColor={theme.colors.onSurface} selectedValue={personaDesarrollo} onValueChange={setPersonaDesarrollo}>
                     <Picker.Item label="TITULAR" value="TITULAR" />
                     <Picker.Item label="JORNALERO" value="JORNALERO" />
                     <Picker.Item label="TECNICO CAMPO" value="TECNICO_CAMPO" />
@@ -414,22 +457,22 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
                 </View>
 
                 <Text style={styles.inputLabel}>Nombre Jornalero (si aplica)</Text>
-                <TextInput style={styles.input} value={nombreJornalero} onChangeText={setNombreJornalero} placeholder="Ej. Juan Pérez" />
+                <TextInput style={styles.input} value={nombreJornalero} onChangeText={setNombreJornalero} placeholder="Ej. Juan Pérez" placeholderTextColor={theme.colors.outline} />
 
                 <Text style={styles.inputLabel}>Detalle de aplicación</Text>
-                <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]} multiline value={detalleAplicacion} onChangeText={setDetalleAplicacion} placeholder="Detalles..." />
+                <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]} multiline value={detalleAplicacion} onChangeText={setDetalleAplicacion} placeholder="Detalles..." placeholderTextColor={theme.colors.outline} />
 
                 <Text style={styles.inputLabel}>Salario (opcional)</Text>
-                <TextInput style={styles.input} value={salario} onChangeText={setSalario} keyboardType="numeric" placeholder="Ej. 15.00" />
+                <TextInput style={styles.input} value={salario} onChangeText={setSalario} keyboardType="numeric" placeholder="Ej. 15.00" placeholderTextColor={theme.colors.outline} />
 
                 <Text style={styles.inputLabel}>Herramientas (separadas por coma)</Text>
-                <TextInput style={styles.input} value={herramientas} onChangeText={setHerramientas} placeholder="Ej. Machete, Tijeras" />
+                <TextInput style={styles.input} value={herramientas} onChangeText={setHerramientas} placeholder="Ej. Machete, Tijeras" placeholderTextColor={theme.colors.outline} />
 
-                <Text style={{ fontSize: 16, fontWeight: 'bold', marginTop: 16, marginBottom: 8 }}>Insumos (Opcional)</Text>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', marginTop: 16, marginBottom: 8, color: theme.colors.onSurface }}>Insumos (Opcional)</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput style={[styles.input, { flex: 2 }]} value={insumoNombre} onChangeText={setInsumoNombre} placeholder="Nombre" />
-                  <TextInput style={[styles.input, { flex: 1 }]} value={insumoCantidad} onChangeText={setInsumoCantidad} keyboardType="numeric" placeholder="Cant." />
-                  <TextInput style={[styles.input, { flex: 1 }]} value={insumoUnidad} onChangeText={setInsumoUnidad} placeholder="Unid." />
+                  <TextInput style={[styles.input, { flex: 2 }]} value={insumoNombre} onChangeText={setInsumoNombre} placeholder="Nombre" placeholderTextColor={theme.colors.outline} />
+                  <TextInput style={[styles.input, { flex: 1 }]} value={insumoCantidad} onChangeText={setInsumoCantidad} keyboardType="numeric" placeholder="Cant." placeholderTextColor={theme.colors.outline} />
+                  <TextInput style={[styles.input, { flex: 1 }]} value={insumoUnidad} onChangeText={setInsumoUnidad} placeholder="Unid." placeholderTextColor={theme.colors.outline} />
                 </View>
 
                 <Text style={{ fontSize: 16, fontWeight: 'bold', marginTop: 24, marginBottom: 8 }}>Evidencia Fotográfica *</Text>
@@ -439,7 +482,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
                 </TouchableOpacity>
 
                 {fotoUri && locationData && (
-                  <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.7, result: 'base64' }}>
+                  <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.7, result: 'tmpfile' }}>
                     <View style={styles.photoPreviewContainer}>
                       <Image source={{ uri: fotoUri }} style={styles.photoPreview} />
                       <View style={styles.watermarkOverlay}>
@@ -454,82 +497,133 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
             )}
           </ScrollView>
 
-          <View style={styles.modalFooter}>
+            <View style={styles.modalFooter}>
             <TouchableOpacity style={styles.submitModalBtn} onPress={submitForm} disabled={isSubmitting}>
               {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitModalBtnText}>{modalMode === 'AGENDAR' ? 'Agendar Labor' : 'Confirmar Ejecución'}</Text>}
             </TouchableOpacity>
+            </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: theme.colors.primary,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    elevation: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    gap: 12,
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.primary,
+    color: theme.colors.onPrimary,
   },
   subtitle: {
-    fontSize: 12,
-    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    color: theme.colors.primaryFixedDim,
   },
   addButton: {
     width: 40,
     height: 40,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.inversePrimary,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  monthsContainer: {
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  mesChip: {
-    paddingHorizontal: 16,
+  monthCard: {
+    width: '48%',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  monthCardHeader: {
+    backgroundColor: theme.colors.primary,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f3f4',
-    marginRight: 8,
+    alignItems: 'center',
   },
-  mesChipActive: {
+  monthCardTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: theme.colors.onPrimary,
+    letterSpacing: 1,
+  },
+  monthCardBody: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  badge: {
+    backgroundColor: theme.colors.surfaceVariant,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeActive: {
     backgroundColor: theme.colors.primary,
   },
-  mesChipText: {
-    color: '#5f6368',
-    fontWeight: '600',
-  },
-  mesChipTextActive: {
-    color: '#fff',
+  badgeText: {
+    fontSize: 12,
     fontWeight: 'bold',
+    color: theme.colors.onSurfaceVariant,
+  },
+  badgeTextActive: {
+    color: theme.colors.onPrimary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  floatingModalContent: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+    maxHeight: '85%',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+    minHeight: 300,
   },
   emptyStateText: {
     marginTop: 16,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     fontSize: 16,
   },
   emptyAddBtn: {
     marginTop: 16,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.inversePrimary,
     borderRadius: 20,
   },
   emptyAddBtnText: {
@@ -577,7 +671,7 @@ const styles = StyleSheet.create({
   ejecutarBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.inversePrimary,
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -622,12 +716,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.outlineVariant,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.onSurface,
   },
   cameraBtn: {
     flexDirection: 'row',
@@ -674,7 +769,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#eee',
   },
   submitModalBtn: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.inversePrimary,
     padding: 16,
     borderRadius: 24,
     alignItems: 'center',
