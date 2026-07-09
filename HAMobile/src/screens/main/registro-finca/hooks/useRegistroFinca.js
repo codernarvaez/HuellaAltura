@@ -9,7 +9,7 @@ import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
 import { db } from '@/data/local/database';
 import * as Crypto from 'expo-crypto';
-import { API_BASE_URL } from '@env';
+
 
 const getEncryptionKey = () => {
   try {
@@ -126,7 +126,7 @@ export const useRegistroFinca = (navigation) => {
       try {
         const token = await obtenerToken();
         if (!token) return;
-        const baseUrl = API_BASE_URL;
+        const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
         const response = await fetch(`${baseUrl}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });

@@ -1,4 +1,3 @@
-from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,9 +6,9 @@ from prisma import Prisma
 from app.database import get_db
 from app.dependencies import get_current_user, log_user_action
 from app.schemas.schemas import (
-    FincaCreate, 
-    ExpedienteCreate, 
-    DatoAgroambientalCreate, 
+    FincaCreate,
+    ExpedienteCreate,
+    DatoAgroambientalCreate,
     VariableDinamicaCreate,
     FincaOut,
     ExpedienteOut,
@@ -31,14 +30,14 @@ class SyncDato(DatoAgroambientalCreate):
     id: str
 
 class SyncVariable(VariableDinamicaCreate):
-    id: Optional[int] = None
+    id: int | None = None
     local_id: str  # ID temporal del móvil para mapeo si es necesario
 
 class SyncPayload(BaseModel):
-    fincas: List[SyncFinca] = []
-    expedientes: List[SyncExpediente] = []
-    datos_agroambientales: List[SyncDato] = []
-    variables_dinamicas: List[SyncVariable] = []
+    fincas: list[SyncFinca] = []
+    expedientes: list[SyncExpediente] = []
+    datos_agroambientales: list[SyncDato] = []
+    variables_dinamicas: list[SyncVariable] = []
 
 class SyncResponse(BaseModel):
     status: str

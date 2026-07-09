@@ -14,6 +14,8 @@ export class DatabaseManager {
    * Inicializa la base de datos cifrada usando el PIN del usuario y el ID del hardware.
    */
   static async initialize(userPin: string) {
+    if (this.db) return this.db;
+    
     const hardwareId = Application.getAndroidId() || 'ios_placeholder_id';
     const salt = 'eudr_v1_salt';
     

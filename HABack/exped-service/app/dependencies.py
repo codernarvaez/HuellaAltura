@@ -7,10 +7,12 @@ from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from jwt.exceptions import PyJWTError as JWTError
+from prisma import Prisma
 
 from app.config import settings
 from app.core import endpoints
 from app.core.roles import SUPER_ADMIN
+from app.database import get_db
 from app.services.audit_client import send_audit_log
 
 logger = logging.getLogger("exped-service.dependencies")
@@ -30,7 +32,7 @@ def _decode_jwt(token: str) -> dict:
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado",
+            detail="Token JWT inválido o expirado. Por favor, vuelve a iniciar sesión.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
@@ -136,3 +138,47 @@ def log_user_action(action: str) -> Callable:
         return None
 
     return _dependency
+
+
+# ===== Dependencias de Validación (Reutilizables) =====
+
+def get_expediente_or_404(
+    expediente_id: str,
+    db: Prisma = Depends(get_db),
+):
+    """
+    Valida que un expediente existe. Retorna el expediente o lanza 404.
+
+    **Uso:**
+    ```python
+    @router.get("/{expediente_id}")
+    def obtener_expediente(expediente = Depends(get_expediente_or_404)):
+        return expediente
+    ```
+    """
+    expediente = db.expediente.find_first(where={"id": expediente_id})
+    if not expediente:
+        raise HTTPException(status_code=404, detail="Expediente no encontrado")
+    return expediente
+
+
+def get_finca_or_404(
+    finca_id: str,
+    db: Prisma = Depends(get_db),
+):
+    """Valida que una finca existe. Retorna la finca o lanza 404."""
+    finca = db.finca.find_first(where={"id": finca_id})
+    if not finca:
+        raise HTTPException(status_code=404, detail="Finca no encontrada")
+    return finca
+
+
+def get_dato_agroambiental_or_404(
+    dato_id: str,
+    db: Prisma = Depends(get_db),
+):
+    """Valida que un dato agroambiental existe."""
+    dato = db.dato.find_first(where={"id": dato_id})
+    if not dato:
+        raise HTTPException(status_code=404, detail="Dato agroambiental no encontrado")
+    return dato

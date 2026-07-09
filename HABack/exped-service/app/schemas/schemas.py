@@ -256,3 +256,64 @@ class CertificadoOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- SCHEMAS PARA AGENDAR LABOR (Planificación) ---
+
+class LaborAgricolaBase(BaseModel):
+    nombre: str
+    tipo_proceso: str
+    mes: str
+    cantidad_proyectada: str
+
+class LaborAgricolaCreate(LaborAgricolaBase):
+    finca_id: str
+
+class LaborAgricolaOut(LaborAgricolaBase):
+    id: str
+    finca_id: str
+    estado: str
+    creado_en: datetime
+
+    class Config:
+        from_attributes = True
+
+# --- SCHEMAS PARA EJECUTAR LABOR ---
+
+class InsumoLaborCreate(BaseModel):
+    nombre: str
+    cantidad: float
+    unidad: str
+
+class EjecucionLaborCreate(BaseModel):
+    persona_desarrollo: str
+    nombre_jornalero: str | None = None
+    detalle_aplicacion: str
+    salario: float | None = None
+    insumos: list[InsumoLaborCreate]
+    herramientas: list[str] # Lista de nombres
+    
+    # Evidencia
+    foto_url: str | None = None
+    foto_hash: str | None = None
+    latitud: float | None = None
+    longitud: float | None = None
+    watermark_text: str | None = None
+
+class EjecucionLaborOut(BaseModel):
+    id: str
+    labor_id: str
+    finca_id: str
+    persona_desarrollo: str
+    nombre_jornalero: str | None = None
+    detalle_aplicacion: str
+    salario: float | None = None
+    foto_url: str | None = None
+    foto_hash: str | None = None
+    latitud: float | None = None
+    longitud: float | None = None
+    estado: str = "REGISTRADO"
+    timestamp: datetime
+    
+    class Config:
+        from_attributes = True

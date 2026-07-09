@@ -44,7 +44,7 @@ const ScreenOne = ({ navigation }) => {
           <View style={styles.header}>
             <View style={styles.userInfo}>
               <View style={styles.avatarContainer}>
-                <Image source={require('../../../assets/Icon.png')} style={styles.avatar} resizeMode="contain" />
+                <Image source={require('../../../assets/Logo.png')} style={styles.avatar} resizeMode="contain" />
               </View>
               <View>
                 <Text style={styles.greeting}>Hola,</Text>

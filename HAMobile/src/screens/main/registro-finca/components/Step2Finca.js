@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { Home, Map as MapIcon, Maximize2, LocateFixed, Layers } from 'lucide-react-native';
 import { FarmMapEditor } from '../../../../components/map/FarmMapEditor';
 import { styles } from '../styles';
@@ -9,7 +9,8 @@ export const Step2Finca = ({
   setShowFullMap, latitud, longitud, puntos, locating, obtenerUbicacionActual,
   nombreFinca, setNombreFinca, eudrId, provincia, setProvincia, canton, setCanton,
   parroquia, setParroquia, barrio, setBarrio, areaTotal, setAreaTotal,
-  areaCultivada, setAreaCultivada, tenencia, setTenencia
+  areaCultivada, setAreaCultivada, tenencia, setTenencia,
+  organizacion, setOrganizacion
 }) => (
   <View style={styles.stepContent}>
     <View style={styles.card}>
@@ -54,6 +55,30 @@ export const Step2Finca = ({
     <View style={styles.inputGroup}>
       <Text style={styles.label}>Nombre de la Finca</Text>
       <TextInput style={styles.input} value={nombreFinca} onChangeText={setNombreFinca} placeholder="Ej. La Esperanza" />
+    </View>
+
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>Organización a la que pertenece</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+        {['FAPECAFES', 'PROCAFEQ', 'ACRCR', 'ASOPROCAFE', 'INDEPENDIENTE'].map(org => (
+          <TouchableOpacity
+            key={org}
+            onPress={() => setOrganizacion(org)}
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              backgroundColor: organizacion === org ? theme.colors.primary : '#E8EAED',
+              borderRadius: 20,
+            }}
+          >
+            <Text style={{
+              color: organizacion === org ? '#fff' : '#5F6368',
+              fontWeight: organizacion === org ? 'bold' : '600',
+              fontSize: 13
+            }}>{org}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
 
     <View style={styles.inputGroup}>
