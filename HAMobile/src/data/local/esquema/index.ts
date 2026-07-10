@@ -5,3 +5,4 @@ export * from './expedientes';
 export * from './datosAgroambientales';
 export * from './variablesDinamicas';
 export * from './productores';
+export * from './actividadesTrazabilidad';

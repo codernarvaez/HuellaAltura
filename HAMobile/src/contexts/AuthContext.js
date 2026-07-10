@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
 import SafeStorage from '../utils/SafeStorage';
+import { endpoints } from '../api/endpoints';
 import { jwtDecode } from 'jwt-decode';
 import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
@@ -119,7 +120,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const fetchUserData = async (token) => {
-    const url = `${process.env.EXPO_PUBLIC_API_BASE_URL}/auth/me`;
+    const url = endpoints.auth.me;
     try {
       const response = await fetch(url, {
         headers: {
@@ -139,7 +140,7 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password) => {
     setLoading(true);
-    const url = `${process.env.EXPO_PUBLIC_API_BASE_URL}/auth/login`;
+    const url = endpoints.auth.login;
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -213,7 +214,7 @@ export const AuthProvider = ({ children }) => {
         payload.nivel_educativo = payload.nivel_educativo.toUpperCase();
       }
       
-      const url = `${process.env.EXPO_PUBLIC_API_BASE_URL}/auth/register`;
+      const url = endpoints.auth.register;
 
       const response = await fetch(url, {
         method: 'POST',

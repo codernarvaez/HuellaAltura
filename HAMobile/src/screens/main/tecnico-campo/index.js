@@ -6,8 +6,10 @@ import { useAlert } from '../../../contexts/AlertContext';
 
 import SafeStorage from '../../../utils/SafeStorage';
 import CryptoJS from 'crypto-js';
+import * as Application from 'expo-application';
+import { endpoints } from '../../../api/endpoints';
 import { Step3Agroambiental } from '../registro-finca/components/Step3Agroambiental';
-import { Save, ChevronLeft, Search } from 'lucide-react-native';
+import { Save, ChevronLeft, Search, MapPin, Trees, ChevronRight } from 'lucide-react-native';
 
 const getEncryptionKey = () => {
   return 'ha_emergency_key_js_only'; // Simplified for this snippet since application may not be fully available
@@ -18,8 +20,23 @@ export default function TecnicoCampoScreen() {
   const { showAlert } = useAlert();
   const [fincas, setFincas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [selectedFinca, setSelectedFinca] = useState(null);
   const [search, setSearch] = useState('');
+  
+  const [datoId, setDatoId] = useState(null);
+  const [indiceShannon, setIndiceShannon] = useState('');
+  const [indiceSimpson, setIndiceSimpson] = useState('');
+  const [usoSuelo, setUsoSuelo] = useState('');
+  const [sistemaProduccion, setSistemaProduccion] = useState('');
+  const [biomasaArboles, setBiomasaArboles] = useState('');
+  const [biomasaCafe, setBiomasaCafe] = useState('');
+  const [hojarascaMantillo, setHojarascaMantillo] = useState('');
+  const [carbonoSuelo, setCarbonoSuelo] = useState('');
+  const [totalStockCarbono, setTotalStockCarbono] = useState('');
+  const [coberturaForestal, setCoberturaForestal] = useState({});
+  const [organizacion, setOrganizacion] = useState('');
+  const [camposDinamicos, setCamposDinamicos] = useState([]);
 
   const obtenerToken = async () => {
     try {
@@ -29,7 +46,6 @@ export default function TecnicoCampoScreen() {
         iv: CryptoJS.enc.Hex.parse('101112131415161718191a1b1c1d1e1f'),
         salt: CryptoJS.enc.Hex.parse('0001020304050607')
       };
-      const Application = require('expo-application');
       const hardwareId = Application.getAndroidId() || 'ha_fallback_id_safe';
       const key = CryptoJS.SHA256(`ha_mobile_v1_${hardwareId}`).toString();
       
@@ -49,7 +65,7 @@ export default function TecnicoCampoScreen() {
     try {
       const token = await obtenerToken();
       if (!token) return;
-      const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/fincas/`, {
+      const res = await fetch(endpoints.fincas.getAll, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -68,7 +84,8 @@ export default function TecnicoCampoScreen() {
     setLoading(true);
     try {
       const token = await obtenerToken();
-      const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/agroambiental/${finca.id}`, {
+      if (!token) return;
+      const res = await fetch(endpoints.agroambiental.getByFinca(finca.id), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -114,7 +131,7 @@ export default function TecnicoCampoScreen() {
         total_stock_carbono: parseFloat(totalStockCarbono) || 0,
       };
 
-      const url = datoId ? `${process.env.EXPO_PUBLIC_EXPED_API_URL}/agroambiental/${datoId}` : `${process.env.EXPO_PUBLIC_EXPED_API_URL}/agroambiental/`;
+      const url = datoId ? `${endpoints.agroambiental.base}/${datoId}` : `${endpoints.agroambiental.base}/`;
       const method = datoId ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {
@@ -200,9 +217,18 @@ export default function TecnicoCampoScreen() {
           keyExtractor={item => item.id}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.fincaCard} onPress={() => loadDatoAgroambiental(item)}>
-              <Text style={styles.fincaNombre}>{item.nombre}</Text>
-              <Text style={styles.fincaSub}>{item.provincia}, {item.canton}</Text>
+            <TouchableOpacity style={styles.fincaCard} onPress={() => loadDatoAgroambiental(item)} activeOpacity={0.7}>
+              <View style={styles.fincaIconContainer}>
+                <Trees size={24} color={theme.colors.primary} />
+              </View>
+              <View style={styles.fincaInfoContainer}>
+                <Text style={styles.fincaNombre}>{item.nombre}</Text>
+                <View style={styles.locationRow}>
+                  <MapPin size={14} color={theme.colors.outline} style={{ marginRight: 4 }} />
+                  <Text style={styles.fincaSub}>{item.provincia}, {item.canton}</Text>
+                </View>
+              </View>
+              <ChevronRight size={20} color={theme.colors.outlineVariant} />
             </TouchableOpacity>
           )}
         />
@@ -242,21 +268,47 @@ const styles = StyleSheet.create({
     height: 36,
   },
   fincaCard: {
-    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    elevation: 3,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  fincaIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 67, 40, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  fincaInfoContainer: {
+    flex: 1,
   },
   fincaNombre: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
     color: theme.colors.onSurface,
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   fincaSub: {
-    fontSize: 14,
-    color: theme.colors.onSurfaceVariant,
-    marginTop: 4,
+    fontSize: 13,
+    color: theme.colors.outline,
+    fontWeight: '500',
   },
   footer: {
     padding: 16,

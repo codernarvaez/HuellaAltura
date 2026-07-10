@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Picker } from '@react-native-picker/picker';
-import actividadesData from '../../../data/actividades.json';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Modal, TextInput, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../theme/theme';
-import { ChevronLeft, Plus, Calendar, CheckCircle2, Clock, PlayCircle, Camera as CameraIcon } from 'lucide-react-native';
+import { ChevronLeft, Plus, Calendar, CheckCircle2, Clock, PlayCircle, Camera as CameraIcon, Leaf } from 'lucide-react-native';
 import SafeStorage from '../../../utils/SafeStorage';
 import CryptoJS from 'crypto-js';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system/legacy';
 import ViewShot from 'react-native-view-shot';
+import { endpoints } from '../../../api/endpoints';
+import { db } from '../../../data/local/database';
+import * as schema from '../../../data/local/esquema';
+import { eq } from 'drizzle-orm';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -35,6 +39,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
   const [tipoProcesoForm, setTipoProcesoForm] = useState('');
   const [cantidadProyectadaForm, setCantidadProyectadaForm] = useState('');
   const [mesForm, setMesForm] = useState(MESES[new Date().getMonth()]);
+  const [sugerenciasList, setSugerenciasList] = useState([]);
 
   // Form State - Ejecutar
   const [personaDesarrollo, setPersonaDesarrollo] = useState('');
@@ -71,12 +76,52 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
     fetchLabores();
   }, []);
 
+  useEffect(() => {
+    if (modalMode === 'AGENDAR') {
+      fetchSugerencias(mesForm);
+    }
+  }, [mesForm, modalMode]);
+
+  const fetchSugerencias = async (mes) => {
+    try {
+      // Intentar obtener las actividades ricas desde la base de datos local SQLite para disponibilidad offline y llenado automático de formulario
+      const localData = await db().select().from(schema.actividadesTrazabilidad).where(eq(schema.actividadesTrazabilidad.mes, mes));
+      if (localData && localData.length > 0) {
+        // Mapear los datos de SQLite al formato que espera el frontend (usando `nombre` en vez de `actividad` por consistencia)
+        const mapped = localData.map(d => ({
+          nombre: d.actividad,
+          tipo_proceso: d.etapa,
+          cantidad_ha: d.cantidadHa,
+          unidad: d.unidad,
+          detalle: d.detalleTecnico,
+          insumos: d.insumos,
+          herramientas: d.herramientas
+        }));
+        setSugerenciasList(mapped);
+        return;
+      }
+
+      // Si falla o no hay datos, intentamos la red como fallback (el endpoint básico)
+      const token = await obtenerToken();
+      if (!token) return;
+      const res = await fetch(endpoints.labores.sugerencias(mes.toLowerCase()), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setSugerenciasList(json.sugerencias_disponibles || []);
+      }
+    } catch (error) {
+      console.warn('Error fetching sugerencias:', error);
+    }
+  };
+
   const fetchLabores = async () => {
     setLoading(true);
     try {
       const token = await obtenerToken();
       if (!token) return;
-      const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/calendario/${finca.id}`, {
+      const res = await fetch(endpoints.labores.calendario(finca.id), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -193,7 +238,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           finca_id: finca.id
         };
 
-        const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/agendar`, {
+        const res = await fetch(endpoints.labores.agendar, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -222,29 +267,23 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
         // Capture watermarked image as a temporary file URI
         const capturedUri = await viewShotRef.current.capture();
 
-        // Upload to our own backend's subir-evidencia endpoint
-        const formData = new FormData();
-        formData.append('file', {
-          uri: capturedUri,
-          name: 'evidencia.jpg',
-          type: 'image/jpeg'
-        });
-
-        const uploadRes = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/subir-evidencia`, {
-          method: 'POST',
+        const uploadRes = await FileSystem.uploadAsync(endpoints.labores.subirEvidencia, capturedUri, {
+          fieldName: 'file',
+          httpMethod: 'POST',
+          uploadType: FileSystem.FileSystemUploadType?.MULTIPART ?? 1, // Fallback to 1 if not exported directly
           headers: {
             'Authorization': `Bearer ${token}`
           },
-          body: formData
+          mimeType: 'image/jpeg'
         });
 
-        if (!uploadRes.ok) {
+        if (uploadRes.status < 200 || uploadRes.status >= 300) {
           Alert.alert('Error', 'No se pudo subir la imagen al servidor.');
           setIsSubmitting(false);
           return;
         }
 
-        const uploadData = await uploadRes.json();
+        const uploadData = JSON.parse(uploadRes.body);
         const uploadedFotoUrl = uploadData.foto_url;
         const uploadedFotoHash = uploadData.foto_hash || 'generated_hash';
 
@@ -262,7 +301,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           watermark_text: `Fecha: ${locationData.timestamp} | Lat: ${locationData.latitude} | Lon: ${locationData.longitude}`
         };
 
-        const res = await fetch(`${process.env.EXPO_PUBLIC_EXPED_API_URL}/labores/${selectedLabor.id}/ejecutar`, {
+        const res = await fetch(endpoints.labores.ejecutar(selectedLabor.id), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -286,12 +325,53 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
     }
   };
 
+  const validarNorma = async (laborId) => {
+    try {
+      const token = await obtenerToken();
+      if (!token) return;
+      const res = await fetch(endpoints.labores.validarNorma(laborId), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        Alert.alert('Validación Normativa', `Estado: ${data.estado_validacion}\nOrgánico: ${data.detalles?.organico?.observacion}\nComercio Justo: ${data.detalles?.comercio_justo?.observacion}`);
+        fetchLabores();
+      } else {
+        Alert.alert('Error', 'No se pudo validar la norma.');
+      }
+    } catch (error) {
+      console.warn(error);
+      Alert.alert('Error', 'Error de red.');
+    }
+  };
+
+  const aprobarLabor = async (laborId) => {
+    try {
+      const token = await obtenerToken();
+      if (!token) return;
+      const res = await fetch(endpoints.labores.aprobar(laborId), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        Alert.alert('Éxito', 'Labor auditada y aprobada correctamente.');
+        fetchLabores();
+      } else {
+        Alert.alert('Error', 'No se pudo aprobar la labor.');
+      }
+    } catch (error) {
+      console.warn(error);
+      Alert.alert('Error', 'Error de red.');
+    }
+  };
+
   const laboresDelMes = labores.filter(l => l.mes?.toLowerCase() === selectedMes.toLowerCase());
   
   // Agrupar por estado
   const planificados = laboresDelMes.filter(l => !l.estado || l.estado === 'PLANIFICADO');
-  const enEjecucion = laboresDelMes.filter(l => l.estado === 'EN_EJECUCION');
-  const terminados = laboresDelMes.filter(l => l.estado === 'TERMINADO');
+  const ejecutados = laboresDelMes.filter(l => l.estado === 'EJECUTADO');
+  const validados = laboresDelMes.filter(l => l.estado === 'PRE_VALIDADO' || l.estado === 'AUDITADO');
 
   const renderLaborCard = (labor, statusColor, icon) => (
     <View key={labor.id || Math.random().toString()} style={[styles.laborCard, { borderLeftColor: statusColor }]}>
@@ -307,13 +387,35 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           <Text style={styles.ejecutarBtnText}>Iniciar Ejecución</Text>
         </TouchableOpacity>
       )}
+      {labor.estado === 'EJECUTADO' && (
+        <TouchableOpacity style={[styles.ejecutarBtn, { backgroundColor: '#F59E0B' }]} onPress={() => validarNorma(labor.id)}>
+          <CheckCircle2 size={14} color="#fff" style={{ marginRight: 4 }} />
+          <Text style={styles.ejecutarBtnText}>Validar Norma</Text>
+        </TouchableOpacity>
+      )}
+      {(labor.estado === 'PRE_VALIDADO' || labor.estado === 'AUDITADO') && (
+        <View style={{ marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <CheckCircle2 size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
+            <Text style={{ fontSize: 12, color: theme.colors.primary, fontWeight: 'bold' }}>
+              {labor.estado === 'AUDITADO' ? 'Labor Auditada y Aprobada' : 'Pre-Validada (Cumple Normativa)'}
+            </Text>
+          </View>
+          {labor.estado === 'PRE_VALIDADO' && (
+            <TouchableOpacity style={[styles.ejecutarBtn, { backgroundColor: theme.colors.primary }]} onPress={() => aprobarLabor(labor.id)}>
+              <CheckCircle2 size={14} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={styles.ejecutarBtnText}>Aprobar (Auditor)</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 
   const getLaboresCount = (mes) => labores.filter(l => l.mes?.toLowerCase() === mes.toLowerCase()).length;
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <View style={{ flex: 1, backgroundColor: viewMode === 'GRID' ? theme.colors.inverseSurface : theme.colors.background }}>
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => viewMode === 'MONTH_DETAIL' ? setViewMode('GRID') : navigation.goBack()} style={{ padding: 8 }}>
           <ChevronLeft size={24} color={theme.colors.onPrimary} />
@@ -330,28 +432,34 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
       </View>
 
       {viewMode === 'GRID' ? (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, flexGrow: 1, justifyContent: 'center' }}>
           <View style={styles.gridContainer}>
             {MESES.map(mes => {
               const count = getLaboresCount(mes);
               return (
                 <TouchableOpacity
                   key={mes}
-                  style={styles.monthCard}
+                  style={[styles.monthCard, count > 0 && styles.monthCardActive]}
                   activeOpacity={0.8}
                   onPress={() => {
                     setSelectedMes(mes);
                     setViewMode('MONTH_DETAIL');
                   }}
                 >
-                  <View style={styles.monthCardHeader}>
-                    <Text style={styles.monthCardTitle}>{mes.substring(0, 3).toUpperCase()}</Text>
-                  </View>
-                  <View style={styles.monthCardBody}>
-                    <Calendar size={28} color={count > 0 ? theme.colors.primary : theme.colors.outlineVariant} style={{ marginBottom: 8 }} />
-                    <View style={[styles.badge, count > 0 && styles.badgeActive]}>
-                      <Text style={[styles.badgeText, count > 0 && styles.badgeTextActive]}>{count}</Text>
-                    </View>
+                  <Text style={styles.monthWatermark}>{mes.substring(0, 3).toUpperCase()}</Text>
+                  <View style={styles.monthCardContent}>
+                    <Text style={[styles.monthName, count > 0 && styles.monthNameActive]}>{mes}</Text>
+                    {count > 0 ? (
+                      <View style={styles.taskIndicatorContainer}>
+                        <Leaf size={12} color={theme.colors.primary} />
+                        <Text style={styles.taskCountText}>{count} {count === 1 ? 'Labor' : 'Labores'}</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.taskIndicatorContainerEmpty}>
+                        <Calendar size={12} color={theme.colors.outline} />
+                        <Text style={styles.noTaskText}>Libre</Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -359,37 +467,32 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
           </View>
         </ScrollView>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, flexGrow: 1 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
           {loading ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
           ) : laboresDelMes.length === 0 ? (
-            <View style={styles.emptyState}>
+            <View style={{ alignItems: 'center', marginTop: 50 }}>
               <Calendar size={48} color={theme.colors.outlineVariant} />
-              <Text style={styles.emptyStateText}>No hay labores agendadas</Text>
-              <TouchableOpacity style={styles.emptyAddBtn} onPress={openAgendar}>
-                <Text style={styles.emptyAddBtnText}>Agendar Labor</Text>
-              </TouchableOpacity>
+              <Text style={{ color: theme.colors.outline, marginTop: 12, fontSize: 16 }}>No hay labores para {selectedMes}</Text>
             </View>
           ) : (
             <>
               {planificados.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Planificado</Text>
-                  {planificados.map(l => renderLaborCard(l, '#f59e0b', <Clock size={18} color="#f59e0b" />))}
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle}>Planificadas ({planificados.length})</Text>
+                  {planificados.map(l => renderLaborCard(l, '#94a3b8', <Clock size={20} color="#94a3b8" />))}
                 </View>
               )}
-              
-              {enEjecucion.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>En Ejecución</Text>
-                  {enEjecucion.map(l => renderLaborCard(l, '#3b82f6', <PlayCircle size={18} color="#3b82f6" />))}
+              {ejecutados.length > 0 && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle}>Ejecutadas ({ejecutados.length})</Text>
+                  {ejecutados.map(l => renderLaborCard(l, '#F59E0B', <PlayCircle size={20} color="#F59E0B" />))}
                 </View>
               )}
-
-              {terminados.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Terminado</Text>
-                  {terminados.map(l => renderLaborCard(l, '#10b981', <CheckCircle2 size={18} color="#10b981" />))}
+              {validados.length > 0 && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle}>Validadas ({validados.length})</Text>
+                  {validados.map(l => renderLaborCard(l, theme.colors.primary, <CheckCircle2 size={20} color={theme.colors.primary} />))}
                 </View>
               )}
             </>
@@ -422,15 +525,19 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
                 <View style={styles.pickerContainer}>
                   <Picker style={{ color: theme.colors.onSurface }} dropdownIconColor={theme.colors.onSurface} selectedValue={nombreForm} onValueChange={(val) => {
                     setNombreForm(val);
-                    const act = actividadesData.find(a => a.actividad === val);
+                    const act = sugerenciasList.find(a => a.nombre === val);
                     if (act) {
-                      setTipoProcesoForm(act.etapa);
-                      setCantidadProyectadaForm(act.cantidad_ha ? `${act.cantidad_ha} ${act.unidad}` : '');
+                      setTipoProcesoForm(act.tipo_proceso);
+                      if (act.cantidad_ha && act.unidad) {
+                        setCantidadProyectadaForm(`${act.cantidad_ha} ${act.unidad}`);
+                      } else {
+                        setCantidadProyectadaForm('');
+                      }
                     }
                   }}>
                     <Picker.Item label="Seleccione una actividad..." value="" />
-                    {actividadesData.filter(a => a.mes.toLowerCase() === mesForm.toLowerCase()).map((a, i) => (
-                      <Picker.Item key={i} label={a.actividad} value={a.actividad} />
+                    {sugerenciasList.map((a, i) => (
+                      <Picker.Item key={i} label={a.nombre} value={a.nombre} />
                     ))}
                   </Picker>
                 </View>
@@ -539,56 +646,96 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridContainer: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    alignContent: 'space-between',
+    paddingBottom: 16,
   },
   monthCard: {
-    width: '48%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
+    width: '31.5%',
+    height: '23.5%',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.outlineVariant,
+    borderColor: 'rgba(255,255,255,0.1)',
     overflow: 'hidden',
-    elevation: 2,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  monthCardHeader: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
-  monthCardTitle: {
-    fontSize: 14,
+  monthCardActive: {
+    borderColor: theme.colors.primary,
+    borderWidth: 2,
+    backgroundColor: '#f8fdfa',
+    elevation: 12,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    transform: [{ scale: 1.02 }],
+  },
+  monthWatermark: {
+    position: 'absolute',
+    fontSize: 58,
     fontWeight: '900',
-    color: theme.colors.onPrimary,
-    letterSpacing: 1,
+    color: theme.colors.primary,
+    opacity: 0.08,
+    transform: [{ translateY: -10 }],
   },
-  monthCardBody: {
-    paddingVertical: 16,
+  monthCardContent: {
     alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: 'space-between',
+    height: '100%',
+    width: '100%',
+    paddingVertical: 16,
   },
-  badge: {
-    backgroundColor: theme.colors.surfaceVariant,
-    paddingHorizontal: 12,
+  monthName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.onSurfaceVariant,
+    textTransform: 'capitalize',
+    letterSpacing: 0.5,
+  },
+  monthNameActive: {
+    color: theme.colors.primary,
+    fontWeight: '800',
+  },
+  taskIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 67, 40, 0.08)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  badgeActive: {
-    backgroundColor: theme.colors.primary,
+  taskIndicatorContainerEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: theme.colors.onSurfaceVariant,
+  taskCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.primary,
   },
-  badgeTextActive: {
-    color: theme.colors.onPrimary,
+  noTaskText: {
+    fontSize: 11,
+    color: theme.colors.outline,
+    fontStyle: 'italic',
+    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,

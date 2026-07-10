@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/op-sqlite';
 import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 import * as schema from './esquema';
+import actividadesTrazabilidadData from '../actividadesTrazabilidad.json';
 
 /**
  * Gestión de la base de datos cifrada (RS-SEC-004)
@@ -140,6 +141,63 @@ export class DatabaseManager {
         "procesado_en" integer
       );
     `);
+
+    sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS "actividades_trazabilidad" (
+        "id" text PRIMARY KEY NOT NULL,
+        "numero" integer,
+        "etapa" text,
+        "mes" text,
+        "actividad" text,
+        "detalle_tecnico" text,
+        "responsable" text,
+        "jornales_ha" text,
+        "precio_jornal" real,
+        "insumos" text,
+        "cantidad_ha" text,
+        "unidad" text,
+        "herramientas" text,
+        "dato_capturar" text
+      );
+    `);
+
+    // Seed data si está vacío
+    const countRes = await sqlite.execute('SELECT COUNT(*) as c FROM actividades_trazabilidad');
+    if (countRes.rows?.[0]?.c === 0) {
+      await sqlite.execute('BEGIN TRANSACTION');
+      try {
+        for (let idx = 0; idx < actividadesTrazabilidadData.length; idx++) {
+          const act = actividadesTrazabilidadData[idx];
+          await sqlite.execute(
+            `INSERT INTO actividades_trazabilidad (
+              id, numero, etapa, mes, actividad, detalle_tecnico,
+              responsable, jornales_ha, precio_jornal, insumos,
+              cantidad_ha, unidad, herramientas, dato_capturar
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              idx.toString(),
+              parseInt(act['N°'] as string, 10) || 0,
+              act['Etapa'] || '',
+              act['Mes'] || '',
+              act['Actividad'] || '',
+              act['Detalle técnico / Base normativa Organica y Comercio Justo'] || '',
+              act['Responsable'] || '',
+              act['Jornales/ha (ref.)'] || '',
+              parseFloat(act['Precio jornal USD (ref.)'] as string) || 0,
+              act['Insumo(s)'] || '',
+              act['Cantidad/ha (ref.)'] || '',
+              act['Unidad'] || '',
+              act['Herramientas / Equipo'] || '',
+              act['Dato a capturar en Blockchain (trazabilidad)'] || ''
+            ]
+          );
+        }
+        await sqlite.execute('COMMIT');
+      } catch (error) {
+        await sqlite.execute('ROLLBACK');
+        console.error('Seed transaction failed:', error);
+      }
+    }
 
     this.db = drizzle(sqlite, { schema });
     return this.db;

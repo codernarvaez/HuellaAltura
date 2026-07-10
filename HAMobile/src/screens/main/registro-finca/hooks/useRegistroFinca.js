@@ -9,6 +9,7 @@ import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
 import { db } from '@/data/local/database';
 import * as Crypto from 'expo-crypto';
+import { endpoints } from '@/api/endpoints';
 
 
 const getEncryptionKey = () => {
@@ -124,11 +125,10 @@ export const useRegistroFinca = (navigation) => {
 
     const fetchLatestProfile = async () => {
       try {
-        const token = await obtenerToken();
-        if (!token) return;
-        const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-        const response = await fetch(`${baseUrl}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const tokenStr = await obtenerToken();
+        if (!tokenStr) return;
+        const response = await fetch(endpoints.auth.me, {
+          headers: { 'Authorization': `Bearer ${tokenStr}` }
         });
         if (response.ok) {
           const data = await response.json();
