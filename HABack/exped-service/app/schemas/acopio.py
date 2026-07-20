@@ -116,3 +116,10 @@ class TrillaOut(BaseModel):
     
     class Config:
         from_attributes = True
+
+# ─── Exportación y Despacho ──────────────────────────────────
+
+class DespachoCreate(BaseModel):
+    inventarioId: int
+    peso_salida_kg: float = Field(..., gt=0, description="Peso exacto en KG a despachar")
+    destino: str = Field(..., description="Puerto, cliente o destino final")
