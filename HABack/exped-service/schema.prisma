@@ -191,3 +191,72 @@ model HerramientaLabor {
 
   @@map("herramientas_labores")
 }
+
+// ─── MÓDULO 3: CALIDAD, ACOPIO Y EXPORTACIÓN ─────────────────
+
+model Muestra {
+  id              Int       @id @default(autoincrement())
+  fincaId         String    // Relacionado con el ID de la Finca (SRID 4326)[cite: 2]
+  productorId     String    // Relacionado con el ID del Productor[cite: 2]
+  codigoQR        String    @unique
+  tipoProceso     String    // Lavado, Honey, Natural[cite: 2]
+  pesoKg          Float     // Estandarizado en KG[cite: 2]
+  fechaToma       DateTime  @default(now())[cite: 2]
+  evidenciaFoto   String?  [cite: 2]
+  
+  analisisFisico    AnalisisFisico?
+  analisisSensorial AnalisisSensorial?
+  ordenCompra       OrdenCompra?
+}
+
+model AnalisisFisico {
+  id              Int       @id @default(autoincrement())
+  muestraId       Int       @unique
+  muestra         Muestra   @relation(fields: [muestraId], references: [id])
+  humedad         Float     // Umbral 10-12%[cite: 2]
+  criba           String    // 14 al 18[cite: 2]
+  densidad        Float    [cite: 2]
+  defectosPrim    Int      [cite: 2]
+  defectosSec     Int      [cite: 2]
+  fechaAnalisis   DateTime  @default(now())
+}
+
+model AnalisisSensorial {
+  id              Int       @id @default(autoincrement())
+  muestraId       Int       @unique
+  muestra         Muestra   @relation(fields: [muestraId], references: [id])
+  fraganciaAroma  Float    [cite: 2]
+  sabor           Float    [cite: 2]
+  saborResidual   Float    [cite: 2]
+  acidez          Float    [cite: 2]
+  cuerpo          Float    [cite: 2]
+  uniformidad     Float     [cite: 2]
+  balance         Float    [cite: 2]
+  tazaLimpia      Float    [cite: 2]
+  dulzor          Float    [cite: 2]
+  puntajeCatador  Float    [cite: 2]
+  puntajeTotal    Float     // Si es >= 80 -> "Café de Especialidad"[cite: 2]
+  nivelTueste     String   [cite: 2]
+}
+
+model OrdenCompra {
+  id              Int       @id @default(autoincrement())
+  muestraId       Int       @unique
+  muestra         Muestra   @relation(fields: [muestraId], references: [id])
+  aprobadoEUDR    Boolean   @default(false) // Cero deforestación post-2020[cite: 2]
+  precioAcordado  Float    [cite: 2]
+  volumenKg       Float    [cite: 2]
+  primas          Float?   [cite: 2]
+  estado          String    // PENDIENTE, APROBADA, RECHAZADA
+  
+  inventario      InventarioAcopio?
+}
+
+model InventarioAcopio {
+  id              Int       @id @default(autoincrement())
+  ordenCompraId   Int       @unique
+  ordenCompra     OrdenCompra @relation(fields: [ordenCompraId], references: [id])
+  pesoIngresoKg   Float    [cite: 2]
+  pesoSalidaKg    Float     @default(0) // Para control antifraude[cite: 2]
+  estado          String    // EN_BODEGA, EN_TRILLA, DESPACHADO
+}
