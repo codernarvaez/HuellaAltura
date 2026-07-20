@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 from datetime import datetime
 from app.schemas.acopio import DespachoCreate
 from app.database import prisma
+from fastapi.responses import StreamingResponse
+from app.utils.pdf_generator import generar_certificado_pdf
 
 router = APIRouter(prefix="/acopio/despachos", tags=["Acopio - Exportación y Despachos"])
 
@@ -130,3 +132,15 @@ async def generar_certificado_trazabilidad(inventario_id: int):
         "mensaje": "Certificado de trazabilidad consolidado con éxito.",
         "datos_certificado": certificado
     }
+
+@router.get("/certificado/{inventario_id}/pdf")
+async def descargar_certificado_pdf(inventario_id: int):
+    datos = await obtener_datos_trazabilidad(inventario_id) # Supongamos esta función helper
+    
+    pdf_buffer = generar_certificado_pdf(datos)
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=certificado_{inventario_id}.pdf"}
+    )
