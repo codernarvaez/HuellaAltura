@@ -25,6 +25,7 @@ from app.routers import (
     geoespacial,
     labores,
 )
+from app.routers.acopio import muestras, laboratorio, compras, bodega
 
 
 class ErrorMessageMiddleware(BaseHTTPMiddleware):
@@ -165,3 +166,8 @@ def root():
 @app.get(endpoints.HEALTH_CHECK)
 def health():
     return {"status": "ok", "service": settings.app_name}
+
+app.include_router(muestras.router)
+app.include_router(laboratorio.router)
+app.include_router(compras.router)
+app.include_router(bodega.router)
