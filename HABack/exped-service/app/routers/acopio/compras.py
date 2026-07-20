@@ -38,3 +38,4 @@ async def registrar_orden_compra(orden: OrdenCompraCreate):
         "mensaje": "Orden de compra autorizada exitosamente.",
         "orden_id": orden_db.id
     }
+

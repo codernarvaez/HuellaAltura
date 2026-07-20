@@ -25,7 +25,8 @@ from app.routers import (
     geoespacial,
     labores,
 )
-from app.routers.acopio import muestras, laboratorio, compras, bodega
+
+from app.routers.acopio import muestras, laboratorio, compras, bodega, trilla
 
 
 class ErrorMessageMiddleware(BaseHTTPMiddleware):
@@ -171,3 +172,4 @@ app.include_router(muestras.router)
 app.include_router(laboratorio.router)
 app.include_router(compras.router)
 app.include_router(bodega.router)
+app.include_router(trilla.router)

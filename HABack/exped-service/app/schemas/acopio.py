@@ -93,3 +93,26 @@ class InventarioAcopioOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- Procesamiento: Trilla ---
+
+class TrillaCreate(BaseModel):
+    inventarioId: int
+    factorRendimiento: float = Field(
+        ..., 
+        ge=0.78, 
+        le=0.82, 
+        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"[cite: 2]
+    )
+
+class TrillaOut(BaseModel):
+    id: int
+    inventarioId: int
+    factorRendimiento: float
+    pesoEntradaKg: float
+    pesoOroKg: float
+    mermaKg: float
+    
+    class Config:
+        from_attributes = True

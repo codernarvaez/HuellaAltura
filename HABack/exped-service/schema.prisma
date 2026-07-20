@@ -196,13 +196,13 @@ model HerramientaLabor {
 
 model Muestra {
   id              Int       @id @default(autoincrement())
-  fincaId         String    // Relacionado con el ID de la Finca (SRID 4326)[cite: 2]
-  productorId     String    // Relacionado con el ID del Productor[cite: 2]
+  fincaId         String    // Relacionado con el ID de la Finca (SRID 4326)
+  productorId     String    // Relacionado con el ID del Productor
   codigoQR        String    @unique
-  tipoProceso     String    // Lavado, Honey, Natural[cite: 2]
-  pesoKg          Float     // Estandarizado en KG[cite: 2]
-  fechaToma       DateTime  @default(now())[cite: 2]
-  evidenciaFoto   String?  [cite: 2]
+  tipoProceso     String    // Lavado, Honey, Natural
+  pesoKg          Float     // Estandarizado en KG
+  fechaToma       DateTime  @default(now())
+  evidenciaFoto   String?  
   
   analisisFisico    AnalisisFisico?
   analisisSensorial AnalisisSensorial?
@@ -213,11 +213,11 @@ model AnalisisFisico {
   id              Int       @id @default(autoincrement())
   muestraId       Int       @unique
   muestra         Muestra   @relation(fields: [muestraId], references: [id])
-  humedad         Float     // Umbral 10-12%[cite: 2]
-  criba           String    // 14 al 18[cite: 2]
-  densidad        Float    [cite: 2]
-  defectosPrim    Int      [cite: 2]
-  defectosSec     Int      [cite: 2]
+  humedad         Float     // Umbral 10-12%
+  criba           String    // 14 al 18
+  densidad        Float    
+  defectosPrim    Int      
+  defectosSec     Int      
   fechaAnalisis   DateTime  @default(now())
 }
 
@@ -225,28 +225,28 @@ model AnalisisSensorial {
   id              Int       @id @default(autoincrement())
   muestraId       Int       @unique
   muestra         Muestra   @relation(fields: [muestraId], references: [id])
-  fraganciaAroma  Float    [cite: 2]
-  sabor           Float    [cite: 2]
-  saborResidual   Float    [cite: 2]
-  acidez          Float    [cite: 2]
-  cuerpo          Float    [cite: 2]
-  uniformidad     Float     [cite: 2]
-  balance         Float    [cite: 2]
-  tazaLimpia      Float    [cite: 2]
-  dulzor          Float    [cite: 2]
-  puntajeCatador  Float    [cite: 2]
-  puntajeTotal    Float     // Si es >= 80 -> "Café de Especialidad"[cite: 2]
-  nivelTueste     String   [cite: 2]
+  fraganciaAroma  Float    
+  sabor           Float    
+  saborResidual   Float    
+  acidez          Float    
+  cuerpo          Float    
+  uniformidad     Float     
+  balance         Float    
+  tazaLimpia      Float    
+  dulzor          Float    
+  puntajeCatador  Float    
+  puntajeTotal    Float     // Si es >= 80 -> "Café de Especialidad"
+  nivelTueste     String   
 }
 
 model OrdenCompra {
   id              Int       @id @default(autoincrement())
   muestraId       Int       @unique
   muestra         Muestra   @relation(fields: [muestraId], references: [id])
-  aprobadoEUDR    Boolean   @default(false) // Cero deforestación post-2020[cite: 2]
-  precioAcordado  Float    [cite: 2]
-  volumenKg       Float    [cite: 2]
-  primas          Float?   [cite: 2]
+  aprobadoEUDR    Boolean   @default(false) // Cero deforestación post-2020
+  precioAcordado  Float    
+  volumenKg       Float    
+  primas          Float?   
   estado          String    // PENDIENTE, APROBADA, RECHAZADA
   
   inventario      InventarioAcopio?
@@ -256,7 +256,20 @@ model InventarioAcopio {
   id              Int       @id @default(autoincrement())
   ordenCompraId   Int       @unique
   ordenCompra     OrdenCompra @relation(fields: [ordenCompraId], references: [id])
-  pesoIngresoKg   Float    [cite: 2]
-  pesoSalidaKg    Float     @default(0) // Para control antifraude[cite: 2]
+  pesoIngresoKg   Float    
+  pesoSalidaKg    Float     @default(0) // Para control antifraude
   estado          String    // EN_BODEGA, EN_TRILLA, DESPACHADO
+
+  procesoTrilla   ProcesoTrilla?
+}
+
+model ProcesoTrilla {
+  id                Int      @id @default(autoincrement())
+  inventarioId      Int      @unique
+  inventario        InventarioAcopio @relation(fields: [inventarioId], references: [id])
+  factorRendimiento Float    // Validado entre 0.78 y 0.82
+  pesoEntradaKg     Float   
+  pesoOroKg         Float   
+  mermaKg           Float   
+  fechaProceso      DateTime @default(now())
 }
