@@ -1,44 +1,34 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from prisma import Prisma
 from datetime import datetime
 from app.schemas.acopio import DespachoCreate
-from app.database import prisma
+from app.database import get_db
 from fastapi.responses import StreamingResponse
 from app.utils.pdf_generator import generar_certificado_pdf
 
 router = APIRouter(prefix="/acopio/despachos", tags=["Acopio - Exportación y Despachos"])
 
 @router.post("/registrar")
-async def registrar_despacho(despacho: DespachoCreate):
-    """
-    Registra la salida de café aplicando el Control Algorítmico contra el Fraude de Segregación en base de datos.
-    """
-    # 1. Consulta real a la base de datos
-    inventario_db = await prisma.inventarioacopio.find_unique(
-        where={"id": despacho.inventarioId}
-    )
-    
+def registrar_despacho(despacho: DespachoCreate, db: Prisma = Depends(get_db)):
+    inventario_db = db.inventarioacopio.find_unique(where={"id": despacho.inventarioId})
+
     if not inventario_db:
         raise HTTPException(status_code=404, detail="Registro de inventario no encontrado")
 
-    # 2. BDD: Control Algorítmico contra el Fraude de Segregación
-    # Regla: Σ kg café (Salida) ≤ Σ kg café (Ingreso)
     peso_ingreso_historico = inventario_db.pesoIngresoKg
     peso_salida_acumulado = inventario_db.pesoSalidaKg
 
     nuevo_peso_acumulado = peso_salida_acumulado + despacho.peso_salida_kg
 
     if nuevo_peso_acumulado > peso_ingreso_historico:
-        # Bloqueo inmediato e inmutable de la guía de despacho
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Alerta de Fraude: Intento de despachar {nuevo_peso_acumulado} kg. Supera la masa certificada de entrada ({peso_ingreso_historico} kg)."
         )
 
-    # 3. Determinar si el lote se vació por completo
     estado_nuevo = "DESPACHADO" if nuevo_peso_acumulado == peso_ingreso_historico else inventario_db.estado
 
-    # 4. Actualización real en la base de datos
-    await prisma.inventarioacopio.update(
+    db.inventarioacopio.update(
         where={"id": despacho.inventarioId},
         data={
             "pesoSalidaKg": nuevo_peso_acumulado,
@@ -56,12 +46,8 @@ async def registrar_despacho(despacho: DespachoCreate):
 
 
 @router.get("/certificado/{inventario_id}")
-async def generar_certificado_trazabilidad(inventario_id: int):
-    """
-    Genera el pasaporte consolidado de trazabilidad (Muestra -> Laboratorio -> EUDR -> Trilla -> Despacho).
-    """
-    # 1. Consulta anidada de Prisma para traer toda la cadena desde el inventario hacia atrás
-    inventario = await prisma.inventarioacopio.find_unique(
+def generar_certificado_trazabilidad(inventario_id: int, db: Prisma = Depends(get_db)):
+    inventario = db.inventarioacopio.find_unique(
         where={"id": inventario_id},
         include={
             "ordenCompra": {
@@ -83,10 +69,9 @@ async def generar_certificado_trazabilidad(inventario_id: int):
 
     muestra = inventario.ordenCompra.muestra
 
-    # 2. Consultar información de la Finca y la Auditoría Satelital
-    finca = await prisma.finca.find_unique(where={"id": muestra.fincaId})
-    
-    auditoria = await prisma.auditoria.find_first(
+    finca = db.finca.find_unique(where={"id": muestra.fincaId})
+
+    auditoria = db.auditoria.find_first(
         where={
             "expediente": {
                 "dato": {
@@ -97,7 +82,6 @@ async def generar_certificado_trazabilidad(inventario_id: int):
         order={"fecha_auditoria": "desc"}
     )
 
-    # 3. Estructurar el Certificado Consolidado
     puntaje_sca = muestra.analisisSensorial.puntajeTotal if muestra.analisisSensorial else 0.0
 
     certificado = {
@@ -134,11 +118,11 @@ async def generar_certificado_trazabilidad(inventario_id: int):
     }
 
 @router.get("/certificado/{inventario_id}/pdf")
-async def descargar_certificado_pdf(inventario_id: int):
-    datos = await obtener_datos_trazabilidad(inventario_id) # Supongamos esta función helper
-    
+def descargar_certificado_pdf(inventario_id: int, db: Prisma = Depends(get_db)):
+    datos = obtener_datos_trazabilidad(inventario_id, db)
+
     pdf_buffer = generar_certificado_pdf(datos)
-    
+
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",

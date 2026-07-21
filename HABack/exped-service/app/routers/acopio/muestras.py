@@ -1,24 +1,23 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from prisma import Prisma
 from app.schemas.acopio import MuestraCreate
-from app.database import prisma
+from app.database import get_db
 
 router = APIRouter(prefix="/acopio/muestras", tags=["Acopio - Muestras"])
 
 @router.post("/")
-async def registrar_muestra(muestra: MuestraCreate):
-    # Verificamos que la finca exista
-    finca_db = await prisma.finca.find_unique(where={"id": str(muestra.fincaId)})
+def registrar_muestra(muestra: MuestraCreate, db: Prisma = Depends(get_db)):
+    finca_db = db.finca.find_unique(where={"id": str(muestra.fincaId)})
     if not finca_db:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
 
-    # Inserción real en BD
-    muestra_db = await prisma.muestra.create(data={
+    muestra_db = db.muestra.create(data={
         "fincaId": str(muestra.fincaId),
         "productorId": str(muestra.productorId),
         "codigoQR": muestra.codigoQR,
         "tipoProceso": muestra.tipoProceso,
-        "pesoKg": round(muestra.peso_lb * 0.453592, 2), # Pasando de lb a kg
-        "evidenciaFoto": "url_de_la_foto_aqui" # Aquí luego conectas tu servicio de storage
+        "pesoKg": round(muestra.peso_lb * 0.453592, 2),
+        "evidenciaFoto": "url_de_la_foto_aqui"
     })
 
     return {

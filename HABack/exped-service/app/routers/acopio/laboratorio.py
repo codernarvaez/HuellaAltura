@@ -1,16 +1,17 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from prisma import Prisma
 from app.schemas.acopio import AnalisisSensorialCreate, AnalisisFisicoCreate
-from app.database import prisma
+from app.database import get_db
 
 router = APIRouter(prefix="/acopio/laboratorio", tags=["Acopio - Laboratorio"])
 
 @router.post("/fisico")
-async def registrar_analisis_fisico(analisis: AnalisisFisicoCreate):
-    muestra_db = await prisma.muestra.find_unique(where={"id": analisis.muestraId})
+def registrar_analisis_fisico(analisis: AnalisisFisicoCreate, db: Prisma = Depends(get_db)):
+    muestra_db = db.muestra.find_unique(where={"id": analisis.muestraId})
     if not muestra_db:
         raise HTTPException(status_code=404, detail="Muestra no encontrada")
 
-    fisico_db = await prisma.analisisfisico.create(data={
+    fisico_db = db.analisisfisico.create(data={
         "muestraId": analisis.muestraId,
         "humedad": analisis.humedad,
         "criba": analisis.criba,
@@ -22,21 +23,19 @@ async def registrar_analisis_fisico(analisis: AnalisisFisicoCreate):
 
 
 @router.post("/sensorial")
-async def registrar_analisis_sensorial(analisis: AnalisisSensorialCreate):
-    muestra_db = await prisma.muestra.find_unique(where={"id": analisis.muestraId})
+def registrar_analisis_sensorial(analisis: AnalisisSensorialCreate, db: Prisma = Depends(get_db)):
+    muestra_db = db.muestra.find_unique(where={"id": analisis.muestraId})
     if not muestra_db:
         raise HTTPException(status_code=404, detail="Muestra no encontrada")
 
-    # Lógica funcional real: suma de atributos SCA
     puntaje_total = sum([
         analisis.fraganciaAroma, analisis.sabor, analisis.saborResidual,
         analisis.acidez, analisis.cuerpo, analisis.uniformidad,
         analisis.balance, analisis.tazaLimpia, analisis.dulzor,
         analisis.puntajeCatador
     ])
-    
-    # Inserción real en BD
-    sensorial_db = await prisma.analisissensorial.create(data={
+
+    sensorial_db = db.analisissensorial.create(data={
         "muestraId": analisis.muestraId,
         "fraganciaAroma": analisis.fraganciaAroma,
         "sabor": analisis.sabor,
