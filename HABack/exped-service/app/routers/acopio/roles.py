@@ -1,21 +1,48 @@
 """Grupos de roles autorizados en el módulo de Acopio (Módulo 3).
 
-Mientras no existan los roles especializados del Módulo 3
-(TECNICO_CALIDAD, ANALISTA_FISICO, CATADOR_Q, JEFE_CALIDAD, GERENCIA_ACOPIO,
-BODEGUERO) en auth-service, se reutilizan los roles ya sembrados. Al crearlos,
-basta con añadirlos a la tupla correspondiente.
+Cada etapa de la cadena de custodia tiene su propio grupo para que la
+separación de funciones sea real: quien toma la muestra no la cata, quien la
+cata no autoriza la compra y quien autoriza la compra no la pesa en bodega.
+
+`TECNICO_CAMPO` se mantiene en la toma de muestras porque es quien opera en
+finca. Los administradores conservan acceso transversal para poder desatascar
+la operación, y toda acción queda auditada vía `log_user_action`.
 """
 
-from app.core.roles import AUDITOR_INTERNO, SUPER_ADMIN, TECNICO_CAMPO, TENANT_ADMIN
+from app.core.roles import (
+    ANALISTA_FISICO,
+    AUDITOR_INTERNO,
+    BODEGUERO,
+    CATADOR_Q,
+    GERENCIA_ACOPIO,
+    JEFE_CALIDAD,
+    SUPER_ADMIN,
+    TECNICO_CAMPO,
+    TENANT_ADMIN,
+)
 
-# Toma de muestras y análisis de laboratorio (RF-APE-01, 03, 04)
-CALIDAD: tuple[str, ...] = (SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO)
+_ADMINS: tuple[str, ...] = (SUPER_ADMIN, TENANT_ADMIN)
 
-# Decisión de compra y despacho: control comercial (RF-APE-06, 07)
-GERENCIA: tuple[str, ...] = (SUPER_ADMIN, TENANT_ADMIN)
+# Toma de muestras en finca (RF-APE-01, RF-APE-02)
+MUESTREO: tuple[str, ...] = (*_ADMINS, TECNICO_CAMPO)
+
+# Análisis físico de laboratorio: humedad, criba, densidad, defectos (RF-APE-03)
+ANALISIS_FISICO: tuple[str, ...] = (*_ADMINS, ANALISTA_FISICO, JEFE_CALIDAD)
+
+# Catación SCA (RF-APE-04, RF-APE-05)
+CATACION: tuple[str, ...] = (*_ADMINS, CATADOR_Q, JEFE_CALIDAD)
+
+# Decisión de compra y despacho: control comercial (RF-APE-06, RF-APE-07)
+GERENCIA: tuple[str, ...] = (*_ADMINS, GERENCIA_ACOPIO)
 
 # Operación de bodega y trilla (RF-APE-08)
-BODEGA: tuple[str, ...] = (SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO)
+BODEGA: tuple[str, ...] = (*_ADMINS, BODEGUERO)
 
 # Consulta del certificado de trazabilidad, incluye auditoría
-CONSULTA: tuple[str, ...] = (SUPER_ADMIN, TENANT_ADMIN, TECNICO_CAMPO, AUDITOR_INTERNO)
+CONSULTA: tuple[str, ...] = (
+    *_ADMINS,
+    TECNICO_CAMPO,
+    AUDITOR_INTERNO,
+    JEFE_CALIDAD,
+    GERENCIA_ACOPIO,
+)

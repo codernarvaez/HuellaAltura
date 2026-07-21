@@ -437,9 +437,13 @@ model AnalisisFisico {
   muestra         Muestra   @relation(fields: [muestraId], references: [id])
   humedad         Float     // Umbral 10-12%
   criba           String    // 14 al 18
-  densidad        Float    
-  defectosPrim    Int      
-  defectosSec     Int      
+  densidad        Float
+  defectosPrim    Int
+  defectosSec     Int
+  // La medición fuera de umbral debe poder registrarse: el lote no conforme
+  // forma parte de la trazabilidad tanto como el aprobado (RF-APE-03).
+  conforme        Boolean   @default(true)
+  noConformidades String[]  @default([])
   fechaAnalisis   DateTime  @default(now())
 }
 
@@ -456,9 +460,12 @@ model AnalisisSensorial {
   balance         Float    
   tazaLimpia      Float    
   dulzor          Float    
-  puntajeCatador  Float    
+  puntajeCatador  Float
+  // 11º item del formato SCA: penalizacion por defectos de taza, que se resta
+  // de la suma de los 10 atributos positivos.
+  defectos        Float     @default(0)
   puntajeTotal    Float     // Si es >= 80 -> "Café de Especialidad"
-  nivelTueste     String   
+  nivelTueste     String
 }
 
 model OrdenCompra {

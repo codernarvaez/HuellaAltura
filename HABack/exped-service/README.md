@@ -95,6 +95,38 @@ Usuario (auth-service) con rol PRODUCTOR
 | GET | `/expediente/{id}` | Por expediente |
 | PATCH | `/{id}/revocar` | Revocar |
 
+### Módulo 3 — Acopio, Procesamiento y Exportación `/acopio`
+
+| Método | Ruta | Rol requerido | RF |
+|--------|------|---------------|-----|
+| POST | `/acopio/muestras/` | `TECNICO_CAMPO` | APE-01, APE-02 |
+| POST | `/acopio/laboratorio/fisico` | `ANALISTA_FISICO` | APE-03 |
+| POST | `/acopio/laboratorio/sensorial` | `CATADOR_Q` | APE-04, APE-05 |
+| POST | `/acopio/compras/aprobar` | `GERENCIA_ACOPIO` | APE-06, APE-07 |
+| POST | `/acopio/bodega/ingreso` | `BODEGUERO` | APE-08 |
+| GET | `/acopio/bodega/{inventario_id}` | `BODEGUERO` | APE-08 |
+| POST | `/acopio/trilla/procesar` | `BODEGUERO` | RS-AGR-003 |
+| POST | `/acopio/despachos/registrar` | `GERENCIA_ACOPIO` | Antifraude de segregación |
+| GET | `/acopio/despachos/certificado/{id}` | `AUDITOR_INTERNO` | Trazabilidad consolidada |
+| GET | `/acopio/despachos/certificado/{id}/pdf` | `AUDITOR_INTERNO` | Certificado descargable |
+
+`SUPER_ADMIN` y `TENANT_ADMIN` conservan acceso transversal. Los grupos de rol
+se definen en `app/routers/acopio/roles.py`.
+
+**Reglas de negocio del módulo:**
+
+- **Peso de muestra (APE-01):** 0,5 kg para Lavado y Honey, 1 kg para Natural,
+  con ±10 % de tolerancia de báscula. El peso se envía en libras y se valida
+  ya convertido.
+- **Análisis físico (APE-03):** humedad fuera de 10–12 %, criba fuera de 14–18
+  o cualquier defecto primario marcan el lote como **no conforme**, pero el
+  análisis se registra igual. La medición real nunca se descarta.
+- **Catación (APE-04):** puntaje = suma de los 10 atributos SCA **menos** la
+  penalización por defectos de taza. Especialidad a partir de 80 puntos.
+- **Compra (APE-07):** bloqueo duro si la finca no tiene auditoría EUDR
+  aprobada o si se detectó deforestación post-2020.
+- **Despacho:** Σ kg de salida nunca puede superar Σ kg de ingreso.
+
 ---
 
 ## Instalación local
@@ -191,6 +223,24 @@ INTERNAL_API_KEY="clave_interna_entre_servicios"
 # Validación de sesión
 AUTH_SERVICE_URL=https://huellaaltura.onrender.com
 SESSION_VALIDATION_ENABLED=true
+
+# Orígenes permitidos por CORS, separados por coma.
+# Debe configurarse en el panel de Render antes del próximo despliegue
+# o el frontend quedará bloqueado.
+CORS_ORIGINS=http://localhost:4321,https://tu-dominio-web
 ```
 
 > El archivo `.env` nunca se sube al repositorio (`.gitignore`).
+
+### Seed de `auth-service`
+
+El usuario administrador ya no tiene contraseña fija en el código. `seed.py`
+lee del entorno:
+
+```env
+SEED_ADMIN_EMAIL=admin@tu-dominio
+SEED_ADMIN_PASSWORD=      # opcional: si se omite se genera una aleatoria
+```
+
+Sin `SEED_ADMIN_EMAIL` el seed solo sincroniza los roles y no crea ningún
+usuario.

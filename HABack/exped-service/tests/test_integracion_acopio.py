@@ -96,18 +96,20 @@ def _crear_finca_con_eudr(aprobada: bool) -> str:
     return finca.id
 
 
+def _post_muestra(client, finca_id: str, **campos):
+    payload = {
+        "fincaId": finca_id,
+        "productorId": "productor-test",
+        "codigoQR": f"QR-{uuid.uuid4().hex[:10]}",
+        "tipoProceso": "Lavado",
+        "peso_lb": 1.1,  # ~0.5 kg, el exigido para Lavado
+    }
+    payload.update(campos)
+    return client.post("/acopio/muestras/", headers=auth("TECNICO_CAMPO"), json=payload)
+
+
 def _crear_muestra(client, finca_id: str) -> dict:
-    r = client.post(
-        "/acopio/muestras/",
-        headers=auth("TECNICO_CAMPO"),
-        json={
-            "fincaId": finca_id,
-            "productorId": "productor-test",
-            "codigoQR": f"QR-{uuid.uuid4().hex[:10]}",
-            "tipoProceso": "Lavado",
-            "peso_lb": 1.0,
-        },
-    )
+    r = _post_muestra(client, finca_id)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -120,27 +122,102 @@ def test_registrar_muestra_convierte_a_kg(client):
 
     guardada = db.muestra.find_unique(where={"id": muestra["muestra_id"]})
     assert guardada.fincaId == finca_id
-    assert guardada.pesoKg == pytest.approx(0.45, abs=0.01)  # 1 lb -> kg
+    assert guardada.pesoKg == pytest.approx(0.5, abs=0.01)  # 1.1 lb -> kg
+
+
+def test_peso_de_muestra_exigido_por_proceso(client):
+    """RF-APE-01: 0,5 kg para Lavado y Honey; 1 kg para Natural."""
+    finca_id = _crear_finca_con_eudr(aprobada=True)
+
+    # Natural exige 1 kg: media libra se queda muy corto
+    assert _post_muestra(
+        client, finca_id, tipoProceso="Natural", peso_lb=1.1
+    ).status_code == 422
+
+    # Natural con ~1 kg sí se acepta
+    assert _post_muestra(
+        client, finca_id, tipoProceso="Natural", peso_lb=2.2
+    ).status_code == 200
+
+    # Lavado con 1 kg duplica el peso exigido
+    assert _post_muestra(
+        client, finca_id, tipoProceso="Lavado", peso_lb=2.2
+    ).status_code == 422
+
+
+def test_tipo_de_proceso_restringido_al_catalogo(client):
+    finca_id = _crear_finca_con_eudr(aprobada=True)
+    r = _post_muestra(client, finca_id, tipoProceso="Semilavado")
+    assert r.status_code == 422
 
 
 def test_muestra_con_finca_inexistente(client):
-    r = client.post(
-        "/acopio/muestras/",
-        headers=auth("TECNICO_CAMPO"),
-        json={
-            "fincaId": "no-existe",
-            "productorId": "p",
-            "codigoQR": f"QR-{uuid.uuid4().hex[:8]}",
-            "tipoProceso": "Lavado",
-            "peso_lb": 1.0,
-        },
-    )
+    r = _post_muestra(client, "no-existe")
     assert r.status_code == 404
 
 
 # ===== RF-APE-03/04/05: laboratorio =====
 
-def test_analisis_fisico_rechaza_humedad_fuera_de_umbral(client):
+def _analisis_fisico(client, muestra_id: int, **campos):
+    payload = {
+        "muestraId": muestra_id,
+        "humedad": 11.0,
+        "criba": "16",
+        "densidad": 700.0,
+        "defectosPrim": 0,
+        "defectosSec": 2,
+    }
+    payload.update(campos)
+    return client.post(
+        "/acopio/laboratorio/fisico", headers=auth("ANALISTA_FISICO"), json=payload
+    )
+
+
+def test_analisis_fisico_conforme(client):
+    finca_id = _crear_finca_con_eudr(aprobada=True)
+    muestra = _crear_muestra(client, finca_id)
+
+    r = _analisis_fisico(client, muestra["muestra_id"])
+    assert r.status_code == 200, r.text
+    assert r.json()["conforme"] is True
+    assert r.json()["no_conformidades"] == []
+
+
+def test_humedad_fuera_de_umbral_se_registra_como_no_conforme(client):
+    """RF-APE-03: el lote defectuoso debe quedar documentado, no rechazado.
+
+    Devolver 422 dejaría al laboratorio sin forma de registrar una medición
+    real fuera de especificación, que es justo lo que la trazabilidad prueba.
+    """
+    finca_id = _crear_finca_con_eudr(aprobada=True)
+    muestra = _crear_muestra(client, finca_id)
+
+    r = _analisis_fisico(client, muestra["muestra_id"], humedad=15.0)
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+
+    assert cuerpo["conforme"] is False
+    assert any("Humedad" in nc for nc in cuerpo["no_conformidades"])
+
+    guardado = db.analisisfisico.find_unique(where={"id": cuerpo["id"]})
+    assert guardado.conforme is False
+    assert guardado.humedad == 15.0  # la medición real se conserva
+
+
+def test_criba_y_defecto_primario_generan_no_conformidad(client):
+    finca_id = _crear_finca_con_eudr(aprobada=True)
+    muestra = _crear_muestra(client, finca_id)
+
+    cuerpo = _analisis_fisico(
+        client, muestra["muestra_id"], criba="12", defectosPrim=3
+    ).json()
+
+    assert cuerpo["conforme"] is False
+    assert len(cuerpo["no_conformidades"]) == 2
+
+
+def test_analisis_fisico_requiere_rol_de_laboratorio(client):
+    """Separación de funciones: el técnico de campo no analiza en laboratorio."""
     finca_id = _crear_finca_con_eudr(aprobada=True)
     muestra = _crear_muestra(client, finca_id)
 
@@ -149,32 +226,40 @@ def test_analisis_fisico_rechaza_humedad_fuera_de_umbral(client):
         headers=auth("TECNICO_CAMPO"),
         json={
             "muestraId": muestra["muestra_id"],
-            "humedad": 15.0,  # fuera del umbral 10-12%
+            "humedad": 11.0,
             "criba": "16",
             "densidad": 700.0,
             "defectosPrim": 0,
-            "defectosSec": 2,
+            "defectosSec": 0,
         },
     )
-    assert r.status_code == 422
+    assert r.status_code == 403
+
+
+_ATRIBUTOS_SCA = (
+    "fraganciaAroma", "sabor", "saborResidual", "acidez", "cuerpo",
+    "uniformidad", "balance", "tazaLimpia", "dulzor", "puntajeCatador",
+)
+
+
+def _catar(client, muestra_id: int, puntaje_atributo: float, defectos: float = 0.0):
+    return client.post(
+        "/acopio/laboratorio/sensorial",
+        headers=auth("CATADOR_Q"),
+        json={
+            "muestraId": muestra_id,
+            "nivelTueste": "Medio",
+            "defectos": defectos,
+            **{k: puntaje_atributo for k in _ATRIBUTOS_SCA},
+        },
+    )
 
 
 def test_cafe_de_especialidad_si_puntaje_supera_80(client):
     finca_id = _crear_finca_con_eudr(aprobada=True)
     muestra = _crear_muestra(client, finca_id)
 
-    atributos = {
-        k: 8.5
-        for k in (
-            "fraganciaAroma", "sabor", "saborResidual", "acidez", "cuerpo",
-            "uniformidad", "balance", "tazaLimpia", "dulzor", "puntajeCatador",
-        )
-    }
-    r = client.post(
-        "/acopio/laboratorio/sensorial",
-        headers=auth("TECNICO_CAMPO"),
-        json={"muestraId": muestra["muestra_id"], "nivelTueste": "Medio", **atributos},
-    )
+    r = _catar(client, muestra["muestra_id"], 8.5)
     assert r.status_code == 200, r.text
     assert r.json()["puntaje_total"] == pytest.approx(85.0)
     assert r.json()["clasificacion"] == "Café de Especialidad"
@@ -184,19 +269,43 @@ def test_cafe_comercial_si_puntaje_bajo_80(client):
     finca_id = _crear_finca_con_eudr(aprobada=True)
     muestra = _crear_muestra(client, finca_id)
 
-    atributos = {
-        k: 7.0
-        for k in (
-            "fraganciaAroma", "sabor", "saborResidual", "acidez", "cuerpo",
-            "uniformidad", "balance", "tazaLimpia", "dulzor", "puntajeCatador",
-        )
-    }
+    r = _catar(client, muestra["muestra_id"], 7.0)
+    assert r.json()["clasificacion"] == "Café Comercial"
+
+
+def test_defectos_de_taza_restan_del_puntaje_sca(client):
+    """RF-APE-04: los defectos son el 11º ítem del formato y penalizan.
+
+    Sin la resta, un café con taints o faults conservaría intacta su
+    clasificación de especialidad.
+    """
+    finca_id = _crear_finca_con_eudr(aprobada=True)
+    muestra = _crear_muestra(client, finca_id)
+
+    # 85 puntos de atributos - 6 de defectos = 79 -> deja de ser especialidad
+    r = _catar(client, muestra["muestra_id"], 8.5, defectos=6.0)
+    cuerpo = r.json()
+
+    assert cuerpo["puntaje_atributos"] == pytest.approx(85.0)
+    assert cuerpo["penalizacion_defectos"] == pytest.approx(6.0)
+    assert cuerpo["puntaje_total"] == pytest.approx(79.0)
+    assert cuerpo["clasificacion"] == "Café Comercial"
+
+
+def test_catacion_requiere_rol_de_catador(client):
+    finca_id = _crear_finca_con_eudr(aprobada=True)
+    muestra = _crear_muestra(client, finca_id)
+
     r = client.post(
         "/acopio/laboratorio/sensorial",
-        headers=auth("TECNICO_CAMPO"),
-        json={"muestraId": muestra["muestra_id"], "nivelTueste": "Medio", **atributos},
+        headers=auth("ANALISTA_FISICO"),
+        json={
+            "muestraId": muestra["muestra_id"],
+            "nivelTueste": "Medio",
+            **{k: 8.0 for k in _ATRIBUTOS_SCA},
+        },
     )
-    assert r.json()["clasificacion"] == "Café Comercial"
+    assert r.status_code == 403
 
 
 # ===== RF-APE-07: bloqueo EUDR =====
@@ -242,7 +351,7 @@ def _cadena_hasta_bodega(client, peso_lb: float = 220.46):
     qr = db.muestra.find_unique(where={"id": muestra["muestra_id"]}).codigoQR
     ingreso = client.post(
         "/acopio/bodega/ingreso",
-        headers=auth("TECNICO_CAMPO"),
+        headers=auth("BODEGUERO"),
         json={
             "ordenCompraId": orden["orden_id"],
             "codigoQR": qr,
@@ -265,7 +374,7 @@ def test_ingreso_bodega_valida_qr(client):
 
     r = client.post(
         "/acopio/bodega/ingreso",
-        headers=auth("TECNICO_CAMPO"),
+        headers=auth("BODEGUERO"),
         json={
             "ordenCompraId": orden["orden_id"],
             "codigoQR": "QR-QUE-NO-CORRESPONDE",
@@ -284,7 +393,7 @@ def test_ingreso_duplicado_rechazado(client):
 
     r = client.post(
         "/acopio/bodega/ingreso",
-        headers=auth("TECNICO_CAMPO"),
+        headers=auth("BODEGUERO"),
         json={
             "ordenCompraId": orden_id,
             "codigoQR": qr,
@@ -302,7 +411,7 @@ def test_balance_de_masa_en_trilla(client):
 
     r = client.post(
         "/acopio/trilla/procesar",
-        headers=auth("TECNICO_CAMPO"),
+        headers=auth("BODEGUERO"),
         json={"inventarioId": inventario["inventario_id"], "factorRendimiento": 0.80},
     )
     assert r.status_code == 200, r.text
@@ -320,7 +429,7 @@ def test_trilla_rechaza_factor_fuera_de_rango(client):
     inventario = _cadena_hasta_bodega(client)
     r = client.post(
         "/acopio/trilla/procesar",
-        headers=auth("TECNICO_CAMPO"),
+        headers=auth("BODEGUERO"),
         json={"inventarioId": inventario["inventario_id"], "factorRendimiento": 0.95},
     )
     assert r.status_code == 422
@@ -329,8 +438,8 @@ def test_trilla_rechaza_factor_fuera_de_rango(client):
 def test_trilla_rechaza_lote_ya_procesado(client):
     inventario = _cadena_hasta_bodega(client)
     payload = {"inventarioId": inventario["inventario_id"], "factorRendimiento": 0.80}
-    assert client.post("/acopio/trilla/procesar", headers=auth("TECNICO_CAMPO"), json=payload).status_code == 200
-    r = client.post("/acopio/trilla/procesar", headers=auth("TECNICO_CAMPO"), json=payload)
+    assert client.post("/acopio/trilla/procesar", headers=auth("BODEGUERO"), json=payload).status_code == 200
+    r = client.post("/acopio/trilla/procesar", headers=auth("BODEGUERO"), json=payload)
     assert r.status_code == 400
 
 
@@ -382,7 +491,7 @@ def test_certificado_de_trazabilidad_consolidado(client):
     inventario = _cadena_hasta_bodega(client, peso_lb=220.46)
     client.post(
         "/acopio/trilla/procesar",
-        headers=auth("TECNICO_CAMPO"),
+        headers=auth("BODEGUERO"),
         json={"inventarioId": inventario["inventario_id"], "factorRendimiento": 0.80},
     )
 

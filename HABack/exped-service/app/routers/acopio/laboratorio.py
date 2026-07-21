@@ -5,7 +5,7 @@ from prisma import Prisma
 
 from app.database import get_db
 from app.dependencies import log_user_action, require_roles
-from app.routers.acopio.roles import CALIDAD
+from app.routers.acopio.roles import ANALISIS_FISICO, CATACION
 from app.schemas.acopio import AnalisisFisicoCreate, AnalisisSensorialCreate
 
 router = APIRouter(prefix="/acopio/laboratorio", tags=["Acopio - Laboratorio"])
@@ -25,12 +25,19 @@ def clasificar(puntaje_total: float) -> str:
 def registrar_analisis_fisico(
     analisis: AnalisisFisicoCreate,
     db: Annotated[Prisma, Depends(get_db)],
-    current_user: dict = Depends(require_roles(*CALIDAD)),
+    current_user: dict = Depends(require_roles(*ANALISIS_FISICO)),
 ):
-    """Registra el análisis físico de la muestra (RF-APE-03)."""
+    """Registra el análisis físico de la muestra (RF-APE-03).
+
+    Una medición fuera de umbral **se registra igualmente** y se marca como no
+    conforme. Rechazarla con 422 dejaría al laboratorio sin forma de documentar
+    un lote defectuoso, que es precisamente lo que la trazabilidad debe probar.
+    """
     muestra_db = db.muestra.find_unique(where={"id": analisis.muestraId})
     if not muestra_db:
         raise HTTPException(status_code=404, detail="Muestra no encontrada")
+
+    no_conformidades = analisis.evaluar_conformidad()
 
     fisico_db = db.analisisfisico.create(
         data={
@@ -40,9 +47,17 @@ def registrar_analisis_fisico(
             "densidad": analisis.densidad,
             "defectosPrim": analisis.defectosPrim,
             "defectosSec": analisis.defectosSec,
+            "conforme": not no_conformidades,
+            "noConformidades": no_conformidades,
         }
     )
-    return {"mensaje": "Análisis físico registrado", "id": fisico_db.id}
+
+    return {
+        "mensaje": "Análisis físico registrado",
+        "id": fisico_db.id,
+        "conforme": not no_conformidades,
+        "no_conformidades": no_conformidades,
+    }
 
 
 @router.post(
@@ -52,27 +67,14 @@ def registrar_analisis_fisico(
 def registrar_analisis_sensorial(
     analisis: AnalisisSensorialCreate,
     db: Annotated[Prisma, Depends(get_db)],
-    current_user: dict = Depends(require_roles(*CALIDAD)),
+    current_user: dict = Depends(require_roles(*CATACION)),
 ):
-    """Registra el análisis sensorial SCA y clasifica la muestra (RF-APE-04, 05)."""
+    """Registra la catación SCA y clasifica la muestra (RF-APE-04, RF-APE-05)."""
     muestra_db = db.muestra.find_unique(where={"id": analisis.muestraId})
     if not muestra_db:
         raise HTTPException(status_code=404, detail="Muestra no encontrada")
 
-    puntaje_total = sum(
-        [
-            analisis.fraganciaAroma,
-            analisis.sabor,
-            analisis.saborResidual,
-            analisis.acidez,
-            analisis.cuerpo,
-            analisis.uniformidad,
-            analisis.balance,
-            analisis.tazaLimpia,
-            analisis.dulzor,
-            analisis.puntajeCatador,
-        ]
-    )
+    puntaje_total = analisis.puntaje_final()
 
     sensorial_db = db.analisissensorial.create(
         data={
@@ -87,6 +89,7 @@ def registrar_analisis_sensorial(
             "tazaLimpia": analisis.tazaLimpia,
             "dulzor": analisis.dulzor,
             "puntajeCatador": analisis.puntajeCatador,
+            "defectos": analisis.defectos,
             "puntajeTotal": puntaje_total,
             "nivelTueste": analisis.nivelTueste,
         }
@@ -94,6 +97,8 @@ def registrar_analisis_sensorial(
 
     return {
         "mensaje": "Análisis sensorial registrado",
+        "puntaje_atributos": round(puntaje_total + analisis.defectos, 2),
+        "penalizacion_defectos": analisis.defectos,
         "puntaje_total": puntaje_total,
         "clasificacion": clasificar(puntaje_total),
         "id": sensorial_db.id,

@@ -5,7 +5,7 @@ from prisma import Prisma
 
 from app.database import get_db
 from app.dependencies import log_user_action, require_roles
-from app.routers.acopio.roles import CALIDAD
+from app.routers.acopio.roles import MUESTREO
 from app.schemas.acopio import MuestraCreate
 
 router = APIRouter(prefix="/acopio/muestras", tags=["Acopio - Muestras"])
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/acopio/muestras", tags=["Acopio - Muestras"])
 def registrar_muestra(
     muestra: MuestraCreate,
     db: Annotated[Prisma, Depends(get_db)],
-    current_user: dict = Depends(require_roles(*CALIDAD)),
+    current_user: dict = Depends(require_roles(*MUESTREO)),
 ):
     """
     Registra la obtención de una muestra en finca (RF-APE-01).
