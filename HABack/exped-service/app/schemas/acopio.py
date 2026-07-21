@@ -5,11 +5,15 @@ from datetime import datetime
 # ─── Muestras en Finca ───────────────────────────────────────
 
 class MuestraCreate(BaseModel):
-    fincaId: int = Field(..., description="ID de la Finca georreferenciada")
-    productorId: int = Field(..., description="ID del Productor asociado")
+    # Finca.id y usuario_id son UUID (String) en schema.prisma, no enteros.
+    fincaId: str = Field(..., description="ID de la Finca georreferenciada")
+    productorId: str = Field(..., description="ID del Productor asociado")
     codigoQR: str = Field(..., description="Código QR único de trazabilidad")
     tipoProceso: str = Field(..., description="Lavado, Honey o Natural")
     peso_lb: float = Field(..., description="Peso capturado en finca en libras (ej. 0.5 o 1.0)")
+    evidenciaFoto: Optional[str] = Field(
+        None, description="URL de la evidencia fotográfica de la toma de muestra"
+    )
 
 class MuestraOut(MuestraCreate):
     id: int
@@ -103,7 +107,7 @@ class TrillaCreate(BaseModel):
         ..., 
         ge=0.78, 
         le=0.82, 
-        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"[cite: 2]
+        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"
     )
 
 class TrillaOut(BaseModel):

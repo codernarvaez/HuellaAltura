@@ -7,7 +7,7 @@ os.environ["PRISMA_PY_DEBUG_GENERATOR"] = "1"
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -19,57 +19,81 @@ from app.routers import (
     auditoria,
     certificados,
     expedientes,
+    documentos,
     fincas,
+    formularios,
+    productores,
+    screening,
     variables,
     sync,
     geoespacial,
     labores,
 )
 
-from app.routers.acopio import muestras, laboratorio, compras, bodega, trilla
+from app.routers.acopio import (
+    bodega,
+    compras,
+    despachos,
+    laboratorio,
+    muestras,
+    trilla,
+)
 
 
 class ErrorMessageMiddleware(BaseHTTPMiddleware):
-    """Middleware para mejorar mensajes de error HTTP."""
+    """Sustituye los mensajes genéricos de FastAPI por otros más accionables.
+
+    El cuerpo de la respuesta solo puede leerse una vez, así que cuando se
+    consume hay que reconstruir la respuesta con el contenido ya leído. De lo
+    contrario el cliente recibe un cuerpo vacío.
+    """
+
+    # detail genérico -> mensaje que devolvemos en su lugar
+    _MENSAJES = {
+        404: (
+            "Not Found",
+            lambda request: f"La ruta solicitada no existe: {request.method} {request.url.path}",
+        ),
+        403: (
+            "Not authenticated",
+            lambda _: (
+                "Requiere autenticación. Proporciona un token JWT válido en el "
+                "header 'Authorization: Bearer <token>'."
+            ),
+        ),
+    }
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
 
-        # Si es un error 404 genérico de FastAPI, mejorarlo
-        if response.status_code == 404:
-            try:
-                body = b""
-                async for chunk in response.body_iterator:
-                    body += chunk
-                data = json.loads(body)
-                if data.get("detail") == "Not Found":
-                    return JSONResponse(
-                        status_code=404,
-                        content={
-                            "detail": f"La ruta solicitada no existe: {request.method} {request.url.path}"
-                        },
-                    )
-            except:
-                pass
+        regla = self._MENSAJES.get(response.status_code)
+        if regla is None or not hasattr(response, "body_iterator"):
+            return response
 
-        # Si es error 403 sin autenticación, mejorarlo
-        if response.status_code == 403:
-            try:
-                body = b""
-                async for chunk in response.body_iterator:
-                    body += chunk
-                data = json.loads(body)
-                if data.get("detail") == "Not authenticated":
-                    return JSONResponse(
-                        status_code=403,
-                        content={
-                            "detail": "Requiere autenticación. Proporciona un token JWT válido en el header 'Authorization: Bearer <token>'."
-                        },
-                    )
-            except:
-                pass
+        detalle_generico, construir_mensaje = regla
 
-        return response
+        body = b""
+        async for chunk in response.body_iterator:
+            body += chunk
+
+        try:
+            data = json.loads(body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            data = None
+
+        if isinstance(data, dict) and data.get("detail") == detalle_generico:
+            return JSONResponse(
+                status_code=response.status_code,
+                content={"detail": construir_mensaje(request)},
+            )
+
+        # No aplica la mejora: se devuelve el cuerpo original intacto
+        return Response(
+            content=body,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.media_type,
+        )
 
 
 @asynccontextmanager
@@ -115,7 +139,7 @@ Esta API es el núcleo del sistema **GeoGuard EUDR**, encargada de gestionar el 
 app.add_middleware(ErrorMessageMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -131,7 +155,27 @@ app.include_router(
     prefix=endpoints.AGROAMBIENTAL_PREFIX,
     tags=["Agroambiental"],
 )
+app.include_router(
+    productores.router,
+    prefix=endpoints.PRODUCTORES_PREFIX,
+    tags=["Productores"],
+)
 app.include_router(fincas.router, prefix=endpoints.FINCAS_PREFIX, tags=["Fincas"])
+app.include_router(
+    formularios.router,
+    prefix=endpoints.FORMULARIOS_PREFIX,
+    tags=["Formularios Dinámicos"],
+)
+app.include_router(
+    documentos.router,
+    prefix=endpoints.DOCUMENTOS_PREFIX,
+    tags=["Expediente Documental"],
+)
+app.include_router(
+    screening.router,
+    prefix=endpoints.CUMPLIMIENTO_PREFIX,
+    tags=["Sanciones y Firma Digital"],
+)
 app.include_router(
     auditoria.router,
     prefix=endpoints.AUDITORIA_PREFIX,
@@ -141,6 +185,11 @@ app.include_router(
     certificados.router,
     prefix=endpoints.CERTIFICADOS_PREFIX,
     tags=["Certificados DDS"],
+)
+app.include_router(
+    variables.router,
+    prefix=endpoints.VARIABLES_PREFIX,
+    tags=["Variables Dinámicas"],
 )
 app.include_router(
     sync.router,
@@ -173,3 +222,4 @@ app.include_router(laboratorio.router)
 app.include_router(compras.router)
 app.include_router(bodega.router)
 app.include_router(trilla.router)
+app.include_router(despachos.router)

@@ -1,27 +1,47 @@
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
+from prisma import Prisma
+
+from app.database import get_db
+from app.dependencies import log_user_action, require_roles
+from app.routers.acopio.roles import CALIDAD
 from app.schemas.acopio import MuestraCreate
-from app.database import prisma
 
 router = APIRouter(prefix="/acopio/muestras", tags=["Acopio - Muestras"])
 
-@router.post("/")
-async def registrar_muestra(muestra: MuestraCreate):
-    # Verificamos que la finca exista
-    finca_db = await prisma.finca.find_unique(where={"id": str(muestra.fincaId)})
+
+@router.post(
+    "/",
+    dependencies=[Depends(log_user_action("registrar_muestra"))],
+)
+def registrar_muestra(
+    muestra: MuestraCreate,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*CALIDAD)),
+):
+    """
+    Registra la obtención de una muestra en finca (RF-APE-01).
+
+    La muestra queda vinculada a la finca georreferenciada del productor, que es
+    la que sustenta la validación EUDR posterior (RF-APE-02).
+    """
+    finca_db = db.finca.find_unique(where={"id": muestra.fincaId})
     if not finca_db:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
 
-    # Inserción real en BD
-    muestra_db = await prisma.muestra.create(data={
-        "fincaId": str(muestra.fincaId),
-        "productorId": str(muestra.productorId),
-        "codigoQR": muestra.codigoQR,
-        "tipoProceso": muestra.tipoProceso,
-        "pesoKg": round(muestra.peso_lb * 0.453592, 2), # Pasando de lb a kg
-        "evidenciaFoto": "url_de_la_foto_aqui" # Aquí luego conectas tu servicio de storage
-    })
+    muestra_db = db.muestra.create(
+        data={
+            "fincaId": muestra.fincaId,
+            "productorId": muestra.productorId,
+            "codigoQR": muestra.codigoQR,
+            "tipoProceso": muestra.tipoProceso,
+            "pesoKg": round(muestra.peso_lb * 0.453592, 2),  # lb -> kg
+            "evidenciaFoto": muestra.evidenciaFoto,
+        }
+    )
 
     return {
         "mensaje": "Muestra registrada exitosamente",
-        "muestra_id": muestra_db.id
+        "muestra_id": muestra_db.id,
     }

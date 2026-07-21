@@ -364,7 +364,7 @@ class TestEndpointsPublic:
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
 
         assert response.status_code == 400
-        assert "Formato no soportado" in response.json()["detail"]
+        assert "Formato de archivo no soportado" in response.json()["detail"]
 
     def test_upload_empty_coordinates_publico(self):
         """Valida rechazo de archivo sin coordenadas."""
@@ -382,7 +382,7 @@ class TestEndpointsPublic:
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
 
         assert response.status_code == 400
-        assert "No se encontraron coordenadas" in response.json()["detail"]
+        assert "no contiene coordenadas válidas" in response.json()["detail"]
 
 
 # ===== PRUEBAS DE ESTRUCTURA JSON =====

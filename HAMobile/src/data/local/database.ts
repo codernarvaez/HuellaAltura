@@ -6,21 +6,53 @@ import * as schema from './esquema';
 import actividadesTrazabilidadData from '../actividadesTrazabilidad.json';
 
 /**
+ * Versión actual del esquema local. Incrementar al cambiar la forma de una tabla
+ * y añadir el paso correspondiente en `aplicarMigraciones`.
+ */
+const ESQUEMA_VERSION = 1;
+
+/**
  * Gestión de la base de datos cifrada (RS-SEC-004)
  */
 export class DatabaseManager {
   private static db: any = null;
 
   /**
+   * Migra el esquema local de forma incremental usando `PRAGMA user_version`.
+   *
+   * Antes aquí había un `DROP TABLE` incondicional de `expedientes` y
+   * `datos_agroambientales` en cada arranque, lo que borraba los registros
+   * capturados en campo que aún no se habían sincronizado. Ahora la recreación
+   * ocurre una sola vez, para migrar instalaciones con el esquema antiguo
+   * (`finca_id`/`expediente_id`) al actual (`dato_id`).
+   */
+  private static async aplicarMigraciones(sqlite: any) {
+    const res = await sqlite.execute('PRAGMA user_version');
+    const versionActual: number = res.rows?.[0]?.user_version ?? 0;
+
+    if (versionActual >= ESQUEMA_VERSION) return;
+
+    if (versionActual < 1) {
+      // Instalaciones previas a la versión 1 tienen `expedientes` y
+      // `datos_agroambientales` con columnas incompatibles. Se recrean una vez.
+      sqlite.execute('DROP TABLE IF EXISTS "expedientes"');
+      sqlite.execute('DROP TABLE IF EXISTS "datos_agroambientales"');
+    }
+
+    sqlite.execute(`PRAGMA user_version = ${ESQUEMA_VERSION}`);
+  }
+
+  /**
    * Inicializa la base de datos cifrada usando el PIN del usuario y el ID del hardware.
    */
   static async initialize(userPin: string) {
     if (this.db) return this.db;
-    
+
     const hardwareId = Application.getAndroidId() || 'ios_placeholder_id';
     const salt = 'eudr_v1_salt';
-    
-    // Derivación de llave (PBKDF2)
+
+    // TODO(C1): esto es un único digest SHA-256, no una derivación con coste.
+    // Sustituir por PBKDF2 con iteraciones y salt por instalación.
     const encryptionKey = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
       `${userPin}:${hardwareId}:${salt}`
@@ -31,7 +63,10 @@ export class DatabaseManager {
       encryptionKey: encryptionKey,
     });
 
-    // Crear tablas necesarias si no existen (Migración básica / Inicialización)
+    // Migraciones de esquema versionadas (no destructivas tras la primera vez)
+    await this.aplicarMigraciones(sqlite);
+
+    // Crear tablas necesarias si no existen (Inicialización)
     sqlite.execute(`
       CREATE TABLE IF NOT EXISTS "productores" (
         "id" text PRIMARY KEY NOT NULL,
@@ -69,7 +104,6 @@ export class DatabaseManager {
       );
     `);
 
-    sqlite.execute(`DROP TABLE IF EXISTS "expedientes"`);
     sqlite.execute(`
       CREATE TABLE IF NOT EXISTS "expedientes" (
         "id" text PRIMARY KEY NOT NULL,
@@ -81,7 +115,6 @@ export class DatabaseManager {
       );
     `);
 
-    sqlite.execute(`DROP TABLE IF EXISTS "datos_agroambientales"`);
     sqlite.execute(`
       CREATE TABLE IF NOT EXISTS "datos_agroambientales" (
         "id" text PRIMARY KEY NOT NULL,

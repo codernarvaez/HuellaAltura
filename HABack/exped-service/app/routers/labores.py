@@ -6,6 +6,7 @@ from typing import Annotated, List
 from prisma import Prisma
 
 from app.database import get_db
+from app.dependencies import get_current_user, log_user_action, require_roles
 from app.schemas.schemas import LaborAgricolaCreate, LaborAgricolaOut, EjecucionLaborCreate, EjecucionLaborOut
 from app.services.normativa_service import NormativaService
 
@@ -17,16 +18,24 @@ cloudinary.config(
 
 router = APIRouter(prefix="/api/v1/labores", tags=["Labores Agrícolas"])
 
+# Quién planifica y ejecuta labores en campo
+_OPERADORES = ("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")
+# Quién valida documentalmente los registros ejecutados (RF-PPC-10, RF-AGR-14)
+_VALIDADORES = ("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")
+
+
 @router.post(
     "/agendar",
     response_model=LaborAgricolaOut,
     status_code=status.HTTP_201_CREATED,
     summary="Agendar Nueva Labor Agrícola",
-    description="Crea una nueva labor planeada para un mes específico en una finca."
+    description="Crea una nueva labor planeada para un mes específico en una finca.",
+    dependencies=[Depends(log_user_action("agendar_labor"))],
 )
 def agendar_labor(
     labor_in: LaborAgricolaCreate,
-    db: Annotated[Prisma, Depends(get_db)]
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*_OPERADORES)),
 ):
     try:
         # Sin 'await' porque tu cliente Prisma es síncrono
@@ -59,7 +68,8 @@ def agendar_labor(
 )
 def obtener_calendario(
     finca_id: str,
-    db: Annotated[Prisma, Depends(get_db)]
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(get_current_user),
 ):
     try:
         finca = db.finca.find_unique(where={"id": finca_id})
@@ -112,12 +122,14 @@ def obtener_calendario(
     response_model=EjecucionLaborOut,
     status_code=status.HTTP_201_CREATED,
     summary="Registrar Ejecución de Labor Agrícola",
-    description="Registra la ejecución real de una labor con insumos, herramientas y evidencia fotográfica."
+    description="Registra la ejecución real de una labor con insumos, herramientas y evidencia fotográfica.",
+    dependencies=[Depends(log_user_action("ejecutar_labor"))],
 )
 def ejecutar_labor(
     labor_id: str,
     ejecucion_in: EjecucionLaborCreate,
-    db: Annotated[Prisma, Depends(get_db)]
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*_OPERADORES)),
 ):
     try:
         labor = db.laboragricola.find_unique(where={"id": labor_id})
@@ -178,7 +190,8 @@ def ejecutar_labor(
 )
 def obtener_ledger(
     finca_id: str,
-    db: Annotated[Prisma, Depends(get_db)]
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(get_current_user),
 ):
     try:
         finca = db.finca.find_unique(where={"id": finca_id})
@@ -238,15 +251,26 @@ def obtener_ledger(
     
 
 @router.get("/sugerencias/{mes}", summary="Sugerencias Parametrizadas")
-def obtener_sugerencias(mes: str):
+def obtener_sugerencias(
+    mes: str,
+    current_user: dict = Depends(get_current_user),
+):
     try:
         sugerencias = NormativaService.obtener_sugerencias(mes)
         return {"mes": mes.capitalize(), "sugerencias_disponibles": sugerencias}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/{labor_id}/validar-norma", summary="Pre-validar contra normativa")
-def validar_normativa(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
+@router.post(
+    "/{labor_id}/validar-norma",
+    summary="Pre-validar contra normativa",
+    dependencies=[Depends(log_user_action("validar_norma_labor"))],
+)
+def validar_normativa(
+    labor_id: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*_OPERADORES)),
+):
     try:
         ejecucion = db.ejecucionlabor.find_first(
             where={"labor_id": labor_id},
@@ -273,8 +297,16 @@ def validar_normativa(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
-@router.post("/{labor_id}/aprobar", summary="Aprobación Manual de Auditoría")
-def aprobar_auditoria(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
+@router.post(
+    "/{labor_id}/aprobar",
+    summary="Aprobación Manual de Auditoría",
+    dependencies=[Depends(log_user_action("aprobar_labor"))],
+)
+def aprobar_auditoria(
+    labor_id: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*_VALIDADORES)),
+):
     try:
         labor = db.laboragricola.find_unique(where={"id": labor_id})
         if not labor:
@@ -300,9 +332,13 @@ def aprobar_auditoria(labor_id: str, db: Annotated[Prisma, Depends(get_db)]):
     "/subir-evidencia",
     status_code=status.HTTP_200_OK,
     summary="Subir Foto de Evidencia",
-    description="Recibe un archivo de imagen desde el móvil, lo sube a Cloudinary y devuelve la URL cruda."
+    description="Recibe un archivo de imagen desde el móvil, lo sube a Cloudinary y devuelve la URL cruda.",
+    dependencies=[Depends(log_user_action("subir_evidencia_labor"))],
 )
-def subir_foto_evidencia(file: UploadFile = File(...)):
+def subir_foto_evidencia(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(require_roles(*_OPERADORES)),
+):
     try:
         if not file.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")

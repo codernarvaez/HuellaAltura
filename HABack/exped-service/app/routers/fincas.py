@@ -142,10 +142,18 @@ def crear_finca(
     - Genera automáticamente un `eudr_id` único.
     - Permite guardar el polígono de la finca (GeoJSON o lista de coordenadas) enviado desde dispositivos móviles.
     """
-    payload = data.model_dump()
+    # exclude_none: Prisma rechaza los campos opcionales enviados como None
+    payload = data.model_dump(exclude_none=True)
 
     if payload.get("poligono"):
         payload["poligono"] = Json(payload["poligono"])
+
+    # La relación con Productor se expresa con `connect`, no con la FK escalar
+    productor_id = payload.pop("productor_id", None)
+    if productor_id:
+        if not db.productor.find_first(where={"id": productor_id}):
+            raise HTTPException(status_code=404, detail="Productor no encontrado")
+        payload["productor"] = {"connect": {"id": productor_id}}
 
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)

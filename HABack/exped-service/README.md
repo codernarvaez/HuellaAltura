@@ -128,6 +128,40 @@ uvicorn app.main:app --reload --port 8031
 
 ---
 
+## Pruebas
+
+```bash
+# Unitarias (no requieren base de datos)
+python -m pytest tests/test_health.py tests/test_geoespacial.py -q
+```
+
+Las pruebas de integración necesitan una base PostgreSQL local. **Nunca las
+ejecutes contra la base de producción**: `prisma db push` altera el esquema.
+
+```bash
+# 1. Crear la base de pruebas (una sola vez)
+createdb geoguard_test        # o: psql -U postgres -c "CREATE DATABASE geoguard_test;"
+
+# 2. Aplicar el esquema
+DATABASE_URL="postgresql://postgres@localhost:5432/geoguard_test" \
+  python -m prisma db push
+
+# 3. Ejecutar toda la suite
+DATABASE_URL="postgresql://postgres@localhost:5432/geoguard_test" \
+  python -m pytest tests/ -q
+```
+
+Si la base no está disponible, los módulos de integración se omiten
+automáticamente en lugar de fallar.
+
+| Módulo | Cubre |
+|--------|-------|
+| `tests/test_integracion_expediente.py` | Productor, formularios dinámicos, documentos y completitud |
+| `tests/test_integracion_acopio.py` | Muestras, laboratorio SCA, EUDR, bodega, trilla y despacho |
+| `tests/test_integracion_cumplimiento.py` | Listas de sanciones, bloqueo automático y firma digital |
+
+---
+
 ## Stack tecnológico
 
 | Componente | Versión | Descripción |

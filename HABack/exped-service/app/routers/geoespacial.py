@@ -226,15 +226,21 @@ def extract_coordinates(geometry: dict) -> list:
     geom_type = geometry.get("type", "")
     coordinates = geometry.get("coordinates", [])
 
+    # Una geometría sin coordenadas es un archivo inválido, no un error interno:
+    # se devuelve vacío para que el llamador emita el 400 correspondiente.
+    if not coordinates:
+        return coords
+
     if geom_type == "Point":
-        coords = [[coordinates[1], coordinates[0]]]  # [lat, lon]
+        if len(coordinates) >= 2:
+            coords = [[coordinates[1], coordinates[0]]]  # [lat, lon]
     elif geom_type == "LineString":
-        coords = [[c[1], c[0]] for c in coordinates]
+        coords = [[c[1], c[0]] for c in coordinates if len(c) >= 2]
     elif geom_type == "Polygon":
-        coords = [[c[1], c[0]] for c in coordinates[0]]  # Outer ring only
+        coords = [[c[1], c[0]] for c in coordinates[0] if len(c) >= 2]  # Outer ring only
     elif geom_type == "MultiPolygon":
-        if coordinates:
-            coords = [[c[1], c[0]] for c in coordinates[0][0]]
+        if coordinates[0]:
+            coords = [[c[1], c[0]] for c in coordinates[0][0] if len(c) >= 2]
 
     return coords
 
