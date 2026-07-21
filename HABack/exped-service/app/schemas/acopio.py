@@ -95,6 +95,7 @@ class InventarioAcopioOut(BaseModel):
         from_attributes = True
 
 
+
 # --- Procesamiento: Trilla ---
 
 class TrillaCreate(BaseModel):
@@ -103,7 +104,7 @@ class TrillaCreate(BaseModel):
         ..., 
         ge=0.78, 
         le=0.82, 
-        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"[cite: 2]
+        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"
     )
 
 class TrillaOut(BaseModel):
@@ -116,7 +117,7 @@ class TrillaOut(BaseModel):
     
     class Config:
         from_attributes = True
-
+        
 # ─── Exportación y Despacho ──────────────────────────────────
 
 class DespachoCreate(BaseModel):
