@@ -98,8 +98,8 @@ export class FincaService {
 
   static async create(payload: FincaCreate, token?: string): Promise<FincaOut> {
     const url = FINCAS_BASE;
-    console.log('🔍 create URL:', url);
-    console.log('🔍 create Payload:', payload);
+    console.log('create URL:', url);
+    console.log('create Payload:', payload);
     
     const res = await fetch(url, { 
       method: 'POST', 
