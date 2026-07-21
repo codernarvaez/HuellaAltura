@@ -26,7 +26,7 @@ from app.routers import (
     labores,
 )
 
-from app.routers.acopio import muestras, laboratorio, compras, bodega, trilla
+from app.routers.acopio import muestras, laboratorio, compras, despachos, trilla
 
 
 class ErrorMessageMiddleware(BaseHTTPMiddleware):
@@ -171,5 +171,5 @@ def health():
 app.include_router(muestras.router)
 app.include_router(laboratorio.router)
 app.include_router(compras.router)
-app.include_router(bodega.router)
+app.include_router(despachos.router)
 app.include_router(trilla.router)

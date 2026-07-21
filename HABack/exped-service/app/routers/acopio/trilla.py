@@ -7,7 +7,7 @@ router = APIRouter(prefix="/acopio/trilla", tags=["Acopio - Procesamiento (Trill
 @router.post("/procesar")
 async def procesar_balance_masa(trilla: TrillaCreate):
     """
-    Calcula dinámicamente el rendimiento esperado de café oro a partir del café pergamino/bola.[cite: 2]
+    Calcula dinámicamente el rendimiento esperado de café oro a partir del café pergamino/bola.
     """
     # 1. Consultar el café disponible en bodega
     inventario_db = await prisma.inventarioacopio.find_unique(
@@ -23,13 +23,13 @@ async def procesar_balance_masa(trilla: TrillaCreate):
             detail="El lote de café ya fue procesado o despachado."
         )
 
-    # 2. BDD: Aplicar ecuaciones fijas del requisito RS-AGR-003[cite: 2]
+    # 2. BDD: Aplicar ecuaciones fijas del requisito RS-AGR-003
     peso_entrada = inventario_db.pesoIngresoKg
     
-    # Ecuación 1: kg café oro esperados = kg entrada trilla × Factor de rendimiento[cite: 2]
+    # Ecuación 1: kg café oro esperados = kg entrada trilla × Factor de rendimiento
     kg_oro_esperados = round(peso_entrada * trilla.factorRendimiento, 2)
     
-    # Ecuación 2: Merma esperada (kg) = kg entrada trilla − kg café oro esperados[cite: 2]
+    # Ecuación 2: Merma esperada (kg) = kg entrada trilla − kg café oro esperados
     merma_esperada = round(peso_entrada - kg_oro_esperados, 2)
 
     # 3. Transacción en la base de datos: Registrar la trilla y actualizar el inventario

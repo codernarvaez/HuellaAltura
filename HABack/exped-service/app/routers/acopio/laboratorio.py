@@ -52,7 +52,7 @@ async def registrar_analisis_sensorial(analisis: AnalisisSensorialCreate):
         "nivelTueste": analisis.nivelTueste
     })
 
-    clasificacion = "Café de Especialidad" if puntaje_total >= 80.0 else "Café Comercial"[cite: 1, 2]
+    clasificacion = "Café de Especialidad" if puntaje_total >= 80.0 else "Café Comercial"
 
     return {
         "mensaje": "Análisis sensorial registrado",

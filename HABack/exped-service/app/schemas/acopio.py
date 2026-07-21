@@ -100,10 +100,10 @@ class InventarioAcopioOut(BaseModel):
 class TrillaCreate(BaseModel):
     inventarioId: int
     factorRendimiento: float = Field(
-        ..., 
-        ge=0.78, 
-        le=0.82, 
-        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"[cite: 2]
+        ...,
+        ge=0.78,
+        le=0.82,
+        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"
     )
 
 class TrillaOut(BaseModel):
