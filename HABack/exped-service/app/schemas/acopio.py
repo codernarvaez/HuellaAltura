@@ -95,6 +95,7 @@ class InventarioAcopioOut(BaseModel):
         from_attributes = True
 
 
+
 # --- Procesamiento: Trilla ---
 
 class TrillaCreate(BaseModel):
@@ -116,7 +117,7 @@ class TrillaOut(BaseModel):
     
     class Config:
         from_attributes = True
-
+        
 # ─── Exportación y Despacho ──────────────────────────────────
 
 class DespachoCreate(BaseModel):
