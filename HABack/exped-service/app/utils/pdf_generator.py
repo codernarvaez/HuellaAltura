@@ -1,8 +1,32 @@
 from io import BytesIO
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
+
+from fastapi import HTTPException, status
+
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+except ModuleNotFoundError:  # pragma: no cover - dependencia declarada en requirements.txt
+    canvas = None
+    A4 = None
+
 
 def generar_certificado_pdf(datos: dict) -> BytesIO:
+    """Genera el certificado de trazabilidad EUDR en PDF.
+
+    Si `reportlab` no está instalado se aborta con 503 en lugar de devolver un
+    archivo inválido: un certificado de cumplimiento corrupto entregado con
+    estado 200 es peor que un error explícito, porque el auditor lo daría por
+    bueno hasta intentar abrirlo.
+    """
+    if canvas is None or A4 is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "La generación de certificados PDF no está disponible: falta la "
+                "dependencia 'reportlab' en el entorno."
+            ),
+        )
+
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     

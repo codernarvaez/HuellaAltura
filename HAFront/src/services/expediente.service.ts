@@ -106,11 +106,8 @@ export class ExpedienteService {
         organizacion_inquilino: organizacion,
         estado: 'PENDIENTE'
       };
-      
-      console.log('📦 Payload para crear expediente:', payload);
-      
+            
       const nuevoExpediente = await this.create(payload, token);
-      console.log(`✅ Expediente creado automáticamente: ${nuevoExpediente.id}`);
       
       // Enriquecer el expediente con la finca
       const enriquecido = await this.enrichWithFinca([nuevoExpediente], token);

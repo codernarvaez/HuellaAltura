@@ -203,6 +203,14 @@ app.include_router(
 )
 app.include_router(labores.router)
 
+# Módulo 3 — Acopio, Procesamiento y Exportación
+app.include_router(muestras.router)
+app.include_router(laboratorio.router)
+app.include_router(compras.router)
+app.include_router(bodega.router)
+app.include_router(trilla.router)
+app.include_router(despachos.router)
+
 
 @app.get(endpoints.ROOT)
 def root():
@@ -216,10 +224,3 @@ def root():
 @app.get(endpoints.HEALTH_CHECK)
 def health():
     return {"status": "ok", "service": settings.app_name}
-
-app.include_router(muestras.router)
-app.include_router(laboratorio.router)
-app.include_router(compras.router)
-app.include_router(bodega.router)
-app.include_router(trilla.router)
-app.include_router(despachos.router)

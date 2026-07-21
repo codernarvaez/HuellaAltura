@@ -16,14 +16,15 @@ let userRole = null;
 let expedienteCreado = false;
 let fincaData = null;
 let datosAgroambientales = null;
+let productoresMap = new Map(); // Para cachear nombres de usuarios por ID
 
 if (token) {
   try {
-    // 🔥 OBTENER DATOS DEL USUARIO PRIMERO
+    // Obtener datos del usuario autenticado
     userData = await AuthService.getMe(token);
     userRole = userData?.role?.name || '';
     console.log("🎭 Rol del usuario:", userRole);
-    console.log("👤 Datos del usuario:", {
+    console.log("👤 Datos del usuario autenticado:", {
       id: userData.id,
       first_name: userData.first_name,
       last_name: userData.last_name,
@@ -34,6 +35,33 @@ if (token) {
     const fincaIdFilter = urlParams.get("finca_id");
     console.log("🔍 Filtro por finca_id:", fincaIdFilter);
     
+    // Función auxiliar para obtener usuario por ID (si no existe servicio)
+    async function getUsuarioById(usuarioId) {
+      if (!usuarioId) return null;
+      if (productoresMap.has(usuarioId)) return productoresMap.get(usuarioId);
+      
+      try {
+        // Intentar usar AuthService si tiene un método getById
+        if (typeof AuthService.getById === 'function') {
+          const user = await AuthService.getById(usuarioId, token);
+          productoresMap.set(usuarioId, user);
+          return user;
+        }
+        // Si no, intentar con fetch directo al endpoint
+        const response = await fetch(`/api/usuarios/${usuarioId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const user = await response.json();
+          productoresMap.set(usuarioId, user);
+          return user;
+        }
+      } catch (e) {
+        console.warn(`⚠️ No se pudo obtener usuario ${usuarioId}:`, e.message);
+      }
+      return null;
+    }
+    
     if (fincaIdFilter) {
       console.log(`🔄 Verificando expediente para finca: ${fincaIdFilter}`);
       
@@ -41,7 +69,17 @@ if (token) {
       try {
         fincaData = await FincaService.getById(fincaIdFilter, token);
         console.log(`✅ Finca encontrada: ${fincaData.nombre}`);
-        console.log(`👤 Productor en finca: ${fincaData.usuario_nombre || 'No especificado'}`);
+        console.log(`👤 Productor en finca (desde API): ${fincaData.usuario_nombre || 'No viene en la respuesta'}`);
+        console.log(`🆔 usuario_id en finca: ${fincaData.usuario_id}`);
+        
+        // Si la finca tiene usuario_id y no tiene usuario_nombre, intentar obtenerlo
+        if (fincaData.usuario_id && !fincaData.usuario_nombre) {
+          const usuario = await getUsuarioById(fincaData.usuario_id);
+          if (usuario) {
+            fincaData.usuario_nombre = `${usuario.first_name || ''} ${usuario.last_name || ''}`.trim() || usuario.email;
+            console.log(`✅ Nombre obtenido para usuario ${fincaData.usuario_id}: ${fincaData.usuario_nombre}`);
+          }
+        }
         
         // Obtener datos agroambientales
         try {
@@ -54,7 +92,7 @@ if (token) {
         console.warn("⚠️ Error obteniendo finca:", e.message);
       }
       
-      // 🔥 PASAR userData AL MÉTODO getOrCreate
+      // Obtener o crear expediente
       const resultado = await ExpedienteService.getOrCreate(fincaIdFilter, token, userData);
       
       if (resultado.expediente) {
@@ -67,7 +105,6 @@ if (token) {
         
         if (expedienteCreado) {
           console.log(`✅ Expediente creado automáticamente para finca ${fincaIdFilter}`);
-          console.log(`📝 Organización: ${resultado.expediente.organizacion_inquilino}`);
         } else {
           console.log(`✅ Expediente existente encontrado para finca ${fincaIdFilter}`);
         }
@@ -81,6 +118,16 @@ if (token) {
         const expedientesData = await ExpedienteService.list(token);
         expedientes = expedientesData;
         console.log(`📋 Total expedientes: ${expedientes.length}`);
+        
+        // Para cada expediente, asegurar que tenga usuario_nombre
+        for (const exp of expedientes) {
+          if (exp.finca && exp.finca.usuario_id && !exp.finca.usuario_nombre) {
+            const usuario = await getUsuarioById(exp.finca.usuario_id);
+            if (usuario) {
+              exp.finca.usuario_nombre = `${usuario.first_name || ''} ${usuario.last_name || ''}`.trim() || usuario.email;
+            }
+          }
+        }
       } catch (e) {
         console.warn("⚠️ Error obteniendo expedientes:", e.message);
       }
@@ -131,17 +178,6 @@ function getStatusBadge(estado) {
 
 const urlParams = Astro.url.searchParams;
 const fincaIdFilter = urlParams.get("finca_id");
-
-console.log(`📊 Total expedientes cargados: ${expedientes.length}`);
-if (expedientes.length > 0) {
-  console.log("📊 Detalle:", expedientes.map(e => ({
-    id: e.id,
-    estado: e.estado,
-    organizacion: e.organizacion_inquilino,
-    tieneFinca: !!e.finca,
-    fincaNombre: e.finca?.nombre || 'Sin finca'
-  })));
-}
 ---
 
 <Layout title="Expedientes">
@@ -219,12 +255,50 @@ if (expedientes.length > 0) {
               {expedientes.map((expediente) => {
                 const finca = expediente.finca || fincaData;
                 
-                const nombreProductor = finca?.usuario_nombre || 'Productor no especificado';
+                // ==============================================================
+                // 🔥 OBTENER NOMBRE COMPLETO DEL PRODUCTOR
+                // ==============================================================
+                let nombreProductor = 'Productor no especificado';
+                let idProductor = finca?.usuario_id || 'N/A';
+                
+                // 1. Si el usuario autenticado es productor y coincide con el id de la finca, usar sus datos
+                if (esProductor && userData && idProductor === userData.id) {
+                  nombreProductor = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email || 'Productor';
+                }
+                // 2. Si finca tiene usuario_nombre (ya enriquecido)
+                else if (finca?.usuario_nombre && finca.usuario_nombre !== 'null' && finca.usuario_nombre !== '') {
+                  nombreProductor = finca.usuario_nombre;
+                }
+                // 3. Si expediente tiene productor_nombre
+                else if (expediente?.productor_nombre) {
+                  nombreProductor = expediente.productor_nombre;
+                }
+                // 4. Si expediente tiene productor.nombre
+                else if (expediente?.productor?.nombre) {
+                  nombreProductor = expediente.productor.nombre;
+                }
+                // 5. Si tenemos el ID del usuario, mostrar un placeholder
+                else if (idProductor && idProductor !== 'N/A') {
+                  // Intentar obtener el nombre del cache (si se cargó)
+                  const cachedUser = productoresMap.get(idProductor);
+                  if (cachedUser) {
+                    nombreProductor = `${cachedUser.first_name || ''} ${cachedUser.last_name || ''}`.trim() || cachedUser.email || idProductor;
+                  } else {
+                    nombreProductor = `Productor ${idProductor.substring(0, 8)}`;
+                  }
+                }
+                // 6. Fallback final
+                else {
+                  nombreProductor = 'Productor desconocido';
+                }
+                
+                // ==============================================================
+                // DATOS ADICIONALES
+                // ==============================================================
                 const nombreFinca = finca?.nombre || 'Finca no especificada';
                 const provincia = finca?.provincia || '';
                 const canton = finca?.canton || '';
                 const area = finca?.area_total_ha || 0;
-                const usuarioId = finca?.usuario_id || 'N/A';
                 
                 const estado = expediente.estado || 'PENDIENTE';
                 const status = getStatusBadge(estado);
@@ -233,8 +307,6 @@ if (expedientes.length > 0) {
                 const fechaCreacion = expediente.creado_en 
                   ? new Date(expediente.creado_en).toLocaleDateString('es-ES') 
                   : 'N/A';
-                
-                // 🔥 MOSTRAR LA ORGANIZACIÓN DEL EXPEDIENTE
                 const organizacion = expediente.organizacion_inquilino || 'No especificado';
 
                 return (
@@ -247,7 +319,7 @@ if (expedientes.length > 0) {
                         <div>
                           <p class="font-semibold">{nombreProductor}</p>
                           <p class="text-xs text-on-surface-variant">
-                            ID: {usuarioId.substring(0, 8) || 'N/A'}
+                            ID: {idProductor.substring(0, 8) || 'N/A'}
                           </p>
                           <p class="text-xs text-emerald-600 mt-0.5">
                             📋 {organizacion}
