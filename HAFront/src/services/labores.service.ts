@@ -13,23 +13,21 @@ export interface InsumoCreate {
   unidad: string;
 }
 
-// 🔥 CORREGIDO: cantidad_proyectada es string
 export interface LaborAgricolaCreate {
   finca_id: string;
   nombre: string;
   tipo_proceso: string;
   mes: string;
-  cantidad_proyectada: string;  // 🔥 CAMBIADO a string
+  cantidad_proyectada: string;
 }
 
-// 🔥 CORREGIDO: cantidad_proyectada es string en la salida también
 export interface LaborAgricolaOut {
   id: string;
   finca_id: string;
   nombre: string;
   tipo_proceso: string;
   mes: string;
-  cantidad_proyectada: string;  // 🔥 CAMBIADO a string
+  cantidad_proyectada: string;
   estado: string;
   creado_en: string;
   actualizado_en: string;
@@ -90,9 +88,11 @@ export interface MesLabor {
 
 export interface LaborResumen {
   labor_id: string;
+  id: string;
   nombre: string;
   tipo_proceso: string;
   estado: string;
+  cantidad_proyectada: string;
 }
 
 export interface LedgerResponse {
@@ -140,6 +140,12 @@ export interface AprobacionResponse {
   estado: string;
 }
 
+export interface SubirEvidenciaResponse {
+  mensaje: string;
+  foto_url: string;
+  foto_hash: string;
+}
+
 // ============================================================
 // UTILIDADES
 // ============================================================
@@ -149,6 +155,13 @@ function authHeaders(token?: string): Record<string, string> {
     "Content-Type": "application/json",
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
+function authHeadersMultipart(token?: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  // No establecemos Content-Type, el navegador lo hará automáticamente con el boundary
   return headers;
 }
 
@@ -173,12 +186,11 @@ export class LaboresService {
     payload: LaborAgricolaCreate,
     token?: string
   ): Promise<LaborAgricolaOut> {
-    // 🔥 Asegurar que el payload sea exactamente como espera el backend
     const cleanPayload = {
       nombre: payload.nombre,
       tipo_proceso: payload.tipo_proceso,
       mes: payload.mes,
-      cantidad_proyectada: payload.cantidad_proyectada,  // 🔥 Ya es string
+      cantidad_proyectada: payload.cantidad_proyectada,
       finca_id: payload.finca_id
     };
     
@@ -218,6 +230,35 @@ export class LaboresService {
     const data = await response.json();
     console.log('Response:', data);
     return handleResponse<CalendarioResponse>(response, data);
+  }
+
+  /**
+   * 🔥 Sube una foto de evidencia a Cloudinary
+   * POST /api/v1/labores/subir-evidencia
+   */
+  static async subirEvidencia(
+    file: File,
+    token?: string
+  ): Promise<SubirEvidenciaResponse> {
+    console.log('📤 Subiendo evidencia:', file.name);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${LABORES_BASE}/subir-evidencia`, {
+      method: "POST",
+      headers: authHeadersMultipart(token),
+      body: formData,
+    });
+    
+    const data = await response.json();
+    console.log('📡 Response subir evidencia:', data);
+    
+    if (!response.ok) {
+      throw new Error(data.detail || data.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return data;
   }
 
   /**

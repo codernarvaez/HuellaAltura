@@ -338,11 +338,31 @@ const isAdminStr = isAdmin ? 'true' : 'false';
                 <span>Auditoría Satelital</span>
               </a>
 
-              <!-- 🔥 LEDGER DE LABORES PARA ADMIN (ELIMINADO) -->
-              <!-- Ya no está disponible para administradores -->
+              <!-- 🔥 NUEVO: CALENDARIO PARA ADMIN -->
+              <a
+                href={calendarioUrl}
+                id="link-calendario-admin"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  calendar_month
+                </span>
 
-              <!-- CALENDARIO PARA ADMIN (ELIMINADO) -->
-              <!-- Ya no está disponible para administradores -->
+                <span>Calendario</span>
+              </a>
+
+              <!-- 🔥 NUEVO: LEDGER DE LABORES PARA ADMIN -->
+              <a
+                href={ledgerUrl}
+                id="link-ledger-admin"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  receipt_long
+                </span>
+
+                <span>Ledger de Labores</span>
+              </a>
             </>
           )
         }
@@ -442,7 +462,9 @@ const isAdminStr = isAdmin ? 'true' : 'false';
       const linkInfoAgro = document.getElementById('link-infoagro');
       const linkSatelital = document.getElementById('link-satelital');
       const linkCalendario = document.getElementById('link-calendario');
+      const linkCalendarioAdmin = document.getElementById('link-calendario-admin');
       const linkLedger = document.getElementById('link-ledger');
+      const linkLedgerAdmin = document.getElementById('link-ledger-admin');
       const linkAuditoria = document.getElementById('link-auditoria-satelital');
       const btnVolver = document.getElementById('btn-volver');
 

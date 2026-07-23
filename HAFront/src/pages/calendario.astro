@@ -13,31 +13,66 @@ let fincaId = null;
 let error = null;
 let isLoading = true;
 let calendarioData = null;
+let userRole = null;
+let fincasDisponibles = [];
 
 if (token) {
   try {
     userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
     console.log("👤 Usuario:", userData?.first_name, userData?.last_name);
+    console.log("🎭 Rol del usuario:", userRole);
+    
+    // 🔥 Verificar si el usuario es ADMINISTRADOR
+    const esAdmin = userRole === 'SUPER_ADMIN' || userRole === 'TENANT_ADMIN' || userRole === 'ADMIN';
+    
+    // 🔥 OBTENER EL finca_id DE LA URL (si viene)
+    const urlParams = Astro.url.searchParams;
+    const fincaIdFromUrl = urlParams.get("finca_id");
     
     if (userData?.id) {
+      // 🔥 OBTENER FINCAS SEGÚN EL ROL
       try {
-        const fincas = await FincaService.getByUsuarioId(userData.id, token);
-        if (fincas && fincas.length > 0) {
-          fincaId = fincas[0].id;
-          console.log("✅ Finca encontrada:", fincas[0].nombre);
-          console.log("🆔 Finca ID:", fincaId);
-          
-          try {
-            const response = await LaboresService.obtenerCalendario(fincaId, token);
-            calendarioData = response;
-            console.log("📋 Calendario cargado:", calendarioData);
-          } catch (e) {
-            console.warn("⚠️ Error obteniendo calendario:", e.message);
-            calendarioData = null;
+        if (esAdmin) {
+          // ADMIN: Obtener todas las fincas disponibles
+          const fincas = await FincaService.list(token);
+          fincasDisponibles = fincas || [];
+          console.log("📋 Fincas disponibles para admin:", fincasDisponibles.length);
+        } else {
+          // PRODUCTOR/TECNICO: Obtener su finca asociada
+          const fincaUsuario = await FincaService.getByUsuarioId(userData.id, token);
+          if (fincaUsuario && fincaUsuario.length > 0) {
+            fincasDisponibles = fincaUsuario;
+            console.log("📋 Finca del usuario:", fincasDisponibles.length);
+          } else {
+            console.warn("⚠️ El usuario no tiene finca asociada");
           }
         }
+        
+        // 🔥 SELECCIONAR LA FINCA
+        if (fincaIdFromUrl && fincasDisponibles.some(f => f.id === fincaIdFromUrl)) {
+          // Si hay finca_id en la URL y existe en las disponibles, usarla
+          fincaId = fincaIdFromUrl;
+          console.log("✅ Finca seleccionada desde URL:", fincaId);
+        } else if (fincasDisponibles.length > 0) {
+          // Si no, usar la primera finca disponible
+          fincaId = fincasDisponibles[0].id;
+          console.log("✅ Finca seleccionada por defecto:", fincasDisponibles[0].nombre);
+        }
       } catch (e) {
-        console.warn("⚠️ Error obteniendo finca:", e.message);
+        console.warn("⚠️ Error obteniendo fincas:", e.message);
+      }
+      
+      // 🔥 Cargar calendario si hay fincaId
+      if (fincaId) {
+        try {
+          const response = await LaboresService.obtenerCalendario(fincaId, token);
+          calendarioData = response;
+          console.log("📋 Calendario cargado para finca:", fincaId);
+        } catch (e) {
+          console.warn("⚠️ Error obteniendo calendario:", e.message);
+          calendarioData = null;
+        }
       }
     }
     
@@ -144,10 +179,27 @@ const actividadesPorMes = {
   ]
 };
 
+// 🔥 NUEVA LÓGICA DE ROLES
+const esAdmin = userRole === 'SUPER_ADMIN' || userRole === 'TENANT_ADMIN' || userRole === 'ADMIN';
+const puedeValidar = userRole === 'PRODUCTOR' || 
+                     userRole === 'TECNICO_CAMPO' || 
+                     userRole === 'INVESTIGADOR' ||
+                     esAdmin;
+
+const puedeAprobar = userRole === 'AUDITOR_INTERNO' || 
+                     userRole === 'SUPER_ADMIN' || 
+                     userRole === 'TENANT_ADMIN' ||
+                     userRole === 'ADMIN';
+
 // 🔥 Asegurar que fincaId se pase correctamente al cliente
 const fincaIdStr = fincaId ? String(fincaId) : '';
 const calendarioDataStr = calendarioData ? JSON.stringify(calendarioData) : 'null';
 const userDataStr = userData ? JSON.stringify(userData) : 'null';
+const userRoleStr = userRole || '';
+const puedeValidarStr = puedeValidar ? 'true' : 'false';
+const puedeAprobarStr = puedeAprobar ? 'true' : 'false';
+const fincasDisponiblesStr = fincasDisponibles ? JSON.stringify(fincasDisponibles) : '[]';
+const esAdminStr = esAdmin ? 'true' : 'false';
 ---
 
 <DashboardLayout title="Calendario Anual">
@@ -163,12 +215,81 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
             <p class="mt-2 text-slate-500 max-w-2xl">
                 Planificación de labores agrícolas basada en el calendario cafetalero.
             </p>
+            <!-- 🔥 Mostrar rol actual y permisos -->
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-slate-500">Tu rol:</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                    {userRole || 'No definido'}
+                </span>
+                {puedeValidar && (
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                        ✅ Puede validar
+                    </span>
+                )}
+                {puedeAprobar && (
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                        ✅ Puede aprobar
+                    </span>
+                )}
+            </div>
         </div>
-        <button id="btn-nueva-labor-global" class="flex items-center gap-2 bg-emerald-600 text-white px-5 h-12 rounded-xl hover:bg-emerald-500 transition shadow-sm font-medium text-sm whitespace-nowrap">
-            <i data-lucide="plus-circle" class="w-5 h-5"></i>
-            Programar Nueva Labor
-        </button>
+        {/* 🔥 Botón "Programar Nueva Labor" - solo visible para quienes pueden validar */}
+        {puedeValidar && (
+            <button id="btn-nueva-labor-global" class="flex items-center gap-2 bg-emerald-600 text-white px-5 h-12 rounded-xl hover:bg-emerald-500 transition shadow-sm font-medium text-sm whitespace-nowrap">
+                <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                Programar Nueva Labor
+            </button>
+        )}
     </div>
+
+    <!-- 🔥 SELECTOR DE FINCAS (SOLO PARA ADMINISTRADORES) -->
+    {esAdmin && fincasDisponibles.length > 1 && (
+        <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-slate-400">agriculture</span>
+                <span class="text-sm font-medium text-slate-700">Seleccionar Finca:</span>
+            </div>
+            <select
+                id="selector-finca"
+                class="flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white text-sm"
+            >
+                {fincasDisponibles.map((finca) => (
+                    <option key={finca.id} value={finca.id} selected={finca.id === fincaId}>
+                        {finca.nombre} {finca.provincia ? `- ${finca.provincia}` : ''}
+                    </option>
+                ))}
+            </select>
+            <button
+                id="btn-cambiar-finca"
+                class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition"
+            >
+                Cargar Calendario
+            </button>
+        </div>
+    )}
+
+    {/* 🔥 INDICADOR DE FINCA ACTUAL PARA PRODUCTOR (solo si hay una finca) */}
+    {!esAdmin && fincasDisponibles.length > 0 && (
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2">
+            <span class="material-symbols-outlined text-blue-500 text-sm">info</span>
+            <span class="text-sm text-blue-700">
+                Mostrando calendario de tu finca: <strong>{fincasDisponibles[0]?.nombre || 'Seleccionada'}</strong>
+            </span>
+        </div>
+    )}
+
+    {/* 🔥 MENSAJE SI NO HAY FINCAS */}
+    {fincasDisponibles.length === 0 && !isLoading && (
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-yellow-500 text-4xl">info</span>
+            <p class="mt-2 font-semibold text-yellow-700">No hay fincas disponibles</p>
+            <p class="text-sm text-yellow-600 mt-1">
+                {esAdmin 
+                    ? 'No hay fincas registradas en el sistema. Crea una finca primero.'
+                    : 'No tienes una finca asociada. Contacta a un administrador.'}
+            </p>
+        </div>
+    )}
 
     <!-- MATRIZ DEL CALENDARIO ANUAL -->
     <div class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
@@ -599,7 +720,8 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
                     <div id="foto-preview" class="hidden mt-2">
                         <img id="foto-preview-img" src="#" alt="Vista previa" class="max-h-40 rounded-lg border border-slate-200" />
                         <button type="button" id="btn-eliminar-foto" class="mt-1 text-sm text-red-500 hover:text-red-700">
-                            Eliminar foto                        </button>
+                            Eliminar foto
+                        </button>
                     </div>
                 </div>
             </div>
@@ -668,10 +790,21 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
     tiposProceso, 
     actividadesPorMes,
     calendarioData: calendarioDataStr,
-    userData: userDataStr
+    userData: userDataStr,
+    userRole: userRoleStr,
+    puedeValidar: puedeValidarStr,
+    puedeAprobar: puedeAprobarStr,
+    fincasDisponibles: fincasDisponiblesStr,
+    esAdmin: esAdminStr,
+    API_URL: 'https://geoguard-exped.onrender.com'
 }}>
     console.log("🏠 Finca ID:", fincaId);
     console.log("📋 Calendario Data:", calendarioData);
+    console.log("🎭 User Role:", userRole);
+    console.log("👑 Es Admin:", esAdmin);
+    console.log("✅ Puede Validar:", puedeValidar);
+    console.log("✅ Puede Aprobar:", puedeAprobar);
+    console.log("📋 Fincas Disponibles:", fincasDisponibles);
 
     // ============================================================
     // DATOS QUEMADOS DEL EXCEL (solo para el combobox)
@@ -695,15 +828,6 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
     function getCookie(name) {
         const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
         return match ? decodeURIComponent(match[1]) : "";
-    }
-
-    function mostrarError(id, mensaje) {
-        const errorDiv = document.getElementById(id);
-        if (errorDiv) {
-            errorDiv.classList.remove('hidden', 'text-emerald-500');
-            errorDiv.classList.add('text-red-500');
-            document.getElementById(id + '-text')?.textContent(mensaje);
-        }
     }
 
     // ============================================================
@@ -798,7 +922,6 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
                 laborSeleccionada = laborData;
                 document.getElementById('ejecucion-labor-id').value = laborData.labor_id;
                 document.getElementById('ejecucion-labor-nombre').value = laborData.nombre || '';
-                // 🔥 El mes se toma de donde se hizo clic (es solo visual)
                 document.getElementById('ejecucion-labor-mes').value = laborData.mes || '';
                 document.getElementById('ejecucion-labor-mes-hidden').value = laborData.mes || '';
                 
@@ -877,7 +1000,7 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
     }
 
     // ============================================================
-    // RENDERIZAR MATRIZ ANUAL CON DATOS DEL BACKEND
+    // 🔥 RENDERIZAR MATRIZ ANUAL CON BOTONES DE VALIDACIÓN
     // ============================================================
 
     function renderMatrizAnual() {
@@ -924,15 +1047,25 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
             labores.forEach((labor) => {
                 const cardBox = document.createElement('div');
                 
+                // 🔥 Colores según estado
                 let estadoColor = "bg-slate-100 text-slate-700";
+                let estadoIcon = "📋";
+                
                 if (labor.estado === "PLANIFICADO") {
                     estadoColor = "bg-blue-100 text-blue-700";
+                    estadoIcon = "📋";
                 } else if (labor.estado === "EJECUTADO") {
                     estadoColor = "bg-green-100 text-green-700";
+                    estadoIcon = "✅";
                 } else if (labor.estado === "PRE_VALIDADO") {
                     estadoColor = "bg-yellow-100 text-yellow-700";
+                    estadoIcon = "🔍";
                 } else if (labor.estado === "AUDITADO") {
                     estadoColor = "bg-purple-100 text-purple-700";
+                    estadoIcon = "✅";
+                } else if (labor.estado === "RECHAZADO") {
+                    estadoColor = "bg-red-100 text-red-700";
+                    estadoIcon = "❌";
                 }
 
                 cardBox.className = `border border-slate-200 rounded-xl p-3 flex flex-col justify-between min-h-[80px] bg-white shadow-xs hover:shadow-md transition-shadow cursor-pointer hover:border-emerald-300`;
@@ -941,36 +1074,106 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
                 cardBox.dataset.laborMes = nombreMes;
                 cardBox.dataset.laborEstado = labor.estado;
 
-                cardBox.innerHTML = `
-                    <div>
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide ${estadoColor}">${labor.estado || 'PENDIENTE'}</span>
-                            <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-600">${labor.tipo_proceso || 'N/A'}</span>
-                        </div>
-                        <h4 class="mt-1 text-xs font-bold text-slate-900 leading-tight" title="${labor.nombre}">${labor.nombre}</h4>
-                        ${labor.cantidad_proyectada ? `<p class="text-[9px] text-slate-500 mt-0.5">📊 ${labor.cantidad_proyectada}</p>` : ''}
-                    </div>
-                    <div class="mt-2 pt-1.5 border-t border-slate-100 flex justify-end">
+                // 🔥 Construir botones según el estado y rol
+                let botonesHTML = '';
+
+                // Botón "Registrar Labor" (solo para PLANIFICADO y si puede validar)
+                if (labor.estado === "PLANIFICADO" && puedeValidar === 'true') {
+                    botonesHTML += `
                         <button class="btn-registrar-labor text-[9px] bg-emerald-50 text-emerald-600 px-3 py-0.5 rounded hover:bg-emerald-100 transition font-medium flex items-center gap-1">
                             <i data-lucide="clipboard-check" class="w-3 h-3"></i>
                             Registrar Labor
                         </button>
+                    `;
+                }
+
+                // 🔥 Botón "Validar Normativa" (para EJECUTADO) - SOLO SI PUEDE VALIDAR
+                if (labor.estado === "EJECUTADO" && puedeValidar === 'true') {
+                    botonesHTML += `
+                        <button class="btn-validar-normativa text-[9px] bg-yellow-50 text-yellow-700 px-3 py-0.5 rounded hover:bg-yellow-100 transition font-medium flex items-center gap-1" 
+                                data-labor-id="${labor.labor_id}">
+                            <i data-lucide="check-circle" class="w-3 h-3"></i>
+                            Validar Normativa
+                        </button>
+                    `;
+                }
+
+                // 🔥 Botón "Aprobar Labor" (para PRE_VALIDADO) - SOLO SI PUEDE APROBAR
+                if (labor.estado === "PRE_VALIDADO" && puedeAprobar === 'true') {
+                    botonesHTML += `
+                        <button class="btn-aprobar-labor text-[9px] bg-purple-50 text-purple-700 px-3 py-0.5 rounded hover:bg-purple-100 transition font-medium flex items-center gap-1" 
+                                data-labor-id="${labor.labor_id}">
+                            <i data-lucide="shield-check" class="w-3 h-3"></i>
+                            Aprobar Labor
+                        </button>
+                    `;
+                }
+
+                // 🔥 Botón "Rechazar Labor" (para PRE_VALIDADO) - SOLO SI PUEDE APROBAR
+                if (labor.estado === "PRE_VALIDADO" && puedeAprobar === 'true') {
+                    botonesHTML += `
+                        <button class="btn-rechazar-labor text-[9px] bg-red-50 text-red-600 px-3 py-0.5 rounded hover:bg-red-100 transition font-medium flex items-center gap-1" 
+                                data-labor-id="${labor.labor_id}">
+                            <i data-lucide="x-circle" class="w-3 h-3"></i>
+                            Rechazar
+                        </button>
+                    `;
+                }
+
+                // 🔥 Estado AUDITADO (solo visual)
+                if (labor.estado === "AUDITADO") {
+                    botonesHTML += `
+                        <span class="text-[9px] bg-purple-100 text-purple-700 px-3 py-0.5 rounded font-medium flex items-center gap-1">
+                            <i data-lucide="check-circle" class="w-3 h-3"></i>
+                            Auditado
+                        </span>
+                    `;
+                }
+
+                // 🔥 Estado RECHAZADO (solo visual)
+                if (labor.estado === "RECHAZADO") {
+                    botonesHTML += `
+                        <span class="text-[9px] bg-red-100 text-red-700 px-3 py-0.5 rounded font-medium flex items-center gap-1">
+                            <i data-lucide="x-circle" class="w-3 h-3"></i>
+                            Rechazado
+                        </span>
+                    `;
+                }
+
+                cardBox.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide ${estadoColor}">
+                                ${estadoIcon} ${labor.estado || 'PENDIENTE'}
+                            </span>
+                            <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-600">
+                                ${labor.tipo_proceso || 'N/A'}
+                            </span>
+                        </div>
+                        <h4 class="mt-1 text-xs font-bold text-slate-900 leading-tight" title="${labor.nombre}">${labor.nombre}</h4>
+                        ${labor.cantidad_proyectada ? `<p class="text-[9px] text-slate-500 mt-0.5">📊 ${labor.cantidad_proyectada}</p>` : ''}
+                    </div>
+                    <div class="mt-2 pt-1.5 border-t border-slate-100 flex flex-wrap justify-end gap-1">
+                        ${botonesHTML}
                     </div>
                 `;
 
                 // Evento click en la tarjeta
                 cardBox.addEventListener('click', function(e) {
-                    if (e.target.closest('.btn-registrar-labor')) return;
+                    if (e.target.closest('button') || e.target.closest('span')) return;
                     
                     const laborId = this.dataset.laborId;
                     const laborNombre = this.dataset.laborNombre;
                     const laborMes = this.dataset.laborMes;
+                    const laborEstado = this.dataset.laborEstado;
                     
-                    toggleModalEjecutar(true, {
-                        labor_id: laborId,
-                        nombre: laborNombre,
-                        mes: laborMes
-                    });
+                    if (laborEstado === "PLANIFICADO" && puedeValidar === 'true') {
+                        toggleModalEjecutar(true, {
+                            labor_id: laborId,
+                            nombre: laborNombre,
+                            mes: laborMes
+                        });
+                    }
                 });
 
                 contenedorMes.appendChild(cardBox);
@@ -979,24 +1182,201 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
 
         if (window.lucide) window.lucide.createIcons();
 
-        // 🔥 Eventos para los botones "Registrar Labor"
+        // ============================================================
+        // 🔥 EVENTOS DE BOTONES
+        // ============================================================
+
         document.querySelectorAll('.btn-registrar-labor').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const card = this.closest('[data-labor-id]');
                 if (card) {
-                    const laborId = card.dataset.laborId;
-                    const laborNombre = card.dataset.laborNombre || 'Labor';
-                    const laborMes = card.dataset.laborMes || 'Mes no especificado';
-                    
                     toggleModalEjecutar(true, {
-                        labor_id: laborId,
-                        nombre: laborNombre,
-                        mes: laborMes
+                        labor_id: card.dataset.laborId,
+                        nombre: card.dataset.laborNombre || 'Labor',
+                        mes: card.dataset.laborMes || 'Mes no especificado'
                     });
                 }
             });
         });
+
+        document.querySelectorAll('.btn-validar-normativa').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                validarNormativa(this.dataset.laborId);
+            });
+        });
+
+        document.querySelectorAll('.btn-aprobar-labor').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                aprobarLabor(this.dataset.laborId);
+            });
+        });
+
+        document.querySelectorAll('.btn-rechazar-labor').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                rechazarLabor(this.dataset.laborId);
+            });
+        });
+
+        // 🔥 Evento: Cambiar finca (solo para administradores)
+        const btnCambiarFinca = document.getElementById('btn-cambiar-finca');
+        const selectorFinca = document.getElementById('selector-finca');
+        
+        if (btnCambiarFinca && selectorFinca && esAdmin === 'true') {
+            btnCambiarFinca.addEventListener('click', function() {
+                const nuevaFincaId = selectorFinca.value;
+                if (nuevaFincaId) {
+                    window.location.href = `/calendario?finca_id=${nuevaFincaId}`;
+                }
+            });
+        }
+    }
+
+    // ============================================================
+    // 🔥 FUNCIONES DE VALIDACIÓN NORMATIVA
+    // ============================================================
+
+    async function validarNormativa(laborId) {
+        if (!confirm('¿Validar esta labor contra la normativa?')) return;
+        
+        try {
+            const token = getCookie('token');
+            if (!token) {
+                alert('No hay sesión activa');
+                return;
+            }
+
+            const btn = document.querySelector(`.btn-validar-normativa[data-labor-id="${laborId}"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i data-lucide="loader-circle" class="w-3 h-3 animate-spin"></i> Validando...';
+            }
+
+            const response = await fetch(`${API_URL}/api/v1/labores/${laborId}/validar-norma`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.detail || 'Error al validar normativa');
+            }
+            
+            if (data.estado_validacion === "PRE_VALIDADO") {
+                alert('✅ Labor pre-validada correctamente.');
+            } else if (data.estado_validacion === "RECHAZADO") {
+                alert('❌ La labor NO cumple con la normativa.');
+            } else {
+                alert('⚠️ Resultado: ' + data.estado_validacion);
+            }
+            
+            location.reload();
+        } catch (error) {
+            console.error('❌ Error al validar normativa:', error);
+            alert('Error al validar normativa: ' + error.message);
+            
+            const btn = document.querySelector(`.btn-validar-normativa[data-labor-id="${laborId}"]`);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="check-circle" class="w-3 h-3"></i> Validar Normativa';
+            }
+        }
+    }
+
+    async function aprobarLabor(laborId) {
+        if (!confirm('¿Aprobar esta labor como auditor?')) return;
+        
+        try {
+            const token = getCookie('token');
+            if (!token) {
+                alert('No hay sesión activa');
+                return;
+            }
+
+            const btn = document.querySelector(`.btn-aprobar-labor[data-labor-id="${laborId}"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i data-lucide="loader-circle" class="w-3 h-3 animate-spin"></i> Aprobando...';
+            }
+
+            const response = await fetch(`${API_URL}/api/v1/labores/${laborId}/aprobar`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.detail || 'Error al aprobar labor');
+            }
+            
+            alert('✅ Labor auditada y aprobada correctamente.');
+            location.reload();
+        } catch (error) {
+            console.error('❌ Error al aprobar labor:', error);
+            alert('Error al aprobar labor: ' + error.message);
+            
+            const btn = document.querySelector(`.btn-aprobar-labor[data-labor-id="${laborId}"]`);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="shield-check" class="w-3 h-3"></i> Aprobar Labor';
+            }
+        }
+    }
+
+    async function rechazarLabor(laborId) {
+        if (!confirm('¿Rechazar esta labor?')) return;
+        
+        try {
+            const token = getCookie('token');
+            if (!token) {
+                alert('No hay sesión activa');
+                return;
+            }
+
+            const btn = document.querySelector(`.btn-rechazar-labor[data-labor-id="${laborId}"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i data-lucide="loader-circle" class="w-3 h-3 animate-spin"></i> Rechazando...';
+            }
+
+            const response = await fetch(`${API_URL}/api/v1/labores/${laborId}`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ estado: "RECHAZADO" })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.detail || 'Error al rechazar labor');
+            }
+            
+            alert('❌ Labor rechazada.');
+            location.reload();
+        } catch (error) {
+            console.error('❌ Error al rechazar labor:', error);
+            alert('Error al rechazar labor: ' + error.message);
+            
+            const btn = document.querySelector(`.btn-rechazar-labor[data-labor-id="${laborId}"]`);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="x-circle" class="w-3 h-3"></i> Rechazar';
+            }
+        }
     }
 
     // ============================================================
@@ -1081,7 +1461,7 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
     }
 
     // ============================================================
-    // EJECUTAR LABOR - SOLO ENVÍA LOS CAMPOS REQUERIDOS
+    // EJECUTAR LABOR CON SUBIDA DE FOTO
     // ============================================================
 
     async function ejecutarLabor(event) {
@@ -1093,7 +1473,9 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
         const jornalero = document.getElementById('ejecucion-jornalero').value.trim() || null;
         const salario = parseFloat(document.getElementById('ejecucion-salario').value) || null;
 
-        // Recolectar insumos
+        const fotoInput = document.getElementById('ejecucion-foto');
+        const fotoFile = fotoInput.files && fotoInput.files.length > 0 ? fotoInput.files[0] : null;
+
         const insumoElements = document.querySelectorAll('.insumo-nombre');
         const insumos = [];
         insumoElements.forEach((el, index) => {
@@ -1105,7 +1487,6 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
             }
         });
 
-        // Recolectar herramientas
         const herramientaElements = document.querySelectorAll('.herramienta-nombre');
         const herramientas = [];
         herramientaElements.forEach(el => {
@@ -1120,20 +1501,6 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
             return;
         }
 
-        // 🔥 PAYLOAD SOLO CON LOS CAMPOS REQUERIDOS POR EL BACKEND
-        const payload = {
-            persona_desarrollo: persona,
-            detalle_aplicacion: detalle,
-            insumos: insumos.length > 0 ? insumos : [],
-            herramientas: herramientas.length > 0 ? herramientas : []
-        };
-
-        // Solo agregar campos opcionales si tienen valor
-        if (jornalero) payload.nombre_jornalero = jornalero;
-        if (salario !== null && !isNaN(salario)) payload.salario = salario;
-
-        console.log('📦 Payload ejecución (solo campos requeridos):', JSON.stringify(payload, null, 2));
-
         try {
             const token = getCookie('token');
             if (!token) {
@@ -1143,13 +1510,50 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
 
             const btnGuardar = document.getElementById('btn-guardar-ejecucion');
             btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Subiendo evidencia...';
+
+            let fotoUrl = null;
+            let fotoHash = null;
+
+            if (fotoFile) {
+                try {
+                    console.log('📤 Subiendo foto a Cloudinary...');
+                    const { LaboresService } = await import('/src/services/labores.service.ts');
+                    const resultado = await LaboresService.subirEvidencia(fotoFile, token);
+                    fotoUrl = resultado.foto_url;
+                    fotoHash = resultado.foto_hash;
+                    console.log('✅ Foto subida:', fotoUrl);
+                } catch (error) {
+                    console.error('❌ Error al subir foto:', error);
+                    alert('Error al subir la foto: ' + (error.message || 'Error desconocido'));
+                    btnGuardar.disabled = false;
+                    btnGuardar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Verificar e Incorporar al Ledger';
+                    if (window.lucide) window.lucide.createIcons();
+                    return;
+                }
+            }
+
+            const payload = {
+                persona_desarrollo: persona,
+                detalle_aplicacion: detalle,
+                insumos: insumos.length > 0 ? insumos : [],
+                herramientas: herramientas.length > 0 ? herramientas : []
+            };
+
+            if (jornalero) payload.nombre_jornalero = jornalero;
+            if (salario !== null && !isNaN(salario)) payload.salario = salario;
+            if (fotoUrl) payload.foto_url = fotoUrl;
+            if (fotoHash) payload.foto_hash = fotoHash;
+
+            console.log('📦 Payload ejecución:', JSON.stringify(payload, null, 2));
+
             btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Guardando...';
 
             const { LaboresService } = await import('/src/services/labores.service.ts');
             const resultado = await LaboresService.ejecutarLabor(laborId, payload, token);
             console.log('✅ Ejecución registrada:', resultado);
 
-            alert('✅ Ejecución registrada correctamente');
+            alert('✅ Ejecución registrada correctamente.');
 
             setTimeout(() => {
                 toggleModalEjecutar(false);
@@ -1197,7 +1601,7 @@ const userDataStr = userData ? JSON.stringify(userData) : 'null';
         if (btnNuevaLabor) {
             btnNuevaLabor.addEventListener('click', () => {
                 if (!fincaId || fincaId === 'null' || fincaId === '') {
-                    alert('⚠️ No se encontró una finca asociada a tu usuario. Primero debes crear una finca en el módulo de Productor y Finca.');
+                    alert('⚠️ No se encontró una finca asociada. Selecciona una finca primero.');
                     return;
                 }
                 toggleModalCrear(true);
