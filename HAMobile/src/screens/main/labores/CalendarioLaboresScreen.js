@@ -3,17 +3,19 @@ import { Picker } from '@react-native-picker/picker';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Modal, TextInput, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../theme/theme';
-import { ChevronLeft, Plus, Calendar, CheckCircle2, Clock, PlayCircle, Camera as CameraIcon, Leaf } from 'lucide-react-native';
-import SafeStorage from '../../../utils/SafeStorage';
-import CryptoJS from 'crypto-js';
+import { ChevronLeft, Plus, Calendar, CheckCircle2, Clock, PlayCircle, Camera as CameraIcon, Leaf, Trash2, Users } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import * as FileSystem from 'expo-file-system/legacy';
 import ViewShot from 'react-native-view-shot';
-import { endpoints } from '../../../api/endpoints';
 import { db } from '../../../data/local/database';
 import * as schema from '../../../data/local/esquema';
 import { eq } from 'drizzle-orm';
+import { useAuth } from '../../../contexts/AuthContext';
+import { LaboresService } from '../../../services/LaboresService';
+import { EmpleadosService, EDAD_MINIMA_EMPLEADO } from '../../../services/EmpleadosService';
+
+// Roles que pueden aprobar auditorías de labores (espejo del RBAC del backend)
+const ROLES_APROBADOR = ['AUDITOR_INTERNO', 'TENANT_ADMIN', 'SUPER_ADMIN'];
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -22,6 +24,8 @@ const MESES = [
 
 export default function CalendarioLaboresScreen({ route, navigation }) {
   const { finca } = route.params;
+  const { user } = useAuth();
+  const puedeAprobar = ROLES_APROBADOR.includes(user?.role_name);
   const [labores, setLabores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMes, setSelectedMes] = useState(MESES[new Date().getMonth()]);
@@ -42,35 +46,23 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
   const [sugerenciasList, setSugerenciasList] = useState([]);
 
   // Form State - Ejecutar
-  const [personaDesarrollo, setPersonaDesarrollo] = useState('');
+  const [personaDesarrollo, setPersonaDesarrollo] = useState('TITULAR');
+  const [empleadosLista, setEmpleadosLista] = useState([]);
+  const [empleadoId, setEmpleadoId] = useState('');
   const [nombreJornalero, setNombreJornalero] = useState('');
+  const [edadJornalero, setEdadJornalero] = useState('');
+  const [diasTrabajo, setDiasTrabajo] = useState('');
   const [detalleAplicacion, setDetalleAplicacion] = useState('');
   const [salario, setSalario] = useState('');
   const [herramientas, setHerramientas] = useState('');
+  // Lista de insumos ya agregados a la ejecución (el backend acepta N insumos por ejecución)
+  const [insumos, setInsumos] = useState([]);
+  // Borrador del insumo que se está capturando en la fila de entrada
   const [insumoNombre, setInsumoNombre] = useState('');
   const [insumoCantidad, setInsumoCantidad] = useState('');
   const [insumoUnidad, setInsumoUnidad] = useState('');
   const [fotoUri, setFotoUri] = useState(null);
   const [locationData, setLocationData] = useState(null);
-
-  const obtenerToken = async () => {
-    try {
-      const encryptedToken = await SafeStorage.getItem('auth_token_enc');
-      if (!encryptedToken) return null;
-      const CRYPTO_CONFIG = {
-        iv: CryptoJS.enc.Hex.parse('101112131415161718191a1b1c1d1e1f'),
-        salt: CryptoJS.enc.Hex.parse('0001020304050607')
-      };
-      const Application = require('expo-application');
-      const hardwareId = Application.getAndroidId() || 'ha_fallback_id_safe';
-      const key = CryptoJS.SHA256(`ha_mobile_v1_${hardwareId}`).toString();
-      
-      const bytes = CryptoJS.AES.decrypt(encryptedToken, key, CRYPTO_CONFIG);
-      return bytes.toString(CryptoJS.enc.Utf8);
-    } catch (e) {
-      return null;
-    }
-  };
 
   useEffect(() => {
     fetchLabores();
@@ -101,16 +93,7 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
         return;
       }
 
-      // Si falla o no hay datos, intentamos la red como fallback (el endpoint básico)
-      const token = await obtenerToken();
-      if (!token) return;
-      const res = await fetch(endpoints.labores.sugerencias(mes.toLowerCase()), {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setSugerenciasList(json.sugerencias_disponibles || []);
-      }
+      setSugerenciasList([]);
     } catch (error) {
       console.warn('Error fetching sugerencias:', error);
     }
@@ -119,33 +102,8 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
   const fetchLabores = async () => {
     setLoading(true);
     try {
-      const token = await obtenerToken();
-      if (!token) return;
-      const res = await fetch(endpoints.labores.calendario(finca.id), {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const json = await res.json();
-        let fetchedLabores = [];
-        if (json.calendario && Array.isArray(json.calendario)) {
-          json.calendario.forEach(mesData => {
-            if (mesData.labores && Array.isArray(mesData.labores)) {
-              mesData.labores.forEach(labor => {
-                fetchedLabores.push({
-                  ...labor,
-                  id: labor.labor_id || labor.id, // Compatibilidad
-                  mes: mesData.mes
-                });
-              });
-            }
-          });
-        } else if (Array.isArray(json)) {
-          fetchedLabores = json;
-        } else if (json.data && Array.isArray(json.data)) {
-          fetchedLabores = json.data;
-        }
-        setLabores(fetchedLabores);
-      }
+      const lista = await LaboresService.getCalendario(finca.id);
+      setLabores(lista);
     } catch (error) {
       console.warn('Error fetching labores:', error);
     } finally {
@@ -157,16 +115,73 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
     setNombreForm('');
     setTipoProcesoForm('');
     setCantidadProyectadaForm('');
-    setPersonaDesarrollo('');
+    setPersonaDesarrollo('TITULAR');
+    setEmpleadoId('');
     setNombreJornalero('');
+    setEdadJornalero('');
+    setDiasTrabajo('');
     setDetalleAplicacion('');
     setSalario('');
     setHerramientas('');
+    setInsumos([]);
+    limpiarBorradorInsumo();
+    setFotoUri(null);
+    setLocationData(null);
+  };
+
+  const limpiarBorradorInsumo = () => {
     setInsumoNombre('');
     setInsumoCantidad('');
     setInsumoUnidad('');
-    setFotoUri(null);
-    setLocationData(null);
+  };
+
+  // Valida el borrador de insumo. Devuelve { vacio } si no se escribió nada,
+  // { error } si está incompleto o { insumo } si es válido.
+  const construirInsumoDesdeBorrador = () => {
+    const nombre = insumoNombre.trim();
+    const cantidadTexto = insumoCantidad.trim();
+    const unidad = insumoUnidad.trim();
+
+    if (!nombre && !cantidadTexto && !unidad) return { vacio: true };
+
+    if (!nombre) return { error: 'Indique el nombre del insumo.' };
+
+    const cantidad = parseFloat(cantidadTexto.replace(',', '.'));
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      return { error: 'La cantidad del insumo debe ser un número mayor a 0.' };
+    }
+
+    if (!unidad) return { error: 'Indique la unidad del insumo (Ej. kg, L, unidad).' };
+
+    return { insumo: { nombre, cantidad, unidad } };
+  };
+
+  const agregarInsumo = () => {
+    const resultado = construirInsumoDesdeBorrador();
+    if (resultado.vacio) {
+      Alert.alert('Insumo incompleto', 'Complete nombre, cantidad y unidad para agregar el insumo.');
+      return;
+    }
+    if (resultado.error) {
+      Alert.alert('Insumo inválido', resultado.error);
+      return;
+    }
+
+    const { insumo } = resultado;
+    const duplicado = insumos.some(
+      (i) => i.nombre.toLowerCase() === insumo.nombre.toLowerCase() && i.unidad.toLowerCase() === insumo.unidad.toLowerCase()
+    );
+    if (duplicado) {
+      Alert.alert('Insumo repetido', `"${insumo.nombre}" ya fue agregado con la misma unidad. Elimínelo primero si desea corregir la cantidad.`);
+      return;
+    }
+
+    setInsumos((prev) => [...prev, insumo]);
+    limpiarBorradorInsumo();
+  };
+
+  const eliminarInsumo = (index) => {
+    setInsumos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const openAgendar = () => {
@@ -175,11 +190,35 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
     setModalVisible(true);
   };
 
-  const openEjecutar = (labor) => {
+  const openEjecutar = async (labor) => {
     resetForm();
     setSelectedLabor(labor);
     setModalMode('EJECUTAR');
     setModalVisible(true);
+    try {
+      const cuadrilla = await EmpleadosService.listar(user.id);
+      setEmpleadosLista(cuadrilla);
+    } catch (e) {
+      setEmpleadosLista([]);
+    }
+  };
+
+  // Al elegir un empleado del catálogo se prellenan sus datos
+  const seleccionarEmpleado = (id) => {
+    setEmpleadoId(id);
+    if (!id || id === 'MANUAL') {
+      setNombreJornalero('');
+      setEdadJornalero('');
+      return;
+    }
+    const empleado = empleadosLista.find((e) => e.id === id);
+    if (empleado) {
+      setNombreJornalero(empleado.nombre);
+      setEdadJornalero(String(empleado.edad));
+      if (empleado.salario_jornal != null && !salario) {
+        setSalario(String(empleado.salario_jornal));
+      }
+    }
   };
 
   const viewShotRef = useRef(null);
@@ -220,106 +259,100 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
   const submitForm = async () => {
     setIsSubmitting(true);
     try {
-      const token = await obtenerToken();
-      if (!token) return;
-
       if (modalMode === 'AGENDAR') {
         if (!nombreForm || !tipoProcesoForm || !cantidadProyectadaForm) {
           Alert.alert('Error', 'Llene los campos obligatorios.');
-          setIsSubmitting(false);
           return;
         }
 
-        const payload = {
+        const resultado = await LaboresService.agendar(finca.id, {
           nombre: nombreForm,
           tipo_proceso: tipoProcesoForm,
           mes: mesForm,
           cantidad_proyectada: cantidadProyectadaForm,
-          finca_id: finca.id
-        };
-
-        const res = await fetch(endpoints.labores.agendar, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
         });
 
-        if (res.ok) {
-          Alert.alert('Éxito', 'Labor agendada correctamente.');
-          setModalVisible(false);
-          setSelectedMes(mesForm);
-          fetchLabores();
-        } else {
-          Alert.alert('Error', 'No se pudo agendar la labor.');
-        }
+        Alert.alert(
+          'Éxito',
+          resultado.origen === 'local'
+            ? 'Labor agendada localmente. Se sincronizará al recuperar la conexión.'
+            : 'Labor agendada correctamente.'
+        );
+        setModalVisible(false);
+        setSelectedMes(mesForm);
+        fetchLabores();
+        return;
+      }
 
-      } else {
-        // EJECUTAR
-        if (!fotoUri || !locationData || !viewShotRef.current) {
-          Alert.alert('Error', 'Debe capturar la imagen con ubicación para ejecutar la labor.');
-          setIsSubmitting(false);
+      // EJECUTAR
+      if (personaDesarrollo === 'JORNALERO') {
+        if (!nombreJornalero.trim()) {
+          Alert.alert('Falta el jornalero', 'Seleccione un empleado de su cuadrilla o escriba su nombre.');
           return;
         }
-
-        // Capture watermarked image as a temporary file URI
-        const capturedUri = await viewShotRef.current.capture();
-
-        const uploadRes = await FileSystem.uploadAsync(endpoints.labores.subirEvidencia, capturedUri, {
-          fieldName: 'file',
-          httpMethod: 'POST',
-          uploadType: FileSystem.FileSystemUploadType?.MULTIPART ?? 1, // Fallback to 1 if not exported directly
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          mimeType: 'image/jpeg'
-        });
-
-        if (uploadRes.status < 200 || uploadRes.status >= 300) {
-          Alert.alert('Error', 'No se pudo subir la imagen al servidor.');
-          setIsSubmitting(false);
+        const edad = parseInt(edadJornalero, 10);
+        if (!Number.isFinite(edad) || edad <= 0) {
+          Alert.alert('Falta la edad', 'Indique la edad del jornalero: la normativa exige verificar que sea mayor de edad.');
           return;
         }
-
-        const uploadData = JSON.parse(uploadRes.body);
-        const uploadedFotoUrl = uploadData.foto_url;
-        const uploadedFotoHash = uploadData.foto_hash || 'generated_hash';
-
-        const payload = {
-          persona_desarrollo: personaDesarrollo || 'TITULAR',
-          nombre_jornalero: nombreJornalero,
-          detalle_aplicacion: detalleAplicacion,
-          salario: parseFloat(salario) || 0,
-          insumos: insumoNombre ? [{ nombre: insumoNombre, cantidad: parseFloat(insumoCantidad)||0, unidad: insumoUnidad||'unidad' }] : [],
-          herramientas: herramientas.split(',').map(s=>s.trim()).filter(Boolean),
-          foto_url: uploadedFotoUrl,
-          foto_hash: uploadedFotoHash,
-          latitud: locationData.latitude,
-          longitud: locationData.longitude,
-          watermark_text: `Fecha: ${locationData.timestamp} | Lat: ${locationData.latitude} | Lon: ${locationData.longitude}`
-        };
-
-        const res = await fetch(endpoints.labores.ejecutar(selectedLabor.id), {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          Alert.alert('Éxito', 'Labor ejecutada correctamente.');
-          setModalVisible(false);
-          fetchLabores();
-        } else {
-          Alert.alert('Error', 'No se pudo ejecutar la labor.');
+        if (edad < EDAD_MINIMA_EMPLEADO) {
+          Alert.alert(
+            'Registro no permitido',
+            `El jornalero debe tener al menos ${EDAD_MINIMA_EMPLEADO} años. El trabajo infantil está prohibido por la normativa de Comercio Justo.`
+          );
+          return;
         }
       }
+
+      if (!fotoUri || !locationData || !viewShotRef.current) {
+        Alert.alert('Error', 'Debe capturar la imagen con ubicación para ejecutar la labor.');
+        return;
+      }
+
+      // El insumo que quedó escrito en la fila de captura sin presionar "Agregar"
+      // se incluye igual, para no descartar datos del usuario en silencio.
+      const borradorInsumo = construirInsumoDesdeBorrador();
+      if (borradorInsumo.error) {
+        Alert.alert('Insumo inválido', borradorInsumo.error);
+        return;
+      }
+      const insumosPayload = borradorInsumo.insumo ? [...insumos, borradorInsumo.insumo] : insumos;
+
+      // Captura de la imagen con marca de agua como archivo temporal
+      const capturedUri = await viewShotRef.current.capture();
+
+      const esJornalero = personaDesarrollo === 'JORNALERO';
+      const resultado = await LaboresService.ejecutar(
+        { ...selectedLabor, finca_id: selectedLabor.finca_id || finca.id },
+        {
+          persona_desarrollo: personaDesarrollo || 'TITULAR',
+          empleado_id: esJornalero && empleadoId && empleadoId !== 'MANUAL' ? empleadoId : null,
+          nombre_jornalero: esJornalero ? nombreJornalero.trim() : null,
+          edad_jornalero: esJornalero ? parseInt(edadJornalero, 10) : null,
+          dias_trabajo: diasTrabajo ? parseFloat(diasTrabajo.replace(',', '.')) : null,
+          detalle_aplicacion: detalleAplicacion,
+          salario: parseFloat(salario) || 0,
+          insumos: insumosPayload,
+          herramientas: herramientas.split(',').map((s) => s.trim()).filter(Boolean),
+        },
+        {
+          fotoUri: capturedUri,
+          latitud: locationData.latitude,
+          longitud: locationData.longitude,
+          watermark: `Fecha: ${locationData.timestamp} | Lat: ${locationData.latitude} | Lon: ${locationData.longitude}`,
+        }
+      );
+
+      Alert.alert(
+        'Éxito',
+        resultado.origen === 'local'
+          ? 'Ejecución registrada localmente con su evidencia. Se sincronizará al recuperar la conexión.'
+          : 'Labor ejecutada correctamente.'
+      );
+      setModalVisible(false);
+      fetchLabores();
     } catch (error) {
-      Alert.alert('Error', 'Error de red.');
+      Alert.alert('Error', error.message || 'Error de red.');
     } finally {
       setIsSubmitting(false);
     }
@@ -327,42 +360,24 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
 
   const validarNorma = async (laborId) => {
     try {
-      const token = await obtenerToken();
-      if (!token) return;
-      const res = await fetch(endpoints.labores.validarNorma(laborId), {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        Alert.alert('Validación Normativa', `Estado: ${data.estado_validacion}\nOrgánico: ${data.detalles?.organico?.observacion}\nComercio Justo: ${data.detalles?.comercio_justo?.observacion}`);
-        fetchLabores();
-      } else {
-        Alert.alert('Error', 'No se pudo validar la norma.');
-      }
+      const data = await LaboresService.validarNorma(laborId);
+      Alert.alert(
+        'Validación Normativa',
+        `Estado: ${data.estado_validacion}\nOrgánico: ${data.detalles?.organico?.observacion}\nComercio Justo: ${data.detalles?.comercio_justo?.observacion}`
+      );
+      fetchLabores();
     } catch (error) {
-      console.warn(error);
-      Alert.alert('Error', 'Error de red.');
+      Alert.alert('Error', error.message || 'No se pudo validar la norma.');
     }
   };
 
   const aprobarLabor = async (laborId) => {
     try {
-      const token = await obtenerToken();
-      if (!token) return;
-      const res = await fetch(endpoints.labores.aprobar(laborId), {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        Alert.alert('Éxito', 'Labor auditada y aprobada correctamente.');
-        fetchLabores();
-      } else {
-        Alert.alert('Error', 'No se pudo aprobar la labor.');
-      }
+      await LaboresService.aprobar(laborId);
+      Alert.alert('Éxito', 'Labor auditada y aprobada correctamente.');
+      fetchLabores();
     } catch (error) {
-      console.warn(error);
-      Alert.alert('Error', 'Error de red.');
+      Alert.alert('Error', error.message || 'No se pudo aprobar la labor.');
     }
   };
 
@@ -402,10 +417,16 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
             </Text>
           </View>
           {labor.estado === 'PRE_VALIDADO' && (
-            <TouchableOpacity style={[styles.ejecutarBtn, { backgroundColor: theme.colors.primary }]} onPress={() => aprobarLabor(labor.id)}>
-              <CheckCircle2 size={14} color="#fff" style={{ marginRight: 4 }} />
-              <Text style={styles.ejecutarBtnText}>Aprobar (Auditor)</Text>
-            </TouchableOpacity>
+            puedeAprobar ? (
+              <TouchableOpacity style={[styles.ejecutarBtn, { backgroundColor: theme.colors.primary }]} onPress={() => aprobarLabor(labor.id)}>
+                <CheckCircle2 size={14} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.ejecutarBtnText}>Aprobar (Auditor)</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }}>
+                Pendiente de aprobación por el auditor interno
+              </Text>
+            )
           )}
         </View>
       )}
@@ -563,8 +584,53 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
                   </Picker>
                 </View>
 
-                <Text style={styles.inputLabel}>Nombre Jornalero (si aplica)</Text>
-                <TextInput style={styles.input} value={nombreJornalero} onChangeText={setNombreJornalero} placeholder="Ej. Juan Pérez" placeholderTextColor={theme.colors.outline} />
+                {personaDesarrollo === 'JORNALERO' && (
+                  <View style={styles.jornaleroBox}>
+                    <View style={styles.jornaleroHeader}>
+                      <Users size={16} color={theme.colors.primary} />
+                      <Text style={styles.jornaleroTitle}>Datos del jornalero</Text>
+                      <TouchableOpacity onPress={() => { setModalVisible(false); navigation.navigate('Empleados'); }}>
+                        <Text style={styles.jornaleroLink}>Gestionar cuadrilla</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.inputLabel}>Empleado *</Text>
+                    <View style={styles.pickerContainer}>
+                      <Picker
+                        style={{ color: theme.colors.onSurface }}
+                        dropdownIconColor={theme.colors.onSurface}
+                        selectedValue={empleadoId}
+                        onValueChange={seleccionarEmpleado}
+                      >
+                        <Picker.Item label="Seleccione de su cuadrilla..." value="" />
+                        {empleadosLista.map((e) => (
+                          <Picker.Item key={e.id} label={`${e.nombre} (${e.edad} años)`} value={e.id} />
+                        ))}
+                        <Picker.Item label="✏️ Escribir manualmente" value="MANUAL" />
+                      </Picker>
+                    </View>
+
+                    {(empleadoId === 'MANUAL' || empleadosLista.length === 0) && (
+                      <>
+                        <Text style={styles.inputLabel}>Nombre del jornalero *</Text>
+                        <TextInput style={styles.input} value={nombreJornalero} onChangeText={setNombreJornalero} placeholder="Ej. Juan Pérez" placeholderTextColor={theme.colors.outline} />
+                        <Text style={styles.inputLabel}>Edad * (mínimo {EDAD_MINIMA_EMPLEADO} años)</Text>
+                        <TextInput style={styles.input} value={edadJornalero} onChangeText={setEdadJornalero} keyboardType="number-pad" placeholder="Ej. 34" placeholderTextColor={theme.colors.outline} />
+                      </>
+                    )}
+
+                    {empleadoId && empleadoId !== 'MANUAL' && nombreJornalero ? (
+                      <View style={styles.jornaleroResumen}>
+                        <Text style={styles.jornaleroResumenText}>
+                          {nombreJornalero} · {edadJornalero} años
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    <Text style={styles.inputLabel}>Días de trabajo</Text>
+                    <TextInput style={styles.input} value={diasTrabajo} onChangeText={setDiasTrabajo} keyboardType="decimal-pad" placeholder="Ej. 2" placeholderTextColor={theme.colors.outline} />
+                  </View>
+                )}
 
                 <Text style={styles.inputLabel}>Detalle de aplicación</Text>
                 <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]} multiline value={detalleAplicacion} onChangeText={setDetalleAplicacion} placeholder="Detalles..." placeholderTextColor={theme.colors.outline} />
@@ -575,12 +641,35 @@ export default function CalendarioLaboresScreen({ route, navigation }) {
                 <Text style={styles.inputLabel}>Herramientas (separadas por coma)</Text>
                 <TextInput style={styles.input} value={herramientas} onChangeText={setHerramientas} placeholder="Ej. Machete, Tijeras" placeholderTextColor={theme.colors.outline} />
 
-                <Text style={{ fontSize: 16, fontWeight: 'bold', marginTop: 16, marginBottom: 8, color: theme.colors.onSurface }}>Insumos (Opcional)</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', marginTop: 16, marginBottom: 8, color: theme.colors.onSurface }}>
+                  Insumos (Opcional){insumos.length > 0 ? ` · ${insumos.length}` : ''}
+                </Text>
+
+                {insumos.map((insumo, index) => (
+                  <View key={`${insumo.nombre}-${insumo.unidad}-${index}`} style={styles.insumoItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.insumoItemNombre}>{insumo.nombre}</Text>
+                      <Text style={styles.insumoItemDetalle}>{insumo.cantidad} {insumo.unidad}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.insumoDeleteBtn}
+                      onPress={() => eliminarInsumo(index)}
+                      accessibilityLabel={`Eliminar insumo ${insumo.nombre}`}
+                    >
+                      <Trash2 size={18} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <TextInput style={[styles.input, { flex: 2 }]} value={insumoNombre} onChangeText={setInsumoNombre} placeholder="Nombre" placeholderTextColor={theme.colors.outline} />
                   <TextInput style={[styles.input, { flex: 1 }]} value={insumoCantidad} onChangeText={setInsumoCantidad} keyboardType="numeric" placeholder="Cant." placeholderTextColor={theme.colors.outline} />
                   <TextInput style={[styles.input, { flex: 1 }]} value={insumoUnidad} onChangeText={setInsumoUnidad} placeholder="Unid." placeholderTextColor={theme.colors.outline} />
+                  <TouchableOpacity style={styles.insumoAddBtn} onPress={agregarInsumo} accessibilityLabel="Agregar insumo">
+                    <Plus size={20} color="#fff" />
+                  </TouchableOpacity>
                 </View>
+                <Text style={styles.insumoHint}>Complete los tres campos y pulse + para agregar otro insumo.</Text>
 
                 <Text style={{ fontSize: 16, fontWeight: 'bold', marginTop: 24, marginBottom: 8 }}>Evidencia Fotográfica *</Text>
                 <TouchableOpacity style={styles.cameraBtn} onPress={takePhoto}>
@@ -870,6 +959,77 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: theme.colors.surface,
     color: theme.colors.onSurface,
+  },
+  insumoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  insumoItemNombre: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.onSurface,
+  },
+  insumoItemDetalle: {
+    fontSize: 13,
+    color: theme.colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  insumoDeleteBtn: {
+    padding: 8,
+  },
+  insumoAddBtn: {
+    backgroundColor: theme.colors.inversePrimary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  insumoHint: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant,
+    marginTop: 6,
+  },
+  jornaleroBox: {
+    backgroundColor: 'rgba(0, 67, 40, 0.04)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 67, 40, 0.12)',
+    padding: 12,
+    marginTop: 8,
+  },
+  jornaleroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  jornaleroTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  jornaleroLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.secondary,
+    textDecorationLine: 'underline',
+  },
+  jornaleroResumen: {
+    backgroundColor: 'rgba(142, 214, 170, 0.2)',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+  },
+  jornaleroResumenText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.primary,
   },
   cameraBtn: {
     flexDirection: 'row',

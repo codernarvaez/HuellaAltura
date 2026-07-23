@@ -10,6 +10,7 @@ import * as Application from 'expo-application';
 import { db } from '@/data/local/database';
 import * as Crypto from 'expo-crypto';
 import { endpoints } from '@/api/endpoints';
+import { DocumentosService, TIPOS_DOCUMENTO } from '@/services/DocumentosService';
 
 
 const getEncryptionKey = () => {
@@ -86,6 +87,9 @@ export const useRegistroFinca = (navigation) => {
   const [carbonoSuelo, setCarbonoSuelo] = useState('68.8');
   const [totalStockCarbono, setTotalStockCarbono] = useState('119.4');
   const [camposDinamicos, setCamposDinamicos] = useState([]);
+
+  // Paso 3: Expediente documental (M1 RF-07/08/10)
+  const [documentos, setDocumentos] = useState([]);
 
   // --- EFECTOS Y LÓGICA ---
 
@@ -212,6 +216,29 @@ export const useRegistroFinca = (navigation) => {
   const limpiarMapa = () => { setPuntos([]); setIsDrawing(false); };
   const deshacerPunto = () => { if (puntos.length > 0) setPuntos(prev => prev.slice(0, -1)); };
 
+  const adjuntarDocumento = async (tipoClave, archivo) => {
+    try {
+      const doc = await DocumentosService.adjuntar({
+        productorId: user.id,
+        tipoDocumento: tipoClave,
+        archivo,
+      });
+      setDocumentos((prev) => [...prev, doc]);
+    } catch (e) {
+      console.error('[RegistroFinca] Error adjuntando documento:', e);
+      showAlert('Error', 'No se pudo guardar el documento en el dispositivo.', 'error');
+    }
+  };
+
+  const eliminarDocumento = async (doc) => {
+    try {
+      await DocumentosService.eliminar(doc);
+      setDocumentos((prev) => prev.filter((d) => d.id !== doc.id));
+    } catch (e) {
+      console.error('[RegistroFinca] Error eliminando documento:', e);
+    }
+  };
+
   const agregarCampoDinamico = () => setCamposDinamicos([...camposDinamicos, { id: Date.now(), nombre: '', valor: '' }]);
   const actualizarCampoDinamico = (id, field, value) => setCamposDinamicos(camposDinamicos.map(c => c.id === id ? { ...c, [field]: value } : c));
   const eliminarCampoDinamico = (id) => setCamposDinamicos(camposDinamicos.filter(c => c.id !== id));
@@ -219,6 +246,20 @@ export const useRegistroFinca = (navigation) => {
   const guardarRegistro = async () => {
     if (!nombreFinca || puntos.length < 3 || !cedulaId || !nombreProductor) {
       showAlert('Error', 'Nombre de finca, datos del productor y polígono (mín 3 puntos) son obligatorios.', 'warning');
+      return;
+    }
+
+    // Completitud documental (M1 RF-09): los obligatorios bloquean el cierre
+    const faltantes = TIPOS_DOCUMENTO.filter(
+      (t) => t.obligatorio && !documentos.some((d) => d.tipo_documento === t.clave)
+    );
+    if (faltantes.length > 0) {
+      setStep(3);
+      showAlert(
+        'Documentos faltantes',
+        `El expediente requiere: ${faltantes.map((f) => f.etiqueta).join(' y ')}. Adjunte el PDF o una fotografía.`,
+        'warning'
+      );
       return;
     }
     setLoading(true);
@@ -253,6 +294,11 @@ export const useRegistroFinca = (navigation) => {
         id: expedienteId, dato_id: datoId, productor_id: productorId, organizacion_inquilino: organizacion, sync_status: 'pending', creado_en: new Date()
       });
 
+      // Vincular el expediente documental capturado en el paso 3 a la finca
+      if (documentos.length > 0) {
+        await DocumentosService.vincularAFinca(documentos.map((d) => d.id), fincaId);
+      }
+
       for (const campo of camposDinamicos) {
         if (campo.nombre && campo.valor) {
           await sqlite.insert(require('@/data/local/esquema').variablesDinamicas).values({
@@ -278,7 +324,7 @@ export const useRegistroFinca = (navigation) => {
         showAlert('Éxito', 'Registro guardado localmente. Se sincronizará automáticamente al conectarse.', 'success', () => navigation.goBack());
       }
 
-      setStep(1); setPuntos([]); setNombreFinca(''); setCamposDinamicos([]);
+      setStep(1); setPuntos([]); setNombreFinca(''); setCamposDinamicos([]); setDocumentos([]);
     } catch (error) {
       console.error('Error al guardar local:', error);
       showAlert('Error', 'No se pudo guardar el registro en la base de datos local.', 'error');
@@ -301,6 +347,8 @@ export const useRegistroFinca = (navigation) => {
     coberturaForestal, sistemaProduccion, setSistemaProduccion, biomasaArboles, setBiomasaArboles,
     biomasaCafe, setBiomasaCafe, hojarascaMantillo, setHojarascaMantillo, carbonoSuelo, setCarbonoSuelo,
     totalStockCarbono, setTotalStockCarbono, camposDinamicos, agregarCampoDinamico, actualizarCampoDinamico, eliminarCampoDinamico,
+    // Paso 3: Documentos
+    documentos, adjuntarDocumento, eliminarDocumento,
     // Actions
     guardarRegistro,
   };

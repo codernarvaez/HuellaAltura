@@ -176,6 +176,91 @@ export class DatabaseManager {
     `);
 
     sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS "empleados" (
+        "id" text PRIMARY KEY NOT NULL,
+        "productor_id" text,
+        "nombre" text NOT NULL,
+        "cedula" text,
+        "edad" integer NOT NULL,
+        "telefono" text,
+        "salario_jornal" real,
+        "activo" integer DEFAULT 1 NOT NULL,
+        "sync_status" text DEFAULT 'pending' NOT NULL,
+        "creado_en" integer NOT NULL
+      );
+    `);
+
+    sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS "documentos_finca" (
+        "id" text PRIMARY KEY NOT NULL,
+        "finca_id" text,
+        "productor_id" text,
+        "tipo_documento" text NOT NULL,
+        "nombre_archivo" text NOT NULL,
+        "uri_local" text NOT NULL,
+        "mime" text NOT NULL,
+        "tamano_bytes" integer,
+        "hash_sha256" text,
+        "sync_status" text DEFAULT 'pending' NOT NULL,
+        "creado_en" integer NOT NULL
+      );
+    `);
+
+    sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS "labores_locales" (
+        "id" text PRIMARY KEY NOT NULL,
+        "finca_id" text NOT NULL,
+        "nombre" text NOT NULL,
+        "tipo_proceso" text,
+        "mes" text NOT NULL,
+        "cantidad_proyectada" text,
+        "estado" text DEFAULT 'PLANIFICADO' NOT NULL,
+        "origen" text DEFAULT 'local' NOT NULL,
+        "sync_status" text DEFAULT 'pending' NOT NULL,
+        "creado_en" integer NOT NULL
+      );
+    `);
+
+    sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS "ejecuciones_locales" (
+        "id" text PRIMARY KEY NOT NULL,
+        "labor_id" text NOT NULL,
+        "finca_id" text NOT NULL,
+        "persona_desarrollo" text NOT NULL,
+        "empleado_id" text,
+        "nombre_jornalero" text,
+        "edad_jornalero" integer,
+        "dias_trabajo" real,
+        "salario" real,
+        "detalle_aplicacion" text,
+        "insumos_json" text DEFAULT '[]' NOT NULL,
+        "herramientas_json" text DEFAULT '[]' NOT NULL,
+        "foto_uri" text,
+        "foto_hash" text,
+        "latitud" real,
+        "longitud" real,
+        "watermark_text" text,
+        "sync_status" text DEFAULT 'pending' NOT NULL,
+        "creado_en" integer NOT NULL
+      );
+    `);
+
+    sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS "muestras_locales" (
+        "id" text PRIMARY KEY NOT NULL,
+        "finca_id" text NOT NULL,
+        "finca_nombre" text,
+        "tipo_proceso" text NOT NULL,
+        "peso_lb" real NOT NULL,
+        "observaciones" text,
+        "latitud" real,
+        "longitud" real,
+        "sync_status" text DEFAULT 'pending' NOT NULL,
+        "creado_en" integer NOT NULL
+      );
+    `);
+
+    sqlite.execute(`
       CREATE TABLE IF NOT EXISTS "actividades_trazabilidad" (
         "id" text PRIMARY KEY NOT NULL,
         "numero" integer,

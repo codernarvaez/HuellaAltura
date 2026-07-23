@@ -1,15 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ImageBackground, Image, TouchableOpacity, StatusBar } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { eq } from 'drizzle-orm';
 import { useAuth } from '../../contexts/AuthContext';
 import { theme } from '../../theme/theme';
-import { LogOut, Trees, FileCheck2, Cloud, RefreshCcw, Plus } from 'lucide-react-native';
+import { LogOut, Trees, FileCheck2, Cloud, RefreshCcw, Plus, FlaskConical, CalendarClock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../data/local/database';
+import {
+  fincas as fincasSchema,
+  expedientes as expedientesSchema,
+  datosAgroambientales,
+  documentosFinca,
+  laboresLocales,
+  ejecucionesLocales,
+  muestrasLocales,
+} from '../../data/local/esquema';
 
 const ScreenOne = ({ navigation }) => {
   const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
-  
+
   const [stats, setStats] = useState({
     fincas: 0,
     expedientes: 0,
@@ -17,18 +28,40 @@ const ScreenOne = ({ navigation }) => {
     pendingSync: 0
   });
 
-  // Mocked fetch for now, can be connected to local SQLite db easily
-  useEffect(() => {
-    // In a real app, you would query SQLite here.
-    // Example: const sqlite = db(); 
-    // const fincasList = await sqlite.select().from(fincas);
-    setStats({
-      fincas: 14,
-      expedientes: 14,
-      carbono: '1,250',
-      pendingSync: 2
-    });
+  // Estadísticas reales desde la base local (disponibles offline)
+  const cargarStats = useCallback(async () => {
+    try {
+      const sqlite = db();
+      const listaFincas = await sqlite.select().from(fincasSchema);
+      const listaExpedientes = await sqlite.select().from(expedientesSchema);
+      const datos = await sqlite.select().from(datosAgroambientales);
+      const carbonoTotal = datos.reduce((suma, d) => suma + (d.total_stock_carbono || 0), 0);
+
+      let pendientes = 0;
+      const tablasSync = [
+        fincasSchema, expedientesSchema, datosAgroambientales,
+        documentosFinca, laboresLocales, ejecucionesLocales, muestrasLocales,
+      ];
+      for (const tabla of tablasSync) {
+        const filas = await sqlite.select().from(tabla).where(eq(tabla.sync_status, 'pending'));
+        pendientes += filas.length;
+      }
+
+      setStats({
+        fincas: listaFincas.length,
+        expedientes: listaExpedientes.length,
+        carbono: carbonoTotal.toLocaleString('es-EC', { maximumFractionDigits: 1 }),
+        pendingSync: pendientes,
+      });
+    } catch (e) {
+      console.warn('[Inicio] Error cargando estadísticas locales:', e);
+    }
   }, []);
+
+  useFocusEffect(useCallback(() => { cargarStats(); }, [cargarStats]));
+
+  const esTecnico = user?.role_name === 'TECNICO_CAMPO';
+  const esAuditor = user?.role_name === 'AUDITOR_INTERNO';
 
   return (
     <ImageBackground 
@@ -112,14 +145,32 @@ const ScreenOne = ({ navigation }) => {
 
           <View style={{ flex: 1 }} />
 
-          {/* Quick Action Button */}
-          <TouchableOpacity 
-            style={styles.primaryButton}
-            onPress={() => navigation.navigate('Registro')}
-          >
-            <Plus size={24} color={theme.colors.onPrimaryFixed} style={{ marginRight: 8 }} />
-            <Text style={styles.primaryButtonText}>Nueva Finca</Text>
-          </TouchableOpacity>
+          {/* Acción principal según el rol del usuario */}
+          {esTecnico ? (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => navigation.navigate('Muestras')}
+            >
+              <FlaskConical size={22} color={theme.colors.onPrimaryFixed} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>Tomar Muestra</Text>
+            </TouchableOpacity>
+          ) : esAuditor ? (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => navigation.navigate('Labores')}
+            >
+              <CalendarClock size={22} color={theme.colors.onPrimaryFixed} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>Revisar Labores</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => navigation.navigate('Registro')}
+            >
+              <Plus size={24} color={theme.colors.onPrimaryFixed} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>Nueva Finca</Text>
+            </TouchableOpacity>
+          )}
 
         </View>
       </View>

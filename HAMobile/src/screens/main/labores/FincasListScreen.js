@@ -4,12 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../theme/theme';
 import { Search, MapPin, Trees, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
-import SafeStorage from '../../../utils/SafeStorage';
-import CryptoJS from 'crypto-js';
 import { db } from '../../../data/local/database';
 import { fincas as fincasSchema } from '../../../data/local/esquema';
 import { endpoints } from '../../../api/endpoints';
-const getEncryptionKey = () => 'ha_emergency_key_js_only';
+import { obtenerToken } from '../../../services/TokenService';
 
 export default function FincasListScreen({ navigation }) {
   const { user } = useAuth();
@@ -18,25 +16,6 @@ export default function FincasListScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const insets = useSafeAreaInsets();
 
-  const obtenerToken = async () => {
-    try {
-      const encryptedToken = await SafeStorage.getItem('auth_token_enc');
-      if (!encryptedToken) return null;
-      const CRYPTO_CONFIG = {
-        iv: CryptoJS.enc.Hex.parse('101112131415161718191a1b1c1d1e1f'),
-        salt: CryptoJS.enc.Hex.parse('0001020304050607')
-      };
-      const Application = require('expo-application');
-      const hardwareId = Application.getAndroidId() || 'ha_fallback_id_safe';
-      const key = CryptoJS.SHA256(`ha_mobile_v1_${hardwareId}`).toString();
-      
-      const bytes = CryptoJS.AES.decrypt(encryptedToken, key, CRYPTO_CONFIG);
-      return bytes.toString(CryptoJS.enc.Utf8);
-    } catch (e) {
-      return null;
-    }
-  };
-
   useEffect(() => {
     fetchFincas();
   }, []);
@@ -44,32 +23,37 @@ export default function FincasListScreen({ navigation }) {
   const fetchFincas = async () => {
     setLoading(true);
     try {
-      const token = await obtenerToken();
-      if (!token) return;
-      let remoteFincas = [];
-      const url = user?.role_name === 'PRODUCTOR' 
-        ? endpoints.fincas.porUsuario(user.id)
-        : endpoints.fincas.getAll;
-      
-      const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        remoteFincas = await res.json();
-      }
-
+      // La copia local siempre está disponible (offline / modo demostración)
       let localFincas = [];
       try {
         const sqlite = db();
         localFincas = await sqlite.select().from(fincasSchema);
-      } catch(e) {
+      } catch (e) {
         console.warn('Error reading local fincas', e);
+      }
+
+      let remoteFincas = [];
+      const token = await obtenerToken();
+      if (token) {
+        try {
+          const url = user?.role_name === 'PRODUCTOR'
+            ? endpoints.fincas.porUsuario(user.id)
+            : endpoints.fincas.getAll;
+          const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            remoteFincas = await res.json();
+          }
+        } catch (e) {
+          console.warn('Red no disponible, se muestran solo fincas locales:', e.message);
+        }
       }
 
       // Combinar priorizando locales y quitando duplicados
       const combined = [...localFincas, ...remoteFincas];
       const uniqueFincas = Array.from(new Map(combined.map(item => [item.id, item])).values());
-      
+
       setFincas(uniqueFincas);
     } catch (error) {
       console.warn('Fetch Exception:', error);

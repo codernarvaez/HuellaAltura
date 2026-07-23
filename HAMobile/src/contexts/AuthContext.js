@@ -85,6 +85,23 @@ export const AuthProvider = ({ children }) => {
       const encryptedToken = await SafeStorage.getItem(TOKEN_KEY);
       const userDataStr = await SafeStorage.getItem(USER_KEY);
 
+      // Sesión de demostración: no tiene token porque nunca tocó el backend.
+      if (!encryptedToken && userDataStr) {
+        try {
+          const storedUser = JSON.parse(userDataStr);
+          if (storedUser?.is_demo) {
+            const { DemoService } = require('../services/DemoService');
+            await DemoService.seedIfNeeded();
+            setUser(storedUser);
+            setIsAuthenticated(true);
+            return;
+          }
+        } catch (e) {
+          console.warn('[AuthContext] Sesión demo corrupta, se descarta:', e);
+          await SafeStorage.removeItem(USER_KEY);
+        }
+      }
+
       if (encryptedToken && userDataStr) {
         const key = getEncryptionKey();
         try {
@@ -197,6 +214,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Inicia sesión con un usuario local de demostración (sin backend).
+   * roleKey: 'PRODUCTOR' | 'TECNICO_CAMPO' | 'AUDITOR_INTERNO'
+   */
+  const signInDemo = async (roleKey) => {
+    setLoading(true);
+    try {
+      const { USUARIOS_DEMO, DemoService } = require('../services/DemoService');
+      const demoUser = USUARIOS_DEMO[roleKey];
+      if (!demoUser) {
+        return { success: false, error: `Rol de demostración desconocido: ${roleKey}` };
+      }
+
+      await DemoService.seedIfNeeded();
+      await saveUserToLocalDB(demoUser);
+
+      // Una sesión demo no debe convivir con un token real anterior
+      await SafeStorage.removeItem(TOKEN_KEY);
+      await SafeStorage.setItem(USER_KEY, JSON.stringify(demoUser));
+      setUser(demoUser);
+      setIsAuthenticated(true);
+      return { success: true };
+    } catch (error) {
+      console.error('[AuthContext] Error iniciando sesión demo:', error);
+      return { success: false, error: 'No se pudo iniciar el modo demostración.' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (userData) => {
     setLoading(true);
     try {
@@ -300,7 +347,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, loading, signIn, register, signOut, updateUserProfile }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, loading, signIn, signInDemo, register, signOut, updateUserProfile, isDemo: !!user?.is_demo }}>
       {children}
     </AuthContext.Provider>
   );
