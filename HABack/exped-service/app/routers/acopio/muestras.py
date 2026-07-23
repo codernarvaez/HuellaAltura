@@ -6,7 +6,7 @@ from prisma import Prisma
 from app.database import get_db
 from app.dependencies import log_user_action, require_roles
 from app.routers.acopio.roles import MUESTREO
-from app.schemas.acopio import MuestraCreate
+from app.schemas.acopio import MuestraCreate, MuestraOut
 
 router = APIRouter(prefix="/acopio/muestras", tags=["Acopio - Muestras"])
 
@@ -45,3 +45,41 @@ def registrar_muestra(
         "mensaje": "Muestra registrada exitosamente",
         "muestra_id": muestra_db.id,
     }
+
+
+@router.get("/{fincaId}")
+def obtener_muestras_por_finca(
+    fincaId: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*MUESTREO)),
+):
+    """
+    Obtiene todas las muestras registradas para una finca específica (RF-APE-01).
+
+    Parámetro:
+    - fincaId: UUID de la finca
+
+    Devuelve lista de muestras con sus respectivos análisis.
+    """
+    finca_db = db.finca.find_unique(where={"id": fincaId})
+    if not finca_db:
+        raise HTTPException(status_code=404, detail="Finca no encontrada")
+
+    muestras = db.muestra.find_many(
+        where={"fincaId": fincaId},
+        order_by={"fechaToma": "desc"},
+    )
+
+    return [
+        {
+            "id": m.id,
+            "fincaId": m.fincaId,
+            "productorId": m.productorId,
+            "codigoQR": m.codigoQR,
+            "tipoProceso": m.tipoProceso,
+            "pesoKg": m.pesoKg,
+            "evidenciaFoto": m.evidenciaFoto,
+            "fechaToma": m.fechaToma,
+        }
+        for m in muestras
+    ]
