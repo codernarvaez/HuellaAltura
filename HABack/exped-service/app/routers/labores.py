@@ -147,6 +147,8 @@ def ejecutar_labor(
                     "finca_id": labor.finca_id,
                     "persona_desarrollo": ejecucion_in.persona_desarrollo,
                     "nombre_jornalero": ejecucion_in.nombre_jornalero,
+                    "edad_jornalero": ejecucion_in.edad_jornalero,
+                    "dias_trabajo": ejecucion_in.dias_trabajo,
                     "detalle_aplicacion": ejecucion_in.detalle_aplicacion,
                     "salario": ejecucion_in.salario,
                     "foto_url": ejecucion_in.foto_url,
@@ -167,7 +169,8 @@ def ejecutar_labor(
                             {"nombre": herramienta} for herramienta in ejecucion_in.herramientas
                         ]
                     }
-                }
+                },
+                include={"insumos": True, "herramientas": True}
             )
 
             transaction.laboragricola.update(
@@ -217,6 +220,8 @@ def obtener_ledger(
                 "tipo_proceso": ejec.labor.tipo_proceso if ejec.labor else "Desconocido",
                 "persona": ejec.persona_desarrollo,
                 "nombre_jornalero": ejec.nombre_jornalero,
+                "edad_jornalero": ejec.edad_jornalero,
+                "dias_trabajo": ejec.dias_trabajo,
                 "detalle_aplicacion": ejec.detalle_aplicacion,
                 "costo": ejec.salario,
                 "evidencia": {

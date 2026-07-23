@@ -127,6 +127,16 @@ se definen en `app/routers/acopio/roles.py`.
   aprobada o si se detectó deforestación post-2020.
 - **Despacho:** Σ kg de salida nunca puede superar Σ kg de ingreso.
 
+### Labores agrícolas — ejecución con jornaleros (RF PPC-05)
+
+`POST /api/v1/labores/{id}/ejecutar` acepta ahora `edad_jornalero` y
+`dias_trabajo`, y admite **N insumos** por ejecución (sin duplicados
+nombre+unidad). Cuando `persona_desarrollo` es `JORNALERO`, el nombre y la
+edad son obligatorios y la edad debe ser **≥ 18 años** (prohibición de trabajo
+infantil — requisito crítico de Comercio Justo). La validación vive en
+`app/schemas/schemas.py::EjecucionLaborCreate` y está cubierta por
+`tests/test_schemas_labores.py`.
+
 ---
 
 ## Instalación local

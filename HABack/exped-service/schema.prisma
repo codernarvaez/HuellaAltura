@@ -374,8 +374,10 @@ model EjecucionLabor {
   id                 String             @id @default(uuid())
   labor_id           String
   finca_id           String
-  persona_desarrollo String             
+  persona_desarrollo String
   nombre_jornalero   String?
+  edad_jornalero     Int?
+  dias_trabajo       Float?
   detalle_aplicacion String
   salario            Float?
   foto_url           String?
