@@ -419,23 +419,23 @@ model HerramientaLabor {
 // ─── MÓDULO 3: CALIDAD, ACOPIO Y EXPORTACIÓN ─────────────────
 
 model Muestra {
-  id              Int       @id @default(autoincrement())
+  id              String    @id @default(uuid())
   fincaId         String    // Relacionado con el ID de la Finca (SRID 4326)
-  productorId     String    // Relacionado con el ID del Productor
+  productorId     String    // Relacionado con el ID del Productor (UUID de auth-service)
   codigoQR        String    @unique
   tipoProceso     String    // Lavado, Honey, Natural
   pesoKg          Float     // Estandarizado en KG
   fechaToma       DateTime  @default(now())
-  evidenciaFoto   String?  
-  
+  evidenciaFoto   String?
+
   analisisFisico    AnalisisFisico?
   analisisSensorial AnalisisSensorial?
   ordenCompra       OrdenCompra?
 }
 
 model AnalisisFisico {
-  id              Int       @id @default(autoincrement())
-  muestraId       Int       @unique
+  id              String    @id @default(uuid())
+  muestraId       String    @unique
   muestra         Muestra   @relation(fields: [muestraId], references: [id])
   humedad         Float     // Umbral 10-12%
   criba           String    // 14 al 18
@@ -450,18 +450,18 @@ model AnalisisFisico {
 }
 
 model AnalisisSensorial {
-  id              Int       @id @default(autoincrement())
-  muestraId       Int       @unique
+  id              String    @id @default(uuid())
+  muestraId       String    @unique
   muestra         Muestra   @relation(fields: [muestraId], references: [id])
-  fraganciaAroma  Float    
-  sabor           Float    
-  saborResidual   Float    
-  acidez          Float    
-  cuerpo          Float    
-  uniformidad     Float     
-  balance         Float    
-  tazaLimpia      Float    
-  dulzor          Float    
+  fraganciaAroma  Float
+  sabor           Float
+  saborResidual   Float
+  acidez          Float
+  cuerpo          Float
+  uniformidad     Float
+  balance         Float
+  tazaLimpia      Float
+  dulzor          Float
   puntajeCatador  Float
   // 11º item del formato SCA: penalizacion por defectos de taza, que se resta
   // de la suma de los 10 atributos positivos.
@@ -471,23 +471,23 @@ model AnalisisSensorial {
 }
 
 model OrdenCompra {
-  id              Int       @id @default(autoincrement())
-  muestraId       Int       @unique
+  id              String    @id @default(uuid())
+  muestraId       String    @unique
   muestra         Muestra   @relation(fields: [muestraId], references: [id])
   aprobadoEUDR    Boolean   @default(false) // Cero deforestación post-2020
-  precioAcordado  Float    
-  volumenKg       Float    
-  primas          Float?   
+  precioAcordado  Float
+  volumenKg       Float
+  primas          Float?
   estado          String    // PENDIENTE, APROBADA, RECHAZADA
-  
+
   inventario      InventarioAcopio?
 }
 
 model InventarioAcopio {
-  id              Int       @id @default(autoincrement())
-  ordenCompraId   Int       @unique
+  id              String    @id @default(uuid())
+  ordenCompraId   String    @unique
   ordenCompra     OrdenCompra @relation(fields: [ordenCompraId], references: [id])
-  pesoIngresoKg   Float    
+  pesoIngresoKg   Float
   pesoSalidaKg    Float     @default(0) // Para control antifraude
   estado          String    // EN_BODEGA, EN_TRILLA, DESPACHADO
 
@@ -495,12 +495,12 @@ model InventarioAcopio {
 }
 
 model ProcesoTrilla {
-  id                Int      @id @default(autoincrement())
-  inventarioId      Int      @unique
+  id                String   @id @default(uuid())
+  inventarioId      String   @unique
   inventario        InventarioAcopio @relation(fields: [inventarioId], references: [id])
   factorRendimiento Float    // Validado entre 0.78 y 0.82
-  pesoEntradaKg     Float   
-  pesoOroKg         Float   
-  mermaKg           Float   
+  pesoEntradaKg     Float
+  pesoOroKg         Float
+  mermaKg           Float
   fechaProceso      DateTime @default(now())
 }

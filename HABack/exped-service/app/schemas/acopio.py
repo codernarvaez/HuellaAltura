@@ -63,7 +63,7 @@ class MuestraCreate(BaseModel):
 
 
 class MuestraOut(MuestraCreate):
-    id: int
+    id: str
     pesoKg: float
     fechaToma: datetime
 
@@ -80,7 +80,7 @@ CRIBAS_ADMITIDAS = {"14", "15", "16", "17", "18"}
 
 
 class AnalisisFisicoCreate(BaseModel):
-    muestraId: int
+    muestraId: str
     humedad: float = Field(
         ...,
         ge=0.0,
@@ -119,7 +119,7 @@ class AnalisisFisicoCreate(BaseModel):
 
 
 class AnalisisFisicoOut(AnalisisFisicoCreate):
-    id: int
+    id: str
     conforme: bool
     noConformidades: list[str]
     fechaAnalisis: datetime
@@ -138,7 +138,7 @@ class AnalisisSensorialCreate(BaseModel):
     especialidad de uno comercial.
     """
 
-    muestraId: int
+    muestraId: str
     fraganciaAroma: float = Field(..., ge=0, le=10)
     sabor: float = Field(..., ge=0, le=10)
     saborResidual: float = Field(..., ge=0, le=10)
@@ -182,7 +182,7 @@ class AnalisisSensorialCreate(BaseModel):
 
 
 class AnalisisSensorialOut(AnalisisSensorialCreate):
-    id: int
+    id: str
     puntajeTotal: float
     clasificacion: str = Field(..., description="Ej: Café de Especialidad")
 
@@ -192,7 +192,7 @@ class AnalisisSensorialOut(AnalisisSensorialCreate):
 # ─── Gerencia: Orden de Compra ───────────────────────────────
 
 class OrdenCompraCreate(BaseModel):
-    muestraId: int
+    muestraId: str
     precioAcordado: float = Field(..., gt=0, description="Precio acordado por quintal/kg")
     volumenKg: float = Field(..., gt=0, description="Volumen negociado en kilogramos")
     primas: Optional[float] = Field(
@@ -200,7 +200,7 @@ class OrdenCompraCreate(BaseModel):
     )
 
 class OrdenCompraOut(OrdenCompraCreate):
-    id: int
+    id: str
     aprobadoEUDR: bool
     estado: str
 
@@ -210,7 +210,7 @@ class OrdenCompraOut(OrdenCompraCreate):
 # ─── Bodega: Inventario y Acopio ─────────────────────────────
 
 class BodegaIngresoCreate(BaseModel):
-    ordenCompraId: int
+    ordenCompraId: str
     codigoQR: str = Field(..., description="Lectura del código QR del productor")
     pesoIngresado_lb: float = Field(
         ..., gt=0, description="Peso ingresado en la báscula (libras)"
@@ -220,8 +220,8 @@ class BodegaIngresoCreate(BaseModel):
     )
 
 class InventarioAcopioOut(BaseModel):
-    id: int
-    ordenCompraId: int
+    id: str
+    ordenCompraId: str
     pesoIngresoKg: float
     pesoSalidaKg: float
     estado: str
@@ -233,28 +233,28 @@ class InventarioAcopioOut(BaseModel):
 # --- Procesamiento: Trilla ---
 
 class TrillaCreate(BaseModel):
-    inventarioId: int
+    inventarioId: str
     factorRendimiento: float = Field(
-        ..., 
-        ge=0.78, 
-        le=0.82, 
+        ...,
+        ge=0.78,
+        le=0.82,
         description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"
     )
 
 class TrillaOut(BaseModel):
-    id: int
-    inventarioId: int
+    id: str
+    inventarioId: str
     factorRendimiento: float
     pesoEntradaKg: float
     pesoOroKg: float
     mermaKg: float
-    
+
     class Config:
         from_attributes = True
 
 # ─── Exportación y Despacho ──────────────────────────────────
 
 class DespachoCreate(BaseModel):
-    inventarioId: int
+    inventarioId: str
     peso_salida_kg: float = Field(..., gt=0, description="Peso exacto en KG a despachar")
     destino: str = Field(..., description="Puerto, cliente o destino final")
