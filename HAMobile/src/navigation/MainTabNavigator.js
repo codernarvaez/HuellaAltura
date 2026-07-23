@@ -5,8 +5,9 @@ import RegistroFincaScreen from '../screens/main/registro-finca';
 import TecnicoCampoScreen from '../screens/main/tecnico-campo';
 import ScreenThree from '../screens/main/ScreenThree';
 import LaboresNavigator from './LaboresNavigator';
+import RegistroMuestraScreen from '../screens/main/muestras/RegistroMuestraScreen';
 import { theme } from '../theme/theme';
-import { Home, Trees, User, ClipboardList, CalendarClock } from 'lucide-react-native';
+import { Home, Trees, User, ClipboardList, CalendarClock, FlaskConical } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 const Tab = createBottomTabNavigator();
@@ -36,6 +37,7 @@ const MainTabNavigator = () => {
           if (route.name === 'Inicio') return <Home size={28} color={color} />;
           if (route.name === 'Registro') return <Trees size={28} color={color} />;
           if (route.name === 'Evaluación') return <ClipboardList size={28} color={color} />;
+          if (route.name === 'Muestras') return <FlaskConical size={26} color={color} />;
           if (route.name === 'Labores') return <CalendarClock size={28} color={color} />;
           if (route.name === 'Perfil') return <User size={28} color={color} />;
           return null;
@@ -48,6 +50,7 @@ const MainTabNavigator = () => {
       ) : (
         <Tab.Screen name="Registro" component={RegistroFincaScreen} options={{ title: 'Registro EUDR' }} />
       )}
+      {isTecnico && <Tab.Screen name="Muestras" component={RegistroMuestraScreen} />}
       <Tab.Screen name="Labores" component={LaboresNavigator} />
       <Tab.Screen name="Perfil" component={ScreenThree} />
     </Tab.Navigator>

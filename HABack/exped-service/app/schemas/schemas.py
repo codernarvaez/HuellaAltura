@@ -629,17 +629,70 @@ class LaborAgricolaOut(LaborAgricolaBase):
 # --- SCHEMAS PARA EJECUTAR LABOR ---
 
 class InsumoLaborCreate(BaseModel):
-    nombre: str
-    cantidad: float
-    unidad: str
+    """Un insumo aplicado en la ejecución. Una ejecución admite N insumos."""
+    nombre: str = Field(min_length=1, max_length=150)
+    cantidad: float = Field(gt=0, description="Cantidad aplicada, debe ser mayor a 0")
+    unidad: str = Field(min_length=1, max_length=30)
+
+    @field_validator("nombre", "unidad")
+    @classmethod
+    def _sin_espacios_sobrantes(cls, v: str) -> str:
+        limpio = v.strip()
+        if not limpio:
+            raise ValueError("El valor no puede estar vacío")
+        return limpio
+
+# Edad mínima legal para trabajo de jornaleros (RF PPC-05, requisito crítico
+# de Comercio Justo / normativa laboral: prohibición de trabajo infantil).
+EDAD_MINIMA_JORNALERO = 18
+
 
 class EjecucionLaborCreate(BaseModel):
     persona_desarrollo: str
     nombre_jornalero: str | None = None
+    edad_jornalero: int | None = Field(None, ge=0, le=120)
+    dias_trabajo: float | None = Field(None, gt=0, le=366)
     detalle_aplicacion: str
     salario: float | None = None
-    insumos: list[InsumoLaborCreate]
-    herramientas: list[str] # Lista de nombres
+    insumos: list[InsumoLaborCreate] = Field(default_factory=list)
+    herramientas: list[str] = Field(default_factory=list)  # Lista de nombres
+
+    @model_validator(mode="after")
+    def _validar_jornalero(self) -> "EjecucionLaborCreate":
+        if self.persona_desarrollo.upper() == "JORNALERO":
+            if not (self.nombre_jornalero and self.nombre_jornalero.strip()):
+                raise ValueError("El nombre del jornalero es obligatorio")
+            if self.edad_jornalero is None:
+                raise ValueError(
+                    "La edad del jornalero es obligatoria: la normativa exige "
+                    "verificar que sea mayor de edad"
+                )
+            if self.edad_jornalero < EDAD_MINIMA_JORNALERO:
+                raise ValueError(
+                    f"El jornalero debe tener al menos {EDAD_MINIMA_JORNALERO} años; "
+                    "el trabajo infantil está prohibido por la normativa de "
+                    "Comercio Justo y la legislación laboral"
+                )
+        return self
+
+    @field_validator("insumos")
+    @classmethod
+    def _sin_insumos_duplicados(cls, v: list[InsumoLaborCreate]) -> list[InsumoLaborCreate]:
+        vistos = set()
+        for insumo in v:
+            clave = (insumo.nombre.lower(), insumo.unidad.lower())
+            if clave in vistos:
+                raise ValueError(
+                    f"El insumo '{insumo.nombre}' está repetido con la misma unidad; "
+                    "consolide las cantidades en un solo registro"
+                )
+            vistos.add(clave)
+        return v
+
+    @field_validator("herramientas")
+    @classmethod
+    def _herramientas_limpias(cls, v: list[str]) -> list[str]:
+        return [h.strip() for h in v if h and h.strip()]
     
     # Evidencia
     foto_url: str | None = None
@@ -648,12 +701,30 @@ class EjecucionLaborCreate(BaseModel):
     longitud: float | None = None
     watermark_text: str | None = None
 
+class InsumoLaborOut(BaseModel):
+    id: str
+    nombre: str
+    cantidad: float
+    unidad: str
+
+    class Config:
+        from_attributes = True
+
+class HerramientaLaborOut(BaseModel):
+    id: str
+    nombre: str
+
+    class Config:
+        from_attributes = True
+
 class EjecucionLaborOut(BaseModel):
     id: str
     labor_id: str
     finca_id: str
     persona_desarrollo: str
     nombre_jornalero: str | None = None
+    edad_jornalero: int | None = None
+    dias_trabajo: float | None = None
     detalle_aplicacion: str
     salario: float | None = None
     foto_url: str | None = None
@@ -662,6 +733,8 @@ class EjecucionLaborOut(BaseModel):
     longitud: float | None = None
     estado: str = "REGISTRADO"
     timestamp: datetime
-    
+    insumos: list[InsumoLaborOut] = Field(default_factory=list)
+    herramientas: list[HerramientaLaborOut] = Field(default_factory=list)
+
     class Config:
         from_attributes = True

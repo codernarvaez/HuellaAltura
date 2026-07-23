@@ -30,5 +30,9 @@ export const endpoints = {
   },
   sync: {
     upload: `${EXPED_API_URL}/sync/upload`,
+  },
+  acopio: {
+    // El backend monta /acopio en la raíz del servicio, no bajo /api/v1
+    muestras: `${EXPED_API_URL?.replace(/\/api\/v1\/?$/, '')}/acopio/muestras/`,
   }
 };

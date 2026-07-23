@@ -18,12 +18,33 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useAlert } from '../../contexts/AlertContext';
 import { theme } from '../../theme/theme';
-import { Mail, Lock, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, ChevronRight, Eye, EyeOff, Sprout, ClipboardCheck, ShieldCheck } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
+const ROLES_DEMO = [
+  {
+    key: 'PRODUCTOR',
+    titulo: 'Productor',
+    descripcion: 'Registra fincas, documentos y labores diarias',
+    Icono: Sprout,
+  },
+  {
+    key: 'TECNICO_CAMPO',
+    titulo: 'Técnico de Campo',
+    descripcion: 'Evalúa fincas, toma muestras y valida labores',
+    Icono: ClipboardCheck,
+  },
+  {
+    key: 'AUDITOR_INTERNO',
+    titulo: 'Auditor Interno',
+    descripcion: 'Revisa y aprueba la trazabilidad registrada',
+    Icono: ShieldCheck,
+  },
+];
+
 const LoginScreen = ({ navigation }) => {
-  const { signIn, loading } = useAuth();
+  const { signIn, signInDemo, loading } = useAuth();
   const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +68,14 @@ const LoginScreen = ({ navigation }) => {
       }),
     ]).start();
   }, []);
+
+  const handleDemoLogin = async (roleKey) => {
+    setError('');
+    const result = await signInDemo(roleKey);
+    if (!result.success) {
+      setError(result.error);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.includes('@') || password.length < 6) {
@@ -189,13 +218,41 @@ const LoginScreen = ({ navigation }) => {
               </TouchableOpacity>
 
               {/* Register Action */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.registerButton}
                 onPress={() => navigation.navigate('Registration')}
                 disabled={loading}
               >
                 <Text style={styles.registerButtonText}>Crear Cuenta nueva</Text>
               </TouchableOpacity>
+
+              {/* Modo demostración: usuarios locales por rol, sin conexión */}
+              <View style={styles.demoDividerRow}>
+                <View style={styles.demoDividerLine} />
+                <Text style={styles.demoDividerText}>Modo demostración</Text>
+                <View style={styles.demoDividerLine} />
+              </View>
+              <Text style={styles.demoHint}>
+                Explora la app sin conexión con datos de ejemplo. Elige un rol:
+              </Text>
+              {ROLES_DEMO.map(({ key, titulo, descripcion, Icono }) => (
+                <TouchableOpacity
+                  key={key}
+                  style={styles.demoCard}
+                  onPress={() => handleDemoLogin(key)}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.demoIconContainer}>
+                    <Icono size={22} color={theme.colors.primaryFixedDim} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.demoCardTitle}>{titulo}</Text>
+                    <Text style={styles.demoCardDesc}>{descripcion}</Text>
+                  </View>
+                  <ChevronRight size={18} color={theme.colors.primaryFixedDim} />
+                </TouchableOpacity>
+              ))}
             </View>
 
             {/* Footer */}
@@ -379,6 +436,62 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryFixedDim,
     fontWeight: '600',
     fontSize: 16,
+  },
+  demoDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  demoDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  demoDividerText: {
+    ...theme.typography.labelSm,
+    color: theme.colors.primaryFixedDim,
+    marginHorizontal: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  demoHint: {
+    ...theme.typography.labelSm,
+    color: theme.colors.onPrimary,
+    opacity: 0.6,
+    marginBottom: 12,
+  },
+  demoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(142, 214, 170, 0.25)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  demoIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(142, 214, 170, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  demoCardTitle: {
+    ...theme.typography.labelMd,
+    color: theme.colors.onPrimary,
+    fontWeight: '700',
+  },
+  demoCardDesc: {
+    ...theme.typography.labelSm,
+    color: theme.colors.onPrimary,
+    opacity: 0.6,
+    marginTop: 2,
+    fontWeight: '400',
   },
   footer: {
     alignItems: 'center',

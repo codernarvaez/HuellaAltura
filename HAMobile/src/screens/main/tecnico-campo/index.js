@@ -4,16 +4,14 @@ import { theme } from '../../../theme/theme';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAlert } from '../../../contexts/AlertContext';
 
-import SafeStorage from '../../../utils/SafeStorage';
-import CryptoJS from 'crypto-js';
-import * as Application from 'expo-application';
 import { endpoints } from '../../../api/endpoints';
 import { Step3Agroambiental } from '../registro-finca/components/Step3Agroambiental';
 import { Save, ChevronLeft, Search, MapPin, Trees, ChevronRight } from 'lucide-react-native';
-
-const getEncryptionKey = () => {
-  return 'ha_emergency_key_js_only'; // Simplified for this snippet since application may not be fully available
-};
+import { obtenerToken } from '../../../services/TokenService';
+import { db } from '../../../data/local/database';
+import { fincas as fincasSchema, datosAgroambientales } from '../../../data/local/esquema';
+import { eq } from 'drizzle-orm';
+import * as Crypto from 'expo-crypto';
 
 export default function TecnicoCampoScreen() {
   const { user } = useAuth();
@@ -38,24 +36,6 @@ export default function TecnicoCampoScreen() {
   const [organizacion, setOrganizacion] = useState('');
   const [camposDinamicos, setCamposDinamicos] = useState([]);
 
-  const obtenerToken = async () => {
-    try {
-      const encryptedToken = await SafeStorage.getItem('auth_token_enc');
-      if (!encryptedToken) return null;
-      const CRYPTO_CONFIG = {
-        iv: CryptoJS.enc.Hex.parse('101112131415161718191a1b1c1d1e1f'),
-        salt: CryptoJS.enc.Hex.parse('0001020304050607')
-      };
-      const hardwareId = Application.getAndroidId() || 'ha_fallback_id_safe';
-      const key = CryptoJS.SHA256(`ha_mobile_v1_${hardwareId}`).toString();
-      
-      const bytes = CryptoJS.AES.decrypt(encryptedToken, key, CRYPTO_CONFIG);
-      return bytes.toString(CryptoJS.enc.Utf8);
-    } catch (e) {
-      return null;
-    }
-  };
-
   useEffect(() => {
     fetchFincas();
   }, []);
@@ -63,15 +43,33 @@ export default function TecnicoCampoScreen() {
   const fetchFincas = async () => {
     setLoading(true);
     try {
-      const token = await obtenerToken();
-      if (!token) return;
-      const res = await fetch(endpoints.fincas.getAll, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setFincas(json);
+      // Copia local primero: disponible offline y en modo demostración
+      let locales = [];
+      try {
+        locales = await db().select().from(fincasSchema);
+      } catch (e) {
+        console.warn('Error leyendo fincas locales:', e);
       }
+
+      let remotas = [];
+      const token = await obtenerToken();
+      if (token) {
+        try {
+          const res = await fetch(endpoints.fincas.getAll, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            remotas = await res.json();
+          }
+        } catch (e) {
+          console.warn('Red no disponible, se muestran fincas locales:', e.message);
+        }
+      }
+
+      const combinadas = Array.from(
+        new Map([...locales, ...remotas].map((f) => [f.id, f])).values()
+      );
+      setFincas(combinadas);
     } catch (error) {
       console.warn(error);
     } finally {
@@ -79,32 +77,53 @@ export default function TecnicoCampoScreen() {
     }
   };
 
+  const aplicarDato = (dato) => {
+    setDatoId(dato.id);
+    setIndiceShannon(dato.indice_shannon?.toString() || '');
+    setIndiceSimpson(dato.indice_simpson?.toString() || '');
+    setUsoSuelo(dato.uso_suelo || '');
+    setSistemaProduccion(dato.sistema_produccion || '');
+    setBiomasaArboles(dato.biomasa_arboles?.toString() || '');
+    setBiomasaCafe(dato.biomasa_cafe?.toString() || '');
+    setHojarascaMantillo(dato.hojarasca_mantillo?.toString() || '');
+    setCarbonoSuelo(dato.carbono_organico_suelo?.toString() || '');
+    setTotalStockCarbono(dato.total_stock_carbono?.toString() || '');
+  };
+
   const loadDatoAgroambiental = async (finca) => {
     setSelectedFinca(finca);
     setLoading(true);
     try {
       const token = await obtenerToken();
-      if (!token) return;
-      const res = await fetch(endpoints.agroambiental.getByFinca(finca.id), {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length > 0) {
-          const dato = data[0];
-          setDatoId(dato.id);
-          setIndiceShannon(dato.indice_shannon?.toString() || '');
-          setIndiceSimpson(dato.indice_simpson?.toString() || '');
-          setUsoSuelo(dato.uso_suelo || '');
-          setSistemaProduccion(dato.sistema_produccion || '');
-          setBiomasaArboles(dato.biomasa_arboles?.toString() || '');
-          setBiomasaCafe(dato.biomasa_cafe?.toString() || '');
-          setHojarascaMantillo(dato.hojarasca_mantillo?.toString() || '');
-          setCarbonoSuelo(dato.carbono_organico_suelo?.toString() || '');
-          setTotalStockCarbono(dato.total_stock_carbono?.toString() || '');
-        } else {
-          setDatoId(null);
+      if (token) {
+        try {
+          const res = await fetch(endpoints.agroambiental.getByFinca(finca.id), {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.length > 0) {
+              aplicarDato(data[0]);
+              return;
+            }
+            setDatoId(null);
+            return;
+          }
+        } catch (e) {
+          console.warn('Red no disponible, usando datos locales:', e.message);
         }
+      }
+
+      // Offline / demo: leer el dato agroambiental local
+      const locales = await db()
+        .select()
+        .from(datosAgroambientales)
+        .where(eq(datosAgroambientales.finca_id, finca.id))
+        .limit(1);
+      if (locales.length > 0) {
+        aplicarDato(locales[0]);
+      } else {
+        setDatoId(null);
       }
     } catch (error) {
       console.warn(error);
@@ -131,22 +150,39 @@ export default function TecnicoCampoScreen() {
         total_stock_carbono: parseFloat(totalStockCarbono) || 0,
       };
 
-      const url = datoId ? `${endpoints.agroambiental.base}/${datoId}` : `${endpoints.agroambiental.base}/`;
-      const method = datoId ? 'PATCH' : 'POST';
+      if (token) {
+        const url = datoId ? `${endpoints.agroambiental.base}/${datoId}` : `${endpoints.agroambiental.base}/`;
+        const method = datoId ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+        const res = await fetch(url, {
+          method,
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-      if (res.ok) {
-        showAlert('Éxito', 'Información agroambiental guardada correctamente', 'success');
-        setSelectedFinca(null);
-      } else {
-        const text = await res.text();
-        showAlert('Error', 'No se pudo guardar la información', 'error');
+        if (res.ok) {
+          showAlert('Éxito', 'Información agroambiental guardada correctamente', 'success');
+          setSelectedFinca(null);
+        } else {
+          showAlert('Error', 'No se pudo guardar la información', 'error');
+        }
+        return;
       }
+
+      // Offline / demo: upsert local con sync pendiente
+      const sqlite = db();
+      const valores = { ...payload, sync_status: 'pending' };
+      if (datoId) {
+        await sqlite.update(datosAgroambientales).set(valores).where(eq(datosAgroambientales.id, datoId));
+      } else {
+        await sqlite.insert(datosAgroambientales).values({
+          id: Crypto.randomUUID(),
+          creado_en: new Date(),
+          ...valores,
+        });
+      }
+      showAlert('Éxito', 'Información guardada localmente. Se sincronizará al recuperar la conexión.', 'success');
+      setSelectedFinca(null);
     } catch (error) {
       showAlert('Error', 'Error de red', 'error');
     } finally {
