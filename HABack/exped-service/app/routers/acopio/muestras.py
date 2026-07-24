@@ -65,7 +65,10 @@ def obtener_muestras_por_finca(
     if not finca_db:
         raise HTTPException(status_code=404, detail="Finca no encontrada")
 
-    muestras = db.muestra.find_many(where={"fincaId": fincaId})
+    muestras = db.muestra.find_many(
+        where={"fincaId": fincaId},
+        order_by={"fechaToma": "desc"},
+    )
 
     return [
         {
