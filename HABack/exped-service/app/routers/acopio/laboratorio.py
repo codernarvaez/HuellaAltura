@@ -158,5 +158,4 @@ def obtener_analisis_sensorial(
         "puntajeTotal": sensorial.puntajeTotal,
         "clasificacion": clasificar(sensorial.puntajeTotal),
         "nivelTueste": sensorial.nivelTueste,
-        "fechaAnalisis": sensorial.fechaAnalisis,
     }
