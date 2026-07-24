@@ -26,7 +26,7 @@ if (token) {
     
     if (userData?.id) {
       try {
-        const finca = await FincaService.getByProductorId(userData.id, token);
+        const finca = await FincaService.getByUsuarioId(userData.id, token);
         hasFinca = finca !== null && typeof finca === 'object' && Object.keys(finca).length > 0;
         
         if (hasFinca && finca.id) {
