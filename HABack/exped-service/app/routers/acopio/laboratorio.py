@@ -103,3 +103,60 @@ def registrar_analisis_sensorial(
         "clasificacion": clasificar(puntaje_total),
         "id": sensorial_db.id,
     }
+
+
+@router.get("/fisico/{muestraId}")
+def obtener_analisis_fisico(
+    muestraId: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*ANALISIS_FISICO)),
+):
+    """Obtiene el análisis físico de una muestra (RF-APE-03)."""
+    fisico = db.analisisfisico.find_unique(where={"muestraId": muestraId})
+    if not fisico:
+        raise HTTPException(status_code=404, detail="Análisis físico no encontrado")
+
+    return {
+        "id": fisico.id,
+        "muestraId": fisico.muestraId,
+        "humedad": fisico.humedad,
+        "criba": fisico.criba,
+        "densidad": fisico.densidad,
+        "defectosPrim": fisico.defectosPrim,
+        "defectosSec": fisico.defectosSec,
+        "conforme": fisico.conforme,
+        "noConformidades": fisico.noConformidades,
+        "fechaAnalisis": fisico.fechaAnalisis,
+    }
+
+
+@router.get("/sensorial/{muestraId}")
+def obtener_analisis_sensorial(
+    muestraId: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*CATACION)),
+):
+    """Obtiene el análisis sensorial (catación SCA) de una muestra (RF-APE-04)."""
+    sensorial = db.analisissensorial.find_unique(where={"muestraId": muestraId})
+    if not sensorial:
+        raise HTTPException(status_code=404, detail="Análisis sensorial no encontrado")
+
+    return {
+        "id": sensorial.id,
+        "muestraId": sensorial.muestraId,
+        "fraganciaAroma": sensorial.fraganciaAroma,
+        "sabor": sensorial.sabor,
+        "saborResidual": sensorial.saborResidual,
+        "acidez": sensorial.acidez,
+        "cuerpo": sensorial.cuerpo,
+        "uniformidad": sensorial.uniformidad,
+        "balance": sensorial.balance,
+        "tazaLimpia": sensorial.tazaLimpia,
+        "dulzor": sensorial.dulzor,
+        "puntajeCatador": sensorial.puntajeCatador,
+        "defectos": sensorial.defectos,
+        "puntajeTotal": sensorial.puntajeTotal,
+        "clasificacion": clasificar(sensorial.puntajeTotal),
+        "nivelTueste": sensorial.nivelTueste,
+        "fechaAnalisis": sensorial.fechaAnalisis,
+    }
