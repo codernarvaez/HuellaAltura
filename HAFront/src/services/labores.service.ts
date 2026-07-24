@@ -147,6 +147,30 @@ export interface SubirEvidenciaResponse {
 }
 
 // ============================================================
+// INTERFACES - ACOPIO (Conexión con Módulo 3)
+// ============================================================
+
+export interface MuestraOut {
+  id: string;
+  fincaId: string;
+  productorId: string;
+  codigoQR: string;
+  tipoProceso: string;
+  pesoKg: number;
+  evidenciaFoto?: string;
+  creadoEn: string;
+}
+
+export interface FincaConMuestras {
+  id: string;
+  nombre: string;
+  provincia?: string;
+  canton?: string;
+  totalMuestras: number;
+  ultimaMuestra: string;
+}
+
+// ============================================================
 // UTILIDADES
 // ============================================================
 
@@ -161,7 +185,6 @@ function authHeaders(token?: string): Record<string, string> {
 function authHeadersMultipart(token?: string): Record<string, string> {
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  // No establecemos Content-Type, el navegador lo hará automáticamente con el boundary
   return headers;
 }
 
@@ -361,5 +384,275 @@ export class LaboresService {
     const data = await response.json();
     console.log('Response:', data);
     return handleResponse<AprobacionResponse>(response, data);
+  }
+
+  // ============================================================
+  // 🔥 MÉTODOS DE CONEXIÓN CON ACOPIO (Módulo 3)
+  // ============================================================
+
+  /**
+   * Obtiene las fincas que tienen muestras pendientes de análisis
+   * GET /api/v1/labores/fincas-con-muestras
+   */
+  static async getFincasConMuestras(
+    token?: string
+  ): Promise<FincaConMuestras[]> {
+    console.log('🔍 Obteniendo fincas con muestras');
+    
+    const response = await fetch(`${LABORES_BASE}/fincas-con-muestras`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Obtiene las muestras de una finca para el módulo de acopio
+   * GET /api/v1/labores/muestras/{finca_id}
+   */
+  static async getMuestrasByFinca(
+    fincaId: string,
+    token?: string
+  ): Promise<MuestraOut[]> {
+    console.log('🔍 Obteniendo muestras para finca:', fincaId);
+    
+    const response = await fetch(`${LABORES_BASE}/muestras/${fincaId}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Registra una nueva muestra de café en finca
+   * POST /api/v1/labores/muestras
+   */
+  static async registrarMuestra(
+    payload: {
+      fincaId: string;
+      productorId: string;
+      codigoQR: string;
+      tipoProceso: "LAVADO" | "NATURAL" | "HONEY" | "SEMILAVADO";
+      peso_lb: number;
+      evidenciaFoto?: string;
+    },
+    token?: string
+  ): Promise<{ mensaje: string; muestra_id: string }> {
+    console.log('📋 Registrando muestra:', payload);
+    
+    const response = await fetch(`${LABORES_BASE}/muestras`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Registra análisis físico de una muestra
+   * POST /api/v1/labores/muestras/{muestraId}/analisis-fisico
+   */
+  static async registrarAnalisisFisico(
+    muestraId: string,
+    payload: {
+      humedad: number;
+      criba: number;
+      densidad: number;
+      defectosPrim: number;
+      defectosSec: number;
+    },
+    token?: string
+  ): Promise<any> {
+    console.log('🔬 Registrando análisis físico para muestra:', muestraId);
+    
+    const response = await fetch(`${LABORES_BASE}/muestras/${muestraId}/analisis-fisico`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Registra análisis sensorial (catación) de una muestra
+   * POST /api/v1/labores/muestras/{muestraId}/analisis-sensorial
+   */
+  static async registrarAnalisisSensorial(
+    muestraId: string,
+    payload: {
+      fraganciaAroma: number;
+      sabor: number;
+      saborResidual: number;
+      acidez: number;
+      cuerpo: number;
+      uniformidad: number;
+      balance: number;
+      tazaLimpia: number;
+      dulzor: number;
+      puntajeCatador: number;
+      defectos: number;
+      nivelTueste: "CLARO" | "MEDIO" | "OSCURO";
+    },
+    token?: string
+  ): Promise<any> {
+    console.log('☕ Registrando análisis sensorial para muestra:', muestraId);
+    
+    const response = await fetch(`${LABORES_BASE}/muestras/${muestraId}/analisis-sensorial`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Aprueba una orden de compra con validación EUDR
+   * POST /api/v1/labores/ordenes-compra/aprobar
+   */
+  static async aprobarOrdenCompra(
+    payload: {
+      muestraId: string;
+      precioAcordado: number;
+      volumenKg: number;
+      primas?: number;
+    },
+    token?: string
+  ): Promise<{ mensaje: string; orden_id: string }> {
+    console.log('🛒 Aprobando orden de compra:', payload);
+    
+    const response = await fetch(`${LABORES_BASE}/ordenes-compra/aprobar`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Registra ingreso a bodega
+   * POST /api/v1/labores/bodega/ingreso
+   */
+  static async registrarIngresoBodega(
+    payload: {
+      ordenCompraId: string;
+      codigoQR: string;
+      pesoIngresado_lb: number;
+      tipoProceso: string;
+    },
+    token?: string
+  ): Promise<any> {
+    console.log('📦 Registrando ingreso a bodega:', payload);
+    
+    const response = await fetch(`${LABORES_BASE}/bodega/ingreso`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Procesa trilla (balance de masa)
+   * POST /api/v1/labores/trilla/procesar
+   */
+  static async procesarTrilla(
+    payload: {
+      inventarioId: number;
+      factorRendimiento: number;
+    },
+    token?: string
+  ): Promise<any> {
+    console.log('⚙️ Procesando trilla:', payload);
+    
+    const response = await fetch(`${LABORES_BASE}/trilla/procesar`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Registra despacho de café
+   * POST /api/v1/labores/despachos/registrar
+   */
+  static async registrarDespacho(
+    payload: {
+      inventarioId: number;
+      peso_salida_kg: number;
+      destino: string;
+    },
+    token?: string
+  ): Promise<any> {
+    console.log('🚢 Registrando despacho:', payload);
+    
+    const response = await fetch(`${LABORES_BASE}/despachos/registrar`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Obtiene certificado de trazabilidad
+   * GET /api/v1/labores/despachos/certificado/{inventario_id}
+   */
+  static async getCertificadoTrazabilidad(
+    inventarioId: number,
+    token?: string
+  ): Promise<any> {
+    console.log('📄 Obteniendo certificado:', inventarioId);
+    
+    const response = await fetch(`${LABORES_BASE}/despachos/certificado/${inventarioId}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  /**
+   * Descarga certificado de trazabilidad en PDF
+   * GET /api/v1/labores/despachos/certificado/{inventario_id}/pdf
+   */
+  static async descargarCertificadoPDF(
+    inventarioId: number,
+    token?: string
+  ): Promise<Blob> {
+    console.log('📄 Descargando certificado PDF:', inventarioId);
+    
+    const response = await fetch(`${LABORES_BASE}/despachos/certificado/${inventarioId}/pdf`, {
+      method: "GET",
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.blob();
   }
 }

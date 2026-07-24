@@ -1,0 +1,812 @@
+---
+// src/pages/acopio/bodega.astro
+import DashboardLayout from "../../layouts/LayoutVariable.astro";
+import { AuthService } from "../../services/auth.service.ts";
+import { AcopioService } from "../../services/acopio.service.ts";
+
+// Obtener token y datos del usuario
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let userRole = '';
+let ordenes = [];
+let inventario = [];
+let error = null;
+let isLoading = true;
+
+if (token) {
+  try {
+    userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
+    console.log("👤 Usuario:", userData?.first_name, userData?.last_name);
+    console.log("🎭 Rol del usuario:", userRole);
+    
+    // Obtener órdenes aprobadas (para ingreso a bodega)
+    try {
+      const todasOrdenes = await AcopioService.getOrdenesCompra(token, { estado: 'APROBADA' });
+      // Filtrar solo las que no están en bodega aún
+      // Por ahora mostramos todas las aprobadas
+      ordenes = todasOrdenes || [];
+      console.log("📋 Órdenes aprobadas:", ordenes.length);
+    } catch (e) {
+      console.warn("⚠️ Error obteniendo órdenes:", e.message);
+      ordenes = [];
+    }
+    
+    // Obtener inventario actual
+    try {
+      inventario = await AcopioService.getInventarioAll(token);
+      console.log("📦 Inventario actual:", inventario.length);
+    } catch (e) {
+      console.warn("⚠️ Error obteniendo inventario:", e.message);
+      inventario = [];
+    }
+    
+    isLoading = false;
+  } catch (e) {
+    error = e.message;
+    console.error("❌ Error:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+const puedeGestionarBodega = userRole === 'SUPER_ADMIN' || 
+                             userRole === 'TENANT_ADMIN' || 
+                             userRole === 'ADMIN' || 
+                             userRole === 'JEFE_CALIDAD' ||
+                             userRole === 'BODEGUERO';
+
+const ordenesStr = JSON.stringify(ordenes);
+const inventarioStr = JSON.stringify(inventario);
+const userRoleStr = userRole;
+const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
+const API_URL = "https://geoguard-exped.onrender.com";
+---
+
+<DashboardLayout title="Bodega - Acopio">
+
+<div class="space-y-6 max-w-[1400px] mx-auto">
+
+    <!-- HEADER -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
+                📦 Bodega de Café
+            </h1>
+            <p class="mt-1 text-sm text-slate-500 max-w-3xl">
+                Registro de ingreso físico de café, gestión de inventario y proceso de trilla (balance de masa).
+            </p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-slate-500">Tu rol:</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                    {userRole || 'No definido'}
+                </span>
+                {puedeGestionarBodega && (
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                        ✅ Puede gestionar bodega
+                    </span>
+                )}
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <a
+                href="/acopio/compras"
+                class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 h-10 rounded-xl transition font-medium text-sm"
+            >
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Volver a Compras
+            </a>
+        </div>
+    </div>
+
+    <!-- INDICADOR DE CARGA -->
+    {isLoading && (
+        <div class="text-center py-12">
+            <span class="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+            <p class="mt-2 text-slate-500">Cargando datos...</p>
+        </div>
+    )}
+
+    <!-- MENSAJE DE ERROR -->
+    {error && (
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-red-500 text-4xl">error</span>
+            <p class="mt-2 text-red-600">{error}</p>
+        </div>
+    )}
+
+    <!-- ============================================================ -->
+    <!-- TAB: INGRESO / INVENTARIO / TRILLA                          -->
+    <!-- ============================================================ -->
+    {!isLoading && !error && (
+        <div>
+            <!-- Tabs -->
+            <div class="border-b border-slate-200 mb-6">
+                <nav class="flex gap-6">
+                    <button 
+                        class="tab-btn py-3 px-1 text-sm font-medium border-b-2 border-emerald-600 text-emerald-600 transition"
+                        data-tab="ingreso"
+                    >
+                        📥 Ingreso a Bodega
+                    </button>
+                    <button 
+                        class="tab-btn py-3 px-1 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition"
+                        data-tab="inventario"
+                    >
+                        📊 Inventario
+                    </button>
+                    <button 
+                        class="tab-btn py-3 px-1 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition"
+                        data-tab="trilla"
+                    >
+                        ⚙️ Trilla
+                    </button>
+                </nav>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- TAB 1: INGRESO A BODEGA                                     -->
+            <!-- ============================================================ -->
+            <div id="tab-ingreso" class="tab-content space-y-6">
+                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold text-slate-900 mb-4">
+                        📥 Registrar Ingreso Físico
+                    </h2>
+                    <p class="text-sm text-slate-500 mb-4">
+                        Selecciona una orden de compra aprobada para registrar el ingreso físico del café a bodega.
+                    </p>
+
+                    {ordenes.length === 0 ? (
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+                            <span class="material-symbols-outlined text-yellow-500 text-4xl">info</span>
+                            <p class="mt-2 font-semibold text-yellow-700">No hay órdenes de compra aprobadas</p>
+                            <p class="text-sm text-yellow-600 mt-1">
+                                Primero debes aprobar órdenes de compra desde la página de Compras.
+                            </p>
+                            <a
+                                href="/acopio/compras"
+                                class="mt-4 inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition"
+                            >
+                                Ir a Compras
+                            </a>
+                        </div>
+                    ) : (
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {ordenes.map((orden) => (
+                                <div 
+                                    key={orden.id} 
+                                    class="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow orden-item"
+                                    data-orden-id={orden.id}
+                                >
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <h4 class="font-semibold text-slate-900 text-sm">
+                                                Orden #{orden.id}
+                                            </h4>
+                                            <p class="text-xs text-slate-500 mt-1">
+                                                Muestra: {orden.muestraId?.substring(0, 8) || 'N/A'}...
+                                            </p>
+                                        </div>
+                                        <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                                            ✅ Aprobada
+                                        </span>
+                                    </div>
+                                    <div class="mt-3 flex justify-between text-sm">
+                                        <span class="text-slate-500">Volumen:</span>
+                                        <span class="font-medium text-slate-700">{orden.volumenKg} kg</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-500">Precio:</span>
+                                        <span class="font-medium text-slate-700">${orden.precioAcordado}/kg</span>
+                                    </div>
+                                    {orden.aprobadoEUDR && (
+                                        <div class="mt-2 flex items-center gap-1 text-xs text-emerald-600">
+                                            <i data-lucide="check-circle" class="w-3 h-3"></i>
+                                            EUDR Validado
+                                        </div>
+                                    )}
+                                    <button 
+                                        class="btn-ingresar-bodega mt-4 w-full text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition font-medium"
+                                        data-orden-id={orden.id}
+                                        data-volumen={orden.volumenKg}
+                                    >
+                                        <i data-lucide="arrow-down-circle" class="w-4 h-4 inline mr-1"></i>
+                                        Registrar Ingreso
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- TAB 2: INVENTARIO                                           -->
+            <!-- ============================================================ -->
+            <div id="tab-inventario" class="tab-content hidden space-y-6">
+                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold text-slate-900 mb-4">
+                        📊 Inventario Actual
+                    </h2>
+
+                    {inventario.length === 0 ? (
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center">
+                            <span class="material-symbols-outlined text-slate-400 text-4xl">inbox</span>
+                            <p class="mt-2 font-semibold text-slate-700">No hay inventario registrado</p>
+                            <p class="text-sm text-slate-500 mt-1">
+                                Registra ingresos desde la pestaña "Ingreso a Bodega".
+                            </p>
+                        </div>
+                    ) : (
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-slate-200">
+                                        <th class="text-left py-3 px-4 font-semibold text-slate-600">ID</th>
+                                        <th class="text-left py-3 px-4 font-semibold text-slate-600">Orden</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-slate-600">Ingreso (kg)</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-slate-600">Salida (kg)</th>
+                                        <th class="text-center py-3 px-4 font-semibold text-slate-600">Estado</th>
+                                        <th class="text-center py-3 px-4 font-semibold text-slate-600">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {inventario.map((item) => (
+                                        <tr key={item.id} class="border-b border-slate-100 hover:bg-slate-50/50 transition">
+                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">{item.id}</td>
+                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">{item.ordenCompraId?.substring(0, 8) || 'N/A'}</td>
+                                            <td class="py-3 px-4 text-right font-medium text-slate-700">{item.pesoIngresoKg}</td>
+                                            <td class="py-3 px-4 text-right text-slate-600">{item.pesoSalidaKg || 0}</td>
+                                            <td class="py-3 px-4 text-center">
+                                                <span class={`
+                                                    px-2 py-0.5 rounded-full text-xs font-medium
+                                                    ${item.estado === 'EN_BODEGA' ? 'bg-blue-100 text-blue-700' : ''}
+                                                    ${item.estado === 'EN_TRILLA' ? 'bg-yellow-100 text-yellow-700' : ''}
+                                                    ${item.estado === 'DESPACHADO' ? 'bg-emerald-100 text-emerald-700' : ''}
+                                                `}>
+                                                    {item.estado.replace('_', ' ')}
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-4 text-center">
+                                                {item.estado === 'EN_BODEGA' && (
+                                                    <button 
+                                                        class="btn-procesar-trilla text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1 rounded transition font-medium"
+                                                        data-inventario-id={item.id}
+                                                        data-peso={item.pesoIngresoKg}
+                                                    >
+                                                        ⚙️ Trillar
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- TAB 3: TRILLA                                              -->
+            <!-- ============================================================ -->
+            <div id="tab-trilla" class="tab-content hidden space-y-6">
+                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold text-slate-900 mb-4">
+                        ⚙️ Procesar Trilla (Balance de Masa)
+                    </h2>
+                    <p class="text-sm text-slate-500 mb-4">
+                        Procesa el café pergamino a café oro, calculando el rendimiento y la merma.
+                    </p>
+
+                    {inventario.filter(i => i.estado === 'EN_BODEGA').length === 0 ? (
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+                            <span class="material-symbols-outlined text-yellow-500 text-4xl">info</span>
+                            <p class="mt-2 font-semibold text-yellow-700">No hay café en bodega para trillar</p>
+                            <p class="text-sm text-yellow-600 mt-1">
+                                Primero registra ingresos a bodega desde la pestaña "Ingreso a Bodega".
+                            </p>
+                        </div>
+                    ) : (
+                        <div class="space-y-4">
+                            {inventario.filter(i => i.estado === 'EN_BODEGA').map((item) => (
+                                <div key={item.id} class="border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <p class="font-semibold text-slate-900 text-sm">
+                                            Inventario #{item.id}
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            Peso ingresado: <span class="font-medium text-slate-700">{item.pesoIngresoKg} kg</span>
+                                        </p>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Factor (ej: 0.78)"
+                                            class="factor-trilla-input w-40 h-10 px-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                                            data-inventario-id={item.id}
+                                        />
+                                        <button 
+                                            class="btn-procesar-trilla text-sm bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition font-medium"
+                                            data-inventario-id={item.id}
+                                            data-peso={item.pesoIngresoKg}
+                                        >
+                                            ⚙️ Procesar Trilla
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    )}
+
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: INGRESO A BODEGA                                    -->
+<!-- ============================================================ -->
+<div id="modal-ingreso-bodega" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-500/10 p-2 rounded-xl text-blue-600">
+                    <i data-lucide="arrow-down-circle" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Registrar Ingreso a Bodega</h2>
+            </div>
+            <button id="btn-cerrar-ingreso" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-ingreso-bodega" class="space-y-4">
+            <input type="hidden" id="ingreso-orden-id" />
+
+            <div class="bg-slate-50 rounded-xl p-4 space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Orden de Compra:</span>
+                    <span id="ingreso-orden" class="font-medium text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Volumen autorizado:</span>
+                    <span id="ingreso-volumen-autorizado" class="font-medium text-slate-700">-</span>
+                </div>
+            </div>
+
+            <div>
+                <label for="ingreso-codigo-qr" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Código QR de la muestra <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="ingreso-codigo-qr"
+                    type="text"
+                    placeholder="QR-XXXXXX"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    required
+                />
+            </div>
+
+            <div>
+                <label for="ingreso-peso" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Peso ingresado (lb) <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="ingreso-peso"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    required
+                />
+                <p class="text-xs text-slate-400 mt-1">Se convertirá automáticamente a kilogramos</p>
+            </div>
+
+            <div>
+                <label for="ingreso-tipo-proceso" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Tipo de Proceso <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="ingreso-tipo-proceso"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white"
+                    required
+                >
+                    <option value="">Selecciona un tipo</option>
+                    <option value="Lavado">Lavado</option>
+                    <option value="Natural">Natural</option>
+                    <option value="Honey">Honey</option>
+                </select>
+            </div>
+
+            <div id="ingreso-error" class="hidden text-red-500 text-sm flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span id="ingreso-error-text">Error al registrar ingreso</span>
+            </div>
+
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                    type="button"
+                    id="btn-cancelar-ingreso"
+                    class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    id="btn-guardar-ingreso"
+                    class="flex-1 h-12 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Registrar Ingreso
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: RESULTADO DE TRILLA                                 -->
+<!-- ============================================================ -->
+<div id="modal-resultado-trilla" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-purple-500/10 p-2 rounded-xl text-purple-600">
+                    <i data-lucide="flask" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Resultado de Trilla</h2>
+            </div>
+            <button id="btn-cerrar-trilla" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div id="trilla-resultado-content" class="space-y-4">
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                <i data-lucide="check-circle" class="w-8 h-8 text-emerald-600 mx-auto"></i>
+                <p class="mt-2 font-semibold text-emerald-700">Trilla procesada exitosamente</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-500">Peso entrada</p>
+                    <p id="trilla-peso-entrada" class="text-lg font-bold text-slate-900">-</p>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-500">Factor aplicado</p>
+                    <p id="trilla-factor" class="text-lg font-bold text-slate-900">-</p>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-500">Café Oro</p>
+                    <p id="trilla-cafe-oro" class="text-lg font-bold text-emerald-600">-</p>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-500">Merma</p>
+                    <p id="trilla-merma" class="text-lg font-bold text-orange-600">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-3 pt-4 border-t border-slate-100 mt-4">
+            <button
+                type="button"
+                id="btn-cerrar-trilla-btn"
+                class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+            >
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+</DashboardLayout>
+
+<!-- Estilos CSS Inyectados -->
+<style is:global>
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    .animate-modal-in {
+        animation: modalIn 0.2s ease-out;
+    }
+</style>
+
+<script is:inline src="https://unpkg.com/lucide@latest"></script>
+
+<script>
+    import { AuthService } from "/src/services/auth.service.ts";
+    import { AcopioService } from "/src/services/acopio.service.ts";
+
+    console.log("📦 Página de Bodega cargada");
+
+    const API_URL = "https://geoguard-exped.onrender.com";
+
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    function getToken() {
+        return getCookie('token');
+    }
+
+    // ============================================================
+    // TABS
+    // ============================================================
+
+    function initTabs() {
+        const tabs = document.querySelectorAll('.tab-btn');
+        const contents = {
+            ingreso: document.getElementById('tab-ingreso'),
+            inventario: document.getElementById('tab-inventario'),
+            trilla: document.getElementById('tab-trilla')
+        };
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remover active de todos los tabs
+                tabs.forEach(t => {
+                    t.classList.remove('border-emerald-600', 'text-emerald-600');
+                    t.classList.add('border-transparent', 'text-slate-500');
+                });
+                
+                // Activar tab clickeado
+                this.classList.remove('border-transparent', 'text-slate-500');
+                this.classList.add('border-emerald-600', 'text-emerald-600');
+                
+                // Ocultar todos los contenidos
+                Object.values(contents).forEach(c => c.classList.add('hidden'));
+                
+                // Mostrar contenido seleccionado
+                const tabName = this.dataset.tab;
+                if (contents[tabName]) {
+                    contents[tabName].classList.remove('hidden');
+                }
+            });
+        });
+    }
+
+    // ============================================================
+    // MODAL: INGRESO A BODEGA
+    // ============================================================
+
+    function toggleModalIngreso(show, ordenId = null, volumen = null) {
+        const modal = document.getElementById('modal-ingreso-bodega');
+        if (show && ordenId) {
+            document.getElementById('ingreso-orden-id').value = ordenId;
+            document.getElementById('ingreso-orden').textContent = `Orden #${ordenId}`;
+            document.getElementById('ingreso-volumen-autorizado').textContent = `${volumen} kg`;
+            document.getElementById('ingreso-codigo-qr').value = '';
+            document.getElementById('ingreso-peso').value = '';
+            document.getElementById('ingreso-tipo-proceso').value = '';
+            document.getElementById('ingreso-error').classList.add('hidden');
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    async function registrarIngresoBodega(event) {
+        event.preventDefault();
+
+        const ordenCompraId = document.getElementById('ingreso-orden-id').value;
+        const codigoQR = document.getElementById('ingreso-codigo-qr').value.trim();
+        const pesoIngresado_lb = parseFloat(document.getElementById('ingreso-peso').value);
+        const tipoProceso = document.getElementById('ingreso-tipo-proceso').value;
+
+        if (!ordenCompraId || !codigoQR || isNaN(pesoIngresado_lb) || !tipoProceso) {
+            const errorDiv = document.getElementById('ingreso-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('ingreso-error-text').textContent = 'Todos los campos son obligatorios';
+            return;
+        }
+
+        const payload = {
+            ordenCompraId,
+            codigoQR,
+            pesoIngresado_lb,
+            tipoProceso
+        };
+
+        console.log('📦 Payload ingreso bodega:', JSON.stringify(payload, null, 2));
+
+        try {
+            const token = getToken();
+            if (!token) {
+                const errorDiv = document.getElementById('ingreso-error');
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('ingreso-error-text').textContent = 'No hay sesión activa';
+                return;
+            }
+
+            const btnGuardar = document.getElementById('btn-guardar-ingreso');
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Registrando...';
+
+            const resultado = await AcopioService.registrarIngresoBodega(payload, token);
+            console.log('✅ Ingreso registrado:', resultado);
+
+            const errorDiv = document.getElementById('ingreso-error');
+            errorDiv.classList.remove('hidden', 'text-red-500');
+            errorDiv.classList.add('text-emerald-500');
+            document.getElementById('ingreso-error-text').textContent = `✅ Ingreso registrado - Inventario #${resultado.inventario_id} | ${resultado.peso_ingreso_kg} kg`;
+
+            setTimeout(() => {
+                toggleModalIngreso(false);
+                window.location.reload();
+            }, 2000);
+
+        } catch (error) {
+            console.error('❌ Error al registrar ingreso:', error);
+            const errorDiv = document.getElementById('ingreso-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('ingreso-error-text').textContent = error.message || 'Error al registrar ingreso';
+            
+            const btnGuardar = document.getElementById('btn-guardar-ingreso');
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Registrar Ingreso';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    // ============================================================
+    // PROCESAR TRILLA
+    // ============================================================
+
+    function toggleModalTrilla(show, resultado = null) {
+        const modal = document.getElementById('modal-resultado-trilla');
+        if (show && resultado) {
+            document.getElementById('trilla-peso-entrada').textContent = `${resultado.peso_entrada_kg} kg`;
+            document.getElementById('trilla-factor').textContent = `${(resultado.factor_aplicado * 100).toFixed(0)}%`;
+            document.getElementById('trilla-cafe-oro').textContent = `${resultado.kg_cafe_oro_esperados} kg`;
+            document.getElementById('trilla-merma').textContent = `${resultado.merma_esperada_kg} kg`;
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    async function procesarTrilla(inventarioId, pesoIngreso) {
+        // Obtener factor de rendimiento
+        const input = document.querySelector(`.factor-trilla-input[data-inventario-id="${inventarioId}"]`);
+        if (!input) {
+            alert('Por favor ingresa un factor de rendimiento');
+            return;
+        }
+
+        const factorRendimiento = parseFloat(input.value);
+        if (isNaN(factorRendimiento) || factorRendimiento <= 0 || factorRendimiento > 1) {
+            alert('Por favor ingresa un factor de rendimiento válido (0.01 - 1.00)');
+            return;
+        }
+
+        if (!confirm(`¿Procesar trilla para inventario #${inventarioId} con factor ${factorRendimiento}?`)) {
+            return;
+        }
+
+        const payload = {
+            inventarioId,
+            factorRendimiento
+        };
+
+        console.log('⚙️ Procesando trilla:', payload);
+
+        try {
+            const token = getToken();
+            if (!token) {
+                alert('No hay sesión activa');
+                return;
+            }
+
+            const btn = document.querySelector(`.btn-procesar-trilla[data-inventario-id="${inventarioId}"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ Procesando...';
+            }
+
+            const resultado = await AcopioService.procesarTrilla(payload, token);
+            console.log('✅ Trilla procesada:', resultado);
+
+            toggleModalTrilla(true, resultado.resultados);
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+
+        } catch (error) {
+            console.error('❌ Error al procesar trilla:', error);
+            alert('Error al procesar trilla: ' + (error.message || 'Error desconocido'));
+            
+            const btn = document.querySelector(`.btn-procesar-trilla[data-inventario-id="${inventarioId}"]`);
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '⚙️ Procesar Trilla';
+            }
+        }
+    }
+
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🔧 Inicializando eventos...');
+
+        // Tabs
+        initTabs();
+
+        // ---- Botones Ingreso a Bodega ----
+        document.querySelectorAll('.btn-ingresar-bodega').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const ordenId = this.dataset.ordenId;
+                const volumen = this.dataset.volumen;
+                toggleModalIngreso(true, ordenId, volumen);
+            });
+        });
+
+        // ---- Cerrar Modal Ingreso ----
+        document.getElementById('btn-cerrar-ingreso')?.addEventListener('click', () => toggleModalIngreso(false));
+        document.getElementById('btn-cancelar-ingreso')?.addEventListener('click', () => toggleModalIngreso(false));
+        document.getElementById('modal-ingreso-bodega')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) toggleModalIngreso(false);
+        });
+
+        // ---- Formulario Ingreso ----
+        document.getElementById('form-ingreso-bodega')?.addEventListener('submit', registrarIngresoBodega);
+
+        // ---- Botones Procesar Trilla ----
+        document.querySelectorAll('.btn-procesar-trilla').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const inventarioId = parseInt(this.dataset.inventarioId);
+                const peso = parseFloat(this.dataset.peso);
+                if (inventarioId && peso) {
+                    procesarTrilla(inventarioId, peso);
+                }
+            });
+        });
+
+        // ---- Cerrar Modal Trilla ----
+        document.getElementById('btn-cerrar-trilla')?.addEventListener('click', () => toggleModalTrilla(false));
+        document.getElementById('btn-cerrar-trilla-btn')?.addEventListener('click', () => toggleModalTrilla(false));
+        document.getElementById('modal-resultado-trilla')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) toggleModalTrilla(false);
+        });
+
+        // ---- Recrear íconos Lucide ----
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
+        console.log('✅ Eventos inicializados correctamente');
+    });
+
+    document.addEventListener('astro:after-swap', () => {
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    });
+</script>
