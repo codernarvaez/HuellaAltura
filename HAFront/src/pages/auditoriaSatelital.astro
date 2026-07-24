@@ -8,7 +8,7 @@ import { ExpedienteService } from "../services/expediente.service.ts";
 // Obtener token de las cookies
 const token = Astro.cookies.get("token")?.value;
 
-let fincasPendientes = [];
+let fincasPendientes = [...];
 let error = null;
 let isLoading = true;
 let userRole = null;
