@@ -180,7 +180,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
   // OBTENER DATOS DE LA VENTANA GLOBAL
   // ============================================================
   
-  const fincasPendientes = window.__FINCA_DATA__ || [];
+  let fincasPendientes = window.__FINCA_DATA__ || [];
   const esAdmin = window.__ES_ADMIN__ === 'true';
 
   function getCookie(name) {

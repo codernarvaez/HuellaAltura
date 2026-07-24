@@ -26,7 +26,7 @@ if (token) {
     
     if (userData?.id) {
       try {
-        const finca = await FincaService.getByProductorId(userData.id, token);
+        const finca = await FincaService.getByUsuarioId(userData.id, token);
         hasFinca = finca !== null && typeof finca === 'object' && Object.keys(finca).length > 0;
         
         if (hasFinca && finca.id) {
@@ -532,13 +532,13 @@ const isAdminStr = isAdmin ? 'true' : 'false';
 
   <div id="toast-container"></div>
 
-  <script>
-    // Datos inyectados desde el servidor como variables
-    const ES_INVESTIGADOR = {esInvestigadorStr};
-    const PUEDE_VER_INFO_AGRO = {puedeVerInfoAgroStr};
-    const IS_ADMIN = {isAdminStr};
+  <script define:vars={{ esInvestigadorStr, puedeVerInfoAgroStr, isAdminStr }}>
+  // Datos inyectados desde el servidor como variables
+  const ES_INVESTIGADOR = esInvestigadorStr;
+  const PUEDE_VER_INFO_AGRO = puedeVerInfoAgroStr;
+  const IS_ADMIN = isAdminStr;
 
-    document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', () => {
       
       function getCookie(name) {
         const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
