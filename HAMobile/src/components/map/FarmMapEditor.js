@@ -8,14 +8,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
-import { MAPBOX_ACCESS_TOKEN } from '@env';
+import * as Location from 'expo-location';
 import { theme } from '../../theme/theme';
+
+Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN);
 
 // Importar divisiones geográficas
 import cantonesGeoJson from '../../../assets/geo/EC_Cantones.json';
 import parroquiasLojaGeoJson from '../../../assets/geo/Parroquias_Loja.json';
 
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+
 import { 
   ChevronLeft,
   PenTool,

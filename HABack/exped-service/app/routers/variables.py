@@ -1,5 +1,4 @@
 
-from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
 
@@ -18,7 +17,7 @@ _editor = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", 
 
 @router.get(
     "/",
-    response_model=List[VariableDinamicaOut],
+    response_model=list[VariableDinamicaOut],
     summary="Listar todas las variables dinámicas (administrativo)",
 )
 def listar_todas_variables(
@@ -30,7 +29,7 @@ def listar_todas_variables(
 
 @router.get(
     "/search/por-nombre",
-    response_model=List[VariableDinamicaOut],
+    response_model=list[VariableDinamicaOut],
     summary="Buscar variables dinámicas por nombre",
 )
 def buscar_por_nombre(
@@ -45,7 +44,7 @@ def buscar_por_nombre(
 
 @router.get(
     "/search/por-tipo",
-    response_model=List[VariableDinamicaOut],
+    response_model=list[VariableDinamicaOut],
     summary="Buscar variables dinámicas por tipo de dato",
 )
 def buscar_por_tipo(
@@ -58,7 +57,7 @@ def buscar_por_tipo(
 
 @router.get(
     "/search/por-seccion",
-    response_model=List[VariableDinamicaOut],
+    response_model=list[VariableDinamicaOut],
     summary="Buscar variables dinámicas por sección/módulo",
 )
 def buscar_por_seccion(

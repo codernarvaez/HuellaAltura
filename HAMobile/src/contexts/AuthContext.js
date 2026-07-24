@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { API_BASE_URL } from '@env';
+
 import SafeStorage from '../utils/SafeStorage';
+import { endpoints } from '../api/endpoints';
 import { jwtDecode } from 'jwt-decode';
 import CryptoJS from 'crypto-js';
 import * as Application from 'expo-application';
@@ -8,7 +9,7 @@ import { DatabaseManager, db } from '../data/local/database';
 import { productores } from '../data/local/esquema/productores';
 import { eq } from 'drizzle-orm';
 
-const AuthContext = createContext();
+export const AuthContext = createContext({});
 
 const TOKEN_KEY = 'auth_token_enc';
 const USER_KEY = 'user_data';
@@ -84,6 +85,23 @@ export const AuthProvider = ({ children }) => {
       const encryptedToken = await SafeStorage.getItem(TOKEN_KEY);
       const userDataStr = await SafeStorage.getItem(USER_KEY);
 
+      // Sesión de demostración: no tiene token porque nunca tocó el backend.
+      if (!encryptedToken && userDataStr) {
+        try {
+          const storedUser = JSON.parse(userDataStr);
+          if (storedUser?.is_demo) {
+            const { DemoService } = require('../services/DemoService');
+            await DemoService.seedIfNeeded();
+            setUser(storedUser);
+            setIsAuthenticated(true);
+            return;
+          }
+        } catch (e) {
+          console.warn('[AuthContext] Sesión demo corrupta, se descarta:', e);
+          await SafeStorage.removeItem(USER_KEY);
+        }
+      }
+
       if (encryptedToken && userDataStr) {
         const key = getEncryptionKey();
         try {
@@ -119,7 +137,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const fetchUserData = async (token) => {
-    const url = `${API_BASE_URL}/auth/me`;
+    const url = endpoints.auth.me;
     try {
       const response = await fetch(url, {
         headers: {
@@ -139,7 +157,7 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password) => {
     setLoading(true);
-    const url = `${API_BASE_URL}/auth/login`;
+    const url = endpoints.auth.login;
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -196,6 +214,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Inicia sesión con un usuario local de demostración (sin backend).
+   * roleKey: 'PRODUCTOR' | 'TECNICO_CAMPO' | 'AUDITOR_INTERNO'
+   */
+  const signInDemo = async (roleKey) => {
+    setLoading(true);
+    try {
+      const { USUARIOS_DEMO, DemoService } = require('../services/DemoService');
+      const demoUser = USUARIOS_DEMO[roleKey];
+      if (!demoUser) {
+        return { success: false, error: `Rol de demostración desconocido: ${roleKey}` };
+      }
+
+      await DemoService.seedIfNeeded();
+      await saveUserToLocalDB(demoUser);
+
+      // Una sesión demo no debe convivir con un token real anterior
+      await SafeStorage.removeItem(TOKEN_KEY);
+      await SafeStorage.setItem(USER_KEY, JSON.stringify(demoUser));
+      setUser(demoUser);
+      setIsAuthenticated(true);
+      return { success: true };
+    } catch (error) {
+      console.error('[AuthContext] Error iniciando sesión demo:', error);
+      return { success: false, error: 'No se pudo iniciar el modo demostración.' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (userData) => {
     setLoading(true);
     try {
@@ -213,7 +261,7 @@ export const AuthProvider = ({ children }) => {
         payload.nivel_educativo = payload.nivel_educativo.toUpperCase();
       }
       
-      const url = `${API_BASE_URL}/auth/register`;
+      const url = endpoints.auth.register;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -299,7 +347,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, loading, signIn, register, signOut, updateUserProfile }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, loading, signIn, signInDemo, register, signOut, updateUserProfile, isDemo: !!user?.is_demo }}>
       {children}
     </AuthContext.Provider>
   );

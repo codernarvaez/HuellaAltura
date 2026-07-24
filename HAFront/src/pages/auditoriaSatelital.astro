@@ -1,0 +1,759 @@
+---
+// src/pages/auditoriaSatelital.astro
+import Layout from "../layouts/LayoutVariable.astro";
+import { FincaService } from "../services/finca.service.ts";
+import { AuthService } from "../services/auth.service.ts";
+import { ExpedienteService } from "../services/expediente.service.ts";
+
+// Obtener token de las cookies
+const token = Astro.cookies.get("token")?.value;
+
+let fincasPendientes = [];
+let error = null;
+let isLoading = true;
+let userRole = null;
+
+if (token) {
+  try {
+    // Obtener datos del usuario
+    const userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
+    console.log('🎭 Rol del usuario:', userRole);
+    
+    // Obtener todas las fincas
+    const todasFincas = await FincaService.list(token);
+    console.log('📋 Total de fincas:', todasFincas.length);
+    
+    // Obtener todos los expedientes para saber el estado de cada finca
+    const expedientes = await ExpedienteService.list(token);
+    console.log('📋 Expedientes encontrados:', expedientes.length);
+    
+    // Crear un mapa de finca_id -> estado del expediente
+    const estadoPorFinca = {};
+    expedientes.forEach(exp => {
+      if (exp.finca_id) {
+        estadoPorFinca[exp.finca_id] = exp.estado;
+      }
+    });
+    console.log('📊 Estado por finca:', estadoPorFinca);
+    
+    // Filtrar fincas que NO tienen expediente o su expediente está PENDIENTE
+    fincasPendientes = todasFincas.filter(f => {
+      const estado = estadoPorFinca[f.id];
+      return !estado || estado === 'PENDIENTE';
+    });
+    
+    console.log('📋 Fincas pendientes:', fincasPendientes.length);
+    
+    isLoading = false;
+  } catch (e) {
+    error = e.message;
+    console.error("❌ Error cargando fincas:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa. Por favor, inicia sesión.";
+}
+
+// Determinar si es administrador
+const esAdmin = userRole === 'SUPER_ADMIN' || userRole === 'TENANT_ADMIN' || userRole === 'AUDITOR_INTERNO';
+
+// Convertir a JSON para el cliente
+const fincasPendientesJSON = JSON.stringify(fincasPendientes);
+const esAdminStr = esAdmin ? 'true' : 'false';
+---
+
+<Layout title="Auditoría Satelital Automatizada">
+
+<div class="space-y-6">
+  
+  <!-- ENCABEZADO -->
+  <div>
+    <h2 class="text-2xl font-bold text-slate-900">Auditoría Satelital Automatizada (Copernicus / GEE)</h2>
+    <p class="text-sm text-slate-500">Módulo de integración directa con la infraestructura satelital de Google Earth Engine para certificación ambiental.</p>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
+    
+    <!-- Barra de control e Identificación del Predio -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="bg-emerald-500/10 p-3 rounded-xl text-emerald-600">
+          <span class="material-symbols-outlined text-2xl">satellite</span>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-slate-900" id="gee-audit-finca-title">Finca: <span id="finca-nombre-display">Selecciona una</span></h3>
+          <p class="text-xs text-slate-400 font-mono" id="finca-id-display">--</p>
+          <p class="text-xs text-slate-400 font-mono" id="finca-eudr-display">EUDR: --</p>
+          <p class="text-xs text-slate-400 font-mono" id="finca-estado-display">Estado: --</p>
+        </div>
+      </div>
+      
+      <!-- SELECTOR DE FINCAS PENDIENTES -->
+      <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+        <select id="finca-select" class="w-full sm:w-64 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+          <option value="">-- Selecciona una finca --</option>
+          {fincasPendientes.map((finca) => (
+            <option value={finca.id}>
+              {finca.nombre || 'Sin nombre'} {finca.provincia ? `- ${finca.provincia}` : ''}
+            </option>
+          ))}
+        </select>
+        <button id="btn-cargar-finca" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-xs py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap">
+          Cargar Finca
+        </button>
+      </div>
+    </div>
+
+    <!-- HUD / Simulador Visual de Escaneo Satelital -->
+    <div id="gee-scanning-board" class="relative bg-slate-950 rounded-2xl h-80 overflow-hidden flex flex-col justify-between p-6 text-white border border-slate-800">
+      <div class="absolute inset-0 opacity-40 mix-blend-overlay bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1000&auto=format&fit=crop');"></div>
+      <div id="gee-scanner-element" class="hidden absolute inset-x-0 h-1 bg-emerald-500/80 shadow-[0_0_15px_rgba(16,185,129,0.8)] scanner-line"></div>
+
+      <div class="z-10 flex justify-between items-start">
+        <span class="bg-black/60 backdrop-blur-sm border border-slate-700 text-emerald-400 font-mono text-[10px] px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center">
+          <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
+          SAT_INDEX: ESA_SENTINEL_2
+        </span>
+        <span class="text-xs text-slate-300 font-mono" id="gee-timer-display">Fecha Análisis: --</span>
+      </div>
+
+      <div id="gee-simulation-text-center" class="z-10 text-center my-auto space-y-2">
+        <span class="material-symbols-outlined text-5xl text-slate-400 mx-auto block">compass</span>
+        <p class="text-sm font-semibold">Selecciona una finca para iniciar el análisis</p>
+        <p class="text-xs text-slate-400">Rango de comparación: 31-Dic-2020 al Presente</p>
+      </div>
+
+      <div class="z-10 flex justify-between items-end border-t border-slate-800/60 pt-3">
+        <div class="text-left">
+          <p class="text-[10px] text-slate-400 font-mono uppercase">Coordenadas del Centro</p>
+          <p class="text-xs font-mono text-emerald-300" id="gee-coords-hud">-4.2625, -79.2231</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="btn-trigger-scan" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-xs py-2 px-5 rounded-lg transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            Iniciar Escaneo
+          </button>
+          {esAdmin && (
+            <button id="btn-auditar-todas" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-xs py-2 px-5 rounded-lg transition shadow-md">
+              Auditar todas
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <!-- Monitor Analítico: Datos JSON de Trazabilidad -->
+    <div class="bg-slate-900 text-slate-300 rounded-2xl p-4 font-mono text-xs relative">
+      <div class="absolute top-3 right-3 flex items-center space-x-2">
+        <span class="bg-slate-800 text-[10px] text-emerald-400 px-2 py-0.5 rounded uppercase font-bold">Metadata JSON</span>
+        <button id="btn-copy-json" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded transition text-slate-400 hover:text-white" title="Copiar Datos">
+          <span class="material-symbols-outlined text-sm">content_copy</span>
+        </button>
+      </div>
+      <pre class="overflow-x-auto p-2" id="json-viewer-output">Cargando esquema de datos de auditoría...</pre>
+    </div>
+    
+  </div>
+</div>
+
+<style>
+  @keyframes scan {
+    0% { transform: translateY(-100%); }
+    50% { transform: translateY(100%); }
+    100% { transform: translateY(-100%); }
+  }
+  .scanner-line {
+    animation: scan 3s linear infinite;
+  }
+</style>
+
+<!-- Script 1: Inyección de datos -->
+<script>
+  window.__FINCA_DATA__ = {fincasPendientesJSON};
+  window.__ES_ADMIN__ = {esAdminStr};
+</script>
+
+<!-- Script 2: Lógica de la aplicación -->
+<script>
+  // ============================================================
+  // OBTENER DATOS DE LA VENTANA GLOBAL
+  // ============================================================
+  
+  const fincasPendientes = window.__FINCA_DATA__ || [];
+  const esAdmin = window.__ES_ADMIN__ === 'true';
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  const token = getCookie('token');
+  const API_URL = "http://127.0.0.1:8031";
+
+  // ============================================================
+  // FUNCIONES API
+  // ============================================================
+
+  async function getFincaById(fincaId) {
+    const url = `${API_URL}/api/v1/fincas/${fincaId}`;
+    console.log('🔍 getById URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log('🔍 getById Status:', response.status);
+    
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      console.error('❌ Error response:', data);
+      throw new Error(data.detail || 'Error al obtener finca');
+    }
+    
+    const data = await response.json();
+    console.log('✅ getById Data:', data);
+    return data;
+  }
+
+  async function validarEudr(fincaId) {
+    const url = `${API_URL}/api/v1/geoespacial/${fincaId}/validar-eudr`;
+    console.log('🔍 validarEudr URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || 'Error al validar EUDR');
+    }
+    
+    return await response.json();
+  }
+
+  // ✅ ACTUALIZAR EL ESTADO DEL EXPEDIENTE (NO DE LA FINCA)
+  async function actualizarEstadoExpediente(fincaId, estado) {
+    console.log('🔍 Buscando expediente para finca:', fincaId);
+    
+    try {
+      // Primero buscar el expediente asociado a esta finca
+      const urlExpedientes = `${API_URL}/api/v1/expedientes?finca_id=${fincaId}`;
+      console.log('🔍 URL expedientes:', urlExpedientes);
+      
+      const responseExpedientes = await fetch(urlExpedientes, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const expedientes = await responseExpedientes.json();
+      console.log('📋 Expedientes encontrados:', expedientes);
+      
+      // Si no hay expediente, crear uno
+      if (!expedientes || expedientes.length === 0) {
+        console.log('📝 Creando nuevo expediente...');
+        const urlCreate = `${API_URL}/api/v1/expedientes`;
+        
+        // Primero necesitamos obtener el dato_id (datos agroambientales)
+        // Si no hay, usamos un valor temporal o null
+        const datoId = fincaId; // Temporal, ajustar según la lógica de negocio
+        
+        const responseCreate = await fetch(urlCreate, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            dato_id: datoId,
+            organizacion_inquilino: 'Asociación APECAEL'
+          })
+        });
+        
+        if (!responseCreate.ok) {
+          const errorData = await responseCreate.json().catch(() => ({}));
+          throw new Error(errorData.detail || 'Error al crear expediente');
+        }
+        
+        const newExpediente = await responseCreate.json();
+        console.log('✅ Expediente creado:', newExpediente);
+        
+        // Ahora actualizar el expediente creado
+        const expedienteId = newExpediente.id;
+        console.log('🔍 Actualizando expediente:', expedienteId);
+        console.log('📤 Nuevo estado:', estado);
+        
+        const urlUpdate = `${API_URL}/api/v1/expedientes/${expedienteId}`;
+        const responseUpdate = await fetch(urlUpdate, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ estado: estado })
+        });
+        
+        if (!responseUpdate.ok) {
+          const errorData = await responseUpdate.json().catch(() => ({}));
+          throw new Error(errorData.detail || 'Error al actualizar expediente');
+        }
+        
+        const data = await responseUpdate.json();
+        console.log('✅ Expediente actualizado:', data);
+        return data;
+      }
+      
+      // Si existe expediente, actualizarlo
+      const expediente = expedientes[0];
+      const expedienteId = expediente.id;
+      const url = `${API_URL}/api/v1/expedientes/${expedienteId}`;
+      console.log('🔍 update expediente URL:', url);
+      console.log('📤 Nuevo estado:', estado);
+      
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ estado: estado })
+      });
+      
+      console.log('📡 Response status:', response.status);
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        console.error('❌ Error response:', data);
+        throw new Error(data.detail || 'Error al actualizar expediente');
+      }
+      
+      const data = await response.json();
+      console.log('✅ Expediente actualizado:', data);
+      return data;
+      
+    } catch (error) {
+      console.error('❌ Error en actualizarEstadoExpediente:', error);
+      throw error;
+    }
+  }
+
+  async function listarFincas() {
+    const url = `${API_URL}/api/v1/fincas`;
+    console.log('🔍 list fincas URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || 'Error al listar fincas');
+    }
+    
+    return await response.json();
+  }
+
+  async function listarExpedientes() {
+    const url = `${API_URL}/api/v1/expedientes`;
+    console.log('🔍 list expedientes URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || 'Error al listar expedientes');
+    }
+    
+    return await response.json();
+  }
+
+  // ============================================================
+  // DOM ELEMENTS
+  // ============================================================
+
+  const fincaSelect = document.getElementById('finca-select');
+  const btnCargarFinca = document.getElementById('btn-cargar-finca');
+  const btnTriggerScan = document.getElementById('btn-trigger-scan');
+  const btnAuditarTodas = document.getElementById('btn-auditar-todas');
+  const btnCopyJson = document.getElementById('btn-copy-json');
+  const fincaNombreDisplay = document.getElementById('finca-nombre-display');
+  const fincaIdDisplay = document.getElementById('finca-id-display');
+  const fincaEudrDisplay = document.getElementById('finca-eudr-display');
+  const fincaEstadoDisplay = document.getElementById('finca-estado-display');
+  const jsonViewer = document.getElementById('json-viewer-output');
+  const scanner = document.getElementById('gee-scanner-element');
+  const simulationText = document.getElementById('gee-simulation-text-center');
+  const coordsHud = document.getElementById('gee-coords-hud');
+  const timerDisplay = document.getElementById('gee-timer-display');
+
+  let fincaActual = null;
+  let activeRecord = null;
+  let isAuditando = false;
+
+  // ============================================================
+  // FUNCIONES UI
+  // ============================================================
+
+  function updateJSONViewer() {
+    if (jsonViewer && activeRecord) {
+      jsonViewer.textContent = JSON.stringify(activeRecord, null, 2);
+    }
+  }
+
+  function applyGEEResultsUI(status, porcentaje = 0) {
+    scanner.classList.add('hidden');
+
+    if (status === 'success') {
+      simulationText.innerHTML = `
+        <div class="inline-flex bg-emerald-500/20 text-emerald-400 p-3 rounded-full border border-emerald-500 mb-2">
+          <span class="material-symbols-outlined text-4xl">verified</span>
+        </div>
+        <p class="text-lg font-bold text-emerald-400">CERO DEFORESTACIÓN DETECTADA</p>
+        <p class="text-xs text-slate-300">Puntaje de cumplimiento: 100% | No se registraron pérdidas forestales de dosel desde el 31-Dic-2020.</p>
+      `;
+    } else if (status === 'alert') {
+      simulationText.innerHTML = `
+        <div class="inline-flex bg-rose-500/20 text-rose-400 p-3 rounded-full border border-rose-500 mb-2">
+          <span class="material-symbols-outlined text-4xl">warning</span>
+        </div>
+        <p class="text-lg font-bold text-rose-400">ALERTA DE DEFORESTACIÓN DETECTADA</p>
+        <p class="text-xs text-rose-300">Se detectó pérdida de bosque de ${porcentaje}% dentro del polígono evaluado posterior al 31-Dic-2020.</p>
+      `;
+    } else {
+      simulationText.innerHTML = `
+        <span class="material-symbols-outlined text-5xl text-slate-400 mx-auto block">compass</span>
+        <p class="text-sm font-semibold">Listo para iniciar el análisis</p>
+        <p class="text-xs text-slate-400">Finca: ${fincaActual?.nombre || 'Selecciona una'}</p>
+      `;
+    }
+  }
+
+  function actualizarDisplayEstado(estado) {
+    if (!fincaEstadoDisplay) return;
+    
+    const estadoMap = {
+      'APROBADO': { label: '✅ Aprobado', color: 'text-green-600' },
+      'RECHAZADO': { label: '❌ Rechazado', color: 'text-red-600' },
+      'EN_PROCESO': { label: '⏳ En Proceso', color: 'text-yellow-600' },
+      'PENDIENTE': { label: '⏳ Pendiente', color: 'text-blue-600' }
+    };
+    
+    const info = estadoMap[estado] || { label: estado || 'Desconocido', color: 'text-gray-600' };
+    fincaEstadoDisplay.textContent = `Estado: ${info.label}`;
+    fincaEstadoDisplay.className = `text-xs font-mono font-bold ${info.color}`;
+  }
+
+  // ============================================================
+  // CARGAR FINCA
+  // ============================================================
+
+  async function cargarFinca() {
+    const fincaId = fincaSelect.value;
+    if (!fincaId) {
+      alert('Por favor selecciona una finca');
+      return;
+    }
+
+    try {
+      btnCargarFinca.disabled = true;
+      btnCargarFinca.textContent = 'Cargando...';
+      
+      const finca = await getFincaById(fincaId);
+      console.log('📋 Finca cargada:', finca);
+      
+      fincaActual = finca;
+      fincaNombreDisplay.textContent = finca.nombre || 'Sin nombre';
+      fincaIdDisplay.textContent = `ID: ${finca.id?.substring(0, 8)}...`;
+      fincaEudrDisplay.textContent = `EUDR: ${finca.eudr_id || 'No asignado'}`;
+      
+      // ✅ Buscar el expediente para obtener el estado
+      try {
+        const expedientes = await listarExpedientes();
+        const expediente = expedientes.find(e => e.finca_id === fincaId);
+        const estadoActual = expediente?.estado || 'PENDIENTE';
+        actualizarDisplayEstado(estadoActual);
+        
+        // Guardar el expediente en activeRecord
+        if (activeRecord) {
+          activeRecord.expediente_id = expediente?.id || null;
+        }
+      } catch (e) {
+        console.warn('⚠️ Error obteniendo expediente:', e);
+        actualizarDisplayEstado('PENDIENTE');
+      }
+      
+      if (finca.latitud && finca.longitud) {
+        coordsHud.textContent = `${finca.latitud}, ${finca.longitud}`;
+      }
+      
+      btnTriggerScan.disabled = false;
+      applyGEEResultsUI('idle');
+      
+      activeRecord = {
+        id_finca: finca.id,
+        nombre_finca: finca.nombre,
+        eudr_id: finca.eudr_id || 'No asignado',
+        provincia: finca.provincia || 'N/A',
+        canton: finca.canton || 'N/A',
+        area_total_ha: finca.area_total_ha || 0,
+        ubicacion: {
+          latitud: finca.latitud || null,
+          longitud: finca.longitud || null
+        },
+        status_cumplimiento_eudr: 'PENDIENTE',
+        verificacion_satelital: {
+          fecha_ultimo_analisis: new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' }),
+          porcentaje_deforestacion_detectado: 0,
+          deforestacion_detectada: false,
+          fuente_analisis: "Google Earth Engine - Sentinel-2",
+          hash_evidencia_firmada: "sha256-..."
+        }
+      };
+      updateJSONViewer();
+      timerDisplay.textContent = `Fecha Análisis: ${activeRecord.verificacion_satelital.fecha_ultimo_analisis}`;
+      
+    } catch (error) {
+      console.error('❌ Error cargando finca:', error);
+      alert('Error al cargar la finca: ' + (error.message || 'Error desconocido'));
+    } finally {
+      btnCargarFinca.disabled = false;
+      btnCargarFinca.textContent = 'Cargar Finca';
+    }
+  }
+
+  async function recargarFincasPendientes() {
+    try {
+      const todas = await listarFincas();
+      const expedientes = await listarExpedientes();
+      
+      // Crear mapa de estado por finca
+      const estadoPorFinca = {};
+      expedientes.forEach(exp => {
+        if (exp.finca_id) {
+          estadoPorFinca[exp.finca_id] = exp.estado;
+        }
+      });
+      
+      // Filtrar fincas pendientes
+      const pendientes = todas.filter(f => {
+        const estado = estadoPorFinca[f.id];
+        return !estado || estado === 'PENDIENTE';
+      });
+      
+      const currentValue = fincaSelect.value;
+      fincaSelect.innerHTML = '<option value="">-- Selecciona una finca --</option>';
+      pendientes.forEach(f => {
+        const option = document.createElement('option');
+        option.value = f.id;
+        option.textContent = `${f.nombre || 'Sin nombre'} ${f.provincia ? `- ${f.provincia}` : ''}`;
+        fincaSelect.appendChild(option);
+      });
+      
+      if (currentValue && pendientes.some(f => f.id === currentValue)) {
+        fincaSelect.value = currentValue;
+      } else if (pendientes.length > 0) {
+        fincaSelect.value = pendientes[0].id;
+        await cargarFinca();
+      } else {
+        fincaSelect.value = '';
+        fincaNombreDisplay.textContent = 'No hay fincas pendientes';
+        fincaIdDisplay.textContent = '--';
+        fincaEudrDisplay.textContent = 'EUDR: --';
+        fincaEstadoDisplay.textContent = 'Estado: --';
+        btnTriggerScan.disabled = true;
+      }
+      
+      // Actualizar la lista de fincas pendientes
+      fincasPendientes = pendientes;
+      
+    } catch (error) {
+      console.error('❌ Error recargando fincas:', error);
+    }
+  }
+
+  // ============================================================
+  // EJECUTAR AUDITORÍA
+  // ============================================================
+
+  async function ejecutarAuditoriaReal(fincaId) {
+    if (!fincaId) {
+      alert('No se encontró ID de finca');
+      return;
+    }
+
+    if (isAuditando) return;
+    isAuditando = true;
+
+    scanner.classList.remove('hidden');
+    simulationText.innerHTML = `
+      <span class="material-symbols-outlined text-emerald-500 text-5xl animate-bounce block mx-auto">satellite_alt</span>
+      <p class="text-sm font-semibold text-emerald-400">Estableciendo comunicación satelital...</p>
+      <p class="text-xs text-slate-300">Consultando Google Earth Engine...</p>
+    `;
+
+    btnTriggerScan.disabled = true;
+
+    try {
+      const resultado = await validarEudr(fincaId);
+      console.log('✅ Auditoría completada:', resultado);
+      
+      const estado = resultado.estado_eudr || resultado.resultado?.estado_eudr || "PENDIENTE";
+      const deforestacion = resultado.deforestacion_detectada || resultado.resultado?.deforestacion_detectada || false;
+      const porcentaje = resultado.porcentaje || resultado.resultado?.porcentaje || 0;
+      const fecha = resultado.fecha_analisis || resultado.resultado?.fecha_analisis || new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      if (activeRecord) {
+        activeRecord.status_cumplimiento_eudr = estado;
+        activeRecord.verificacion_satelital.porcentaje_deforestacion_detectado = porcentaje;
+        activeRecord.verificacion_satelital.deforestacion_detectada = deforestacion;
+        activeRecord.verificacion_satelital.fecha_ultimo_analisis = fecha;
+        updateJSONViewer();
+      }
+
+      timerDisplay.textContent = `Fecha Análisis: ${fecha}`;
+
+      // ✅ ACTUALIZAR EL ESTADO DEL EXPEDIENTE
+      console.log('📤 Actualizando expediente...');
+      console.log('📤 fincaId:', fincaId);
+      console.log('📤 deforestacion:', deforestacion);
+      
+      if (deforestacion) {
+        applyGEEResultsUI('alert', porcentaje);
+        console.log('📤 Estado a asignar al expediente: RECHAZADO');
+        await actualizarEstadoExpediente(fincaId, 'RECHAZADO');
+        actualizarDisplayEstado('RECHAZADO');
+      } else {
+        applyGEEResultsUI('success');
+        console.log('📤 Estado a asignar al expediente: APROBADO');
+        await actualizarEstadoExpediente(fincaId, 'APROBADO');
+        actualizarDisplayEstado('APROBADO');
+        
+        if (activeRecord) {
+          activeRecord.status_cumplimiento_eudr = 'APROBADO';
+        }
+      }
+      
+      const notification = document.createElement("div");
+      notification.className = "fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-xl z-50 text-sm font-semibold";
+      notification.innerText = "✅ Auditoría Satelital Completada con Éxito";
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+      
+      await recargarFincasPendientes();
+      
+    } catch (error) {
+      console.error('❌ Error en auditoría:', error);
+      alert('Error al ejecutar la auditoría: ' + (error.message || 'Error desconocido'));
+      scanner.classList.add('hidden');
+      simulationText.innerHTML = `
+        <span class="material-symbols-outlined text-4xl text-red-400 block mx-auto">error</span>
+        <p class="text-sm font-semibold text-red-400">Error en la auditoría</p>
+        <p class="text-xs text-slate-400">${error.message || 'Intenta nuevamente'}</p>
+      `;
+    } finally {
+      isAuditando = false;
+      btnTriggerScan.disabled = false;
+    }
+  }
+
+  // ============================================================
+  // EVENT LISTENERS
+  // ============================================================
+
+  if (btnCargarFinca) {
+    btnCargarFinca.addEventListener('click', cargarFinca);
+  }
+
+  if (fincaSelect) {
+    fincaSelect.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        cargarFinca();
+      }
+    });
+  }
+
+  if (btnTriggerScan) {
+    btnTriggerScan.addEventListener('click', () => {
+      if (fincaActual) {
+        ejecutarAuditoriaReal(fincaActual.id);
+      } else {
+        alert('Primero carga una finca');
+      }
+    });
+  }
+
+  if (btnAuditarTodas && esAdmin) {
+    btnAuditarTodas.addEventListener('click', async () => {
+      if (fincasPendientes.length === 0) {
+        alert('No hay fincas pendientes de auditoría');
+        return;
+      }
+      
+      if (!confirm(`¿Ejecutar auditoría para las ${fincasPendientes.length} fincas pendientes?`)) {
+        return;
+      }
+      
+      for (const finca of fincasPendientes) {
+        fincaSelect.value = finca.id;
+        await cargarFinca();
+        await ejecutarAuditoriaReal(finca.id);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+      
+      alert('✅ Auditoría completada para todas las fincas pendientes');
+    });
+  }
+
+  if (btnCopyJson) {
+    btnCopyJson.addEventListener('click', () => {
+      if (activeRecord) {
+        const texto = JSON.stringify(activeRecord, null, 2);
+        navigator.clipboard.writeText(texto).then(() => {
+          alert("JSON copiado al portapapeles");
+        }).catch(() => {
+          const textarea = document.createElement("textarea");
+          textarea.value = texto;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          alert("JSON copiado al portapapeles");
+        });
+      }
+    });
+  }
+
+  // ============================================================
+  // INICIALIZAR
+  // ============================================================
+
+  if (fincasPendientes.length > 0) {
+    fincaSelect.value = fincasPendientes[0].id;
+    cargarFinca();
+  }
+
+  console.log('📋 Fincas pendientes:', fincasPendientes);
+</script>
+
+</Layout>

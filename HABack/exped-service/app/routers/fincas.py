@@ -14,6 +14,72 @@ def generar_eudr_id() -> str:
     return f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}"
 
 
+def _build_finca_filter(provincia: str | None = None, canton: str | None = None) -> dict:
+    """Construye filtro para búsqueda de fincas."""
+    where: dict = {}
+    if provincia:
+        where["provincia"] = provincia
+    if canton:
+        where["canton"] = canton
+    return where
+
+
+# ===== ENDPOINTS PUBLICOS (Sin autenticacion) =====
+
+@router.get(
+    "/publico/listar",
+    response_model=list[FincaOut],
+    summary="Listar fincas (público - sin autenticación)",
+    tags=["Público"]
+)
+def listar_fincas_publico(
+    provincia: str | None = Query(None),
+    canton: str | None = Query(None),
+    db: Prisma = Depends(get_db),
+):
+    """
+    Endpoint público para listar fincas sin autenticación.
+
+    **Uso para Landing Page:**
+    - Permite que usuarios sin token vean fincas disponibles
+    - Útil para búsqueda y exploración inicial
+    - Sin restricción de autenticación
+    """
+    try:
+        where = _build_finca_filter(provincia, canton)
+        fincas = db.finca.find_many(where=where)
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}")
+
+
+@router.get(
+    "/publico/por-usuario/{usuario_id}",
+    response_model=list[FincaOut],
+    summary="Obtener fincas por usuario (público - sin autenticación)",
+    tags=["Público"]
+)
+def obtener_fincas_publico(
+    usuario_id: str,
+    db: Prisma = Depends(get_db),
+):
+    """
+    Endpoint público para obtener fincas de un usuario sin autenticación.
+
+    **Uso para Landing Page:**
+    - Permite que usuarios ingresen un usuario_id y vean sus fincas
+    - Útil para vista previa sin login
+    - Sin restricción de autenticación
+    """
+    try:
+        fincas = db.finca.find_many(where={"usuario_id": usuario_id})
+        return fincas if fincas else []
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}")
+
+
+# ===== ENDPOINTS PRIVADOS (Requieren autenticacion) =====
+
 @router.get("/", response_model=list[FincaOut], summary="Listar fincas")
 def listar_fincas(
     provincia: str | None = Query(None),
@@ -29,11 +95,7 @@ def listar_fincas(
     - Esta entidad es complementaria a los expedientes y permite una gestión independiente de predios.
     """
     try:
-        where: dict = {}
-        if provincia:
-            where["provincia"] = provincia
-        if canton:
-            where["canton"] = canton
+        where = _build_finca_filter(provincia, canton)
         fincas = db.finca.find_many(where=where)
         return fincas if fincas else []
     except Exception as e:
@@ -80,10 +142,18 @@ def crear_finca(
     - Genera automáticamente un `eudr_id` único.
     - Permite guardar el polígono de la finca (GeoJSON o lista de coordenadas) enviado desde dispositivos móviles.
     """
-    payload = data.model_dump()
+    # exclude_none: Prisma rechaza los campos opcionales enviados como None
+    payload = data.model_dump(exclude_none=True)
 
     if payload.get("poligono"):
         payload["poligono"] = Json(payload["poligono"])
+
+    # La relación con Productor se expresa con `connect`, no con la FK escalar
+    productor_id = payload.pop("productor_id", None)
+    if productor_id:
+        if not db.productor.find_first(where={"id": productor_id}):
+            raise HTTPException(status_code=404, detail="Productor no encontrado")
+        payload["productor"] = {"connect": {"id": productor_id}}
 
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)

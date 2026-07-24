@@ -5,3 +5,8 @@ export * from './expedientes';
 export * from './datosAgroambientales';
 export * from './variablesDinamicas';
 export * from './productores';
+export * from './actividadesTrazabilidad';
+export * from './empleados';
+export * from './documentosFinca';
+export * from './laboresLocales';
+export * from './muestrasLocales';
