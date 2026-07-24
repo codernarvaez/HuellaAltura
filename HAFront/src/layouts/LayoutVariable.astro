@@ -68,6 +68,16 @@ const auditoriaSatelitalUrl = '/auditoriaSatelital';
 const calendarioUrl = '/calendario';
 const ledgerUrl = fincaId ? `/labores?finca_id=${fincaId}` : '/labores';
 
+// ============================================================
+// 🔥 URLS DEL MÓDULO DE ACOPIO
+// ============================================================
+const acopioMuestrasUrl = '/acopio/muestras';
+const acopioLaboratorioUrl = '/acopio/laboratorio';
+const acopioComprasUrl = '/acopio/compras';
+const acopioBodegaUrl = '/acopio/bodega';
+const acopioDespachosUrl = '/acopio/despachos';
+const acopioCertificadosUrl = '/acopio/certificados';
+
 // INVESTIGADOR siempre puede ver Info Agro
 const puedeVerInfoAgro = esInvestigador || hasExpediente;
 
@@ -279,12 +289,90 @@ const isAdminStr = isAdmin ? 'true' : 'false';
           )
         }
 
-        {/* SOLO ADMINISTRADOR */}
+        {/* 🔥 MÓDULO DE ACOPIO - SOLO ADMINISTRADOR */}
         {
           isAdmin && (
             <>
               <p
-                class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant"
+                class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant border-t border-outline-variant mt-4 pt-4"
+              >
+                Acopio y Trazabilidad
+              </p>
+
+              <!-- MUESTRAS -->
+              <a
+                href={acopioMuestrasUrl}
+                id="link-acopio-muestras"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  science
+                </span>
+                <span>Muestras</span>
+              </a>
+
+              <!-- LABORATORIO -->
+              <a
+                href={acopioLaboratorioUrl}
+                id="link-acopio-laboratorio"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  biotech
+                </span>
+                <span>Laboratorio</span>
+              </a>
+
+              <!-- ÓRDENES DE COMPRA -->
+              <a
+                href={acopioComprasUrl}
+                id="link-acopio-compras"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  shopping_cart
+                </span>
+                <span>Órdenes de Compra</span>
+              </a>
+
+              <!-- BODEGA -->
+              <a
+                href={acopioBodegaUrl}
+                id="link-acopio-bodega"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  warehouse
+                </span>
+                <span>Bodega</span>
+              </a>
+
+              <!-- DESPACHOS -->
+              <a
+                href={acopioDespachosUrl}
+                id="link-acopio-despachos"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  local_shipping
+                </span>
+                <span>Despachos</span>
+              </a>
+
+              <!-- CERTIFICADOS -->
+              <a
+                href={acopioCertificadosUrl}
+                id="link-acopio-certificados"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  verified
+                </span>
+                <span>Certificados</span>
+              </a>
+
+              <p
+                class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant border-t border-outline-variant mt-4 pt-4"
               >
                 Administración
               </p>
@@ -338,7 +426,7 @@ const isAdminStr = isAdmin ? 'true' : 'false';
                 <span>Auditoría Satelital</span>
               </a>
 
-              <!-- 🔥 NUEVO: CALENDARIO PARA ADMIN -->
+              <!-- CALENDARIO PARA ADMIN -->
               <a
                 href={calendarioUrl}
                 id="link-calendario-admin"
@@ -351,7 +439,7 @@ const isAdminStr = isAdmin ? 'true' : 'false';
                 <span>Calendario</span>
               </a>
 
-              <!-- 🔥 NUEVO: LEDGER DE LABORES PARA ADMIN -->
+              <!-- LEDGER DE LABORES PARA ADMIN -->
               <a
                 href={ledgerUrl}
                 id="link-ledger-admin"
@@ -467,6 +555,14 @@ const isAdminStr = isAdmin ? 'true' : 'false';
       const linkLedgerAdmin = document.getElementById('link-ledger-admin');
       const linkAuditoria = document.getElementById('link-auditoria-satelital');
       const btnVolver = document.getElementById('btn-volver');
+
+      // 🔥 Enlaces del módulo de acopio
+      const linkAcopioMuestras = document.getElementById('link-acopio-muestras');
+      const linkAcopioLaboratorio = document.getElementById('link-acopio-laboratorio');
+      const linkAcopioCompras = document.getElementById('link-acopio-compras');
+      const linkAcopioBodega = document.getElementById('link-acopio-bodega');
+      const linkAcopioDespachos = document.getElementById('link-acopio-despachos');
+      const linkAcopioCertificados = document.getElementById('link-acopio-certificados');
 
       // Convertir strings a booleanos
       const esInvestigador = ES_INVESTIGADOR === 'true';

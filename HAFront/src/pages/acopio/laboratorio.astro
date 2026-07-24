@@ -1,0 +1,1138 @@
+---
+// src/pages/acopio/laboratorio.astro
+import DashboardLayout from "../../layouts/LayoutVariable.astro";
+import { AuthService } from "../../services/auth.service.ts";
+import { AcopioService } from "../../services/acopio.service.ts";
+import { FincaService } from "../../services/finca.service.ts";
+
+// Obtener token y datos del usuario
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let userRole = '';
+let muestras = [];
+let error = null;
+let isLoading = true;
+let fincaId = null;
+let fincaNombre = '';
+let muestraSeleccionadaId = null;
+
+if (token) {
+  try {
+    userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
+    console.log("👤 Usuario:", userData?.first_name, userData?.last_name);
+    console.log("🎭 Rol del usuario:", userRole);
+    
+    // Obtener parámetros de la URL
+    const urlParams = Astro.url.searchParams;
+    const fincaIdFromUrl = urlParams.get("finca_id");
+    const muestraIdFromUrl = urlParams.get("muestra_id");
+    
+    // CASO 1: Hay muestra_id - Usar el endpoint específico
+    if (muestraIdFromUrl) {
+      muestraSeleccionadaId = muestraIdFromUrl;
+      
+      try {
+        const muestra = await AcopioService.getMuestraByUuid(muestraIdFromUrl, token);
+        
+        try {
+          const finca = await FincaService.getById(muestra.fincaId, token);
+          fincaNombre = finca?.nombre || 'Finca no encontrada';
+          fincaId = muestra.fincaId;
+        } catch (e) {
+          console.warn("⚠️ Error obteniendo nombre de finca:", e.message);
+          fincaNombre = 'Finca no encontrada';
+        }
+        
+        muestras = [muestra];
+        console.log("✅ Muestra encontrada:", muestra);
+        
+      } catch (e) {
+        console.warn("⚠️ Error obteniendo muestra específica:", e.message);
+        error = `Error al cargar la muestra: ${e.message}`;
+        muestras = [];
+      }
+    }
+    // CASO 2: Hay finca_id - Cargar todas las muestras de la finca
+    else if (fincaIdFromUrl) {
+      fincaId = fincaIdFromUrl;
+      
+      try {
+        const finca = await FincaService.getById(fincaIdFromUrl, token);
+        fincaNombre = finca?.nombre || 'Finca no encontrada';
+      } catch (e) {
+        console.warn("⚠️ Error obteniendo nombre de finca:", e.message);
+      }
+      
+      try {
+        const response = await AcopioService.getMuestrasByFinca(fincaIdFromUrl, token);
+        muestras = response || [];
+        console.log("📋 Muestras obtenidas:", muestras.length);
+      } catch (e) {
+        console.warn("⚠️ Error obteniendo muestras:", e.message);
+        muestras = [];
+      }
+    }
+    // CASO 3: Sin filtro - Mostrar mensaje
+    else {
+      console.log("ℹ️ No hay finca seleccionada");
+      error = "Selecciona una muestra desde la página de muestras";
+    }
+    
+    isLoading = false;
+  } catch (e) {
+    error = e.message;
+    console.error("❌ Error:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+// Determinar roles para laboratorio
+const puedeAnalizarFisico = userRole === 'SUPER_ADMIN' || 
+                           userRole === 'TENANT_ADMIN' || 
+                           userRole === 'ADMIN' || 
+                           userRole === 'ANALISTA_FISICO' ||
+                           userRole === 'JEFE_CALIDAD';
+
+const puedeCatar = userRole === 'SUPER_ADMIN' || 
+                   userRole === 'TENANT_ADMIN' || 
+                   userRole === 'ADMIN' || 
+                   userRole === 'CATADOR_Q' ||
+                   userRole === 'JEFE_CALIDAD';
+
+const userRoleStr = userRole;
+const puedeAnalizarFisicoStr = puedeAnalizarFisico ? 'true' : 'false';
+const puedeCatarStr = puedeCatar ? 'true' : 'false';
+const API_URL = "https://geoguard-exped.onrender.com";
+
+// Pasar muestras al cliente
+const muestrasStr = JSON.stringify(muestras);
+const fincaIdStr = fincaId || '';
+const fincaNombreStr = fincaNombre || '';
+const muestraSeleccionadaIdStr = muestraSeleccionadaId || '';
+---
+
+<DashboardLayout title="Laboratorio - Acopio">
+
+<div class="space-y-6 max-w-[1400px] mx-auto">
+
+    <!-- HEADER -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
+                🔬 Laboratorio de Café
+            </h1>
+            <p class="mt-1 text-sm text-slate-500 max-w-3xl">
+                Análisis físico y sensorial de muestras de café (RF-APE-03, RF-APE-04, RF-APE-05).
+            </p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-slate-500">Tu rol:</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                    {userRole || 'No definido'}
+                </span>
+                {puedeAnalizarFisico && (
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                        ✅ Análisis Físico
+                    </span>
+                )}
+                {puedeCatar && (
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                        ✅ Catación SCA
+                    </span>
+                )}
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            {fincaId && (
+                <span class="text-sm text-slate-500">
+                    Finca: <span class="font-semibold text-slate-700">{fincaNombre}</span>
+                </span>
+            )}
+            <a
+                href={`/acopio/muestras${fincaId ? `?finca_id=${fincaId}` : ''}`}
+                class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 h-10 rounded-xl transition font-medium text-sm"
+            >
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Volver a Muestras
+            </a>
+        </div>
+    </div>
+
+    <!-- INDICADOR DE CARGA -->
+    {isLoading && (
+        <div class="text-center py-12">
+            <span class="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+            <p class="mt-2 text-slate-500">Cargando muestras...</p>
+        </div>
+    )}
+
+    <!-- MENSAJE DE ERROR -->
+    {error && (
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-red-500 text-4xl">error</span>
+            <p class="mt-2 text-red-600">{error}</p>
+            <a
+                href="/acopio/muestras"
+                class="mt-4 inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition"
+            >
+                Ir a Muestras
+            </a>
+        </div>
+    )}
+
+    <!-- MENSAJE SIN MUESTRAS -->
+    {!isLoading && !error && muestras.length === 0 && (
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-yellow-500 text-4xl">info</span>
+            <p class="mt-2 font-semibold text-yellow-700">No hay muestras disponibles</p>
+            <p class="text-sm text-yellow-600 mt-1">
+                {fincaId 
+                    ? 'Esta finca no tiene muestras registradas.'
+                    : 'Selecciona una muestra desde la página de muestras para analizarla.'}
+            </p>
+            <a
+                href="/acopio/muestras"
+                class="mt-4 inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition"
+            >
+                Ir a Muestras
+            </a>
+        </div>
+    )}
+
+    <!-- LISTADO DE MUESTRAS -->
+    {!isLoading && !error && muestras.length > 0 && (
+        <div class="grid grid-cols-1 gap-4">
+            {muestras.map((muestra) => (
+                <div key={muestra.id} class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow muestra-item" data-muestra-id={muestra.id} data-muestra-data={JSON.stringify(muestra)}>
+                    <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+                                <span class="text-xs font-mono text-slate-500">{muestra.codigoQR?.substring(0, 8) || 'QR'}</span>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900 text-sm">
+                                    Muestra #{muestra.id.substring(0, 8)}
+                                </h3>
+                                <div class="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                    <span>📅 {new Date(muestra.creadoEn).toLocaleDateString('es-ES')}</span>
+                                    <span>•</span>
+                                    <span>⚖️ {muestra.pesoKg} kg</span>
+                                    <span>•</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                                        {muestra.tipoProceso}
+                                    </span>
+                                </div>
+                                {muestraSeleccionadaId && (
+                                    <div class="mt-1">
+                                        <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                                            ✅ Muestra seleccionada
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            {puedeAnalizarFisico && (
+                                <button 
+                                    class="btn-analisis-fisico text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg transition font-medium flex items-center gap-1"
+                                    data-muestra-id={muestra.id}
+                                >
+                                    <i data-lucide="microscope" class="w-4 h-4"></i>
+                                    Análisis Físico
+                                </button>
+                            )}
+                            {puedeCatar && (
+                                <button 
+                                    class="btn-catacion text-sm bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-2 rounded-lg transition font-medium flex items-center gap-1"
+                                    data-muestra-id={muestra.id}
+                                >
+                                    <i data-lucide="coffee" class="w-4 h-4"></i>
+                                    Catación SCA
+                                </button>
+                            )}
+                            <button 
+                                class="btn-ver-detalle text-sm bg-slate-50 hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-lg transition font-medium flex items-center gap-1"
+                                data-muestra-id={muestra.id}
+                            >
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                                Ver
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    )}
+
+    <!-- CONTADOR DE MUESTRAS -->
+    {!isLoading && !error && muestras.length > 0 && (
+        <div class="text-xs text-slate-500 text-right">
+            Total: <span class="font-semibold">{muestras.length}</span> muestras
+        </div>
+    )}
+
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA ANÁLISIS FÍSICO                                  -->
+<!-- ============================================================ -->
+<div id="modal-analisis-fisico" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-500/10 p-2 rounded-xl text-blue-600">
+                    <i data-lucide="microscope" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Análisis Físico</h2>
+            </div>
+            <button id="btn-cerrar-fisico" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-analisis-fisico" class="space-y-4">
+            <input type="hidden" id="fisico-muestra-id" />
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="fisico-humedad" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Humedad (%) <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="fisico-humedad"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="fisico-criba" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Criba (mm) <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="fisico-criba"
+                        type="text"
+                        placeholder="Ej: 15, 16, 17"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="fisico-densidad" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Densidad (g/ml) <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="fisico-densidad"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="fisico-defectos-prim" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Defectos Primarios <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="fisico-defectos-prim"
+                        type="number"
+                        placeholder="0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div class="col-span-2">
+                    <label for="fisico-defectos-sec" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Defectos Secundarios <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="fisico-defectos-sec"
+                        type="number"
+                        placeholder="0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+            </div>
+
+            <div id="fisico-error" class="hidden text-red-500 text-sm flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span id="fisico-error-text">Error al registrar análisis físico</span>
+            </div>
+
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                    type="button"
+                    id="btn-cancelar-fisico"
+                    class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    id="btn-guardar-fisico"
+                    class="flex-1 h-12 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Guardar Análisis
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA CATACIÓN SCA                                     -->
+<!-- ============================================================ -->
+<div id="modal-catacion" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-purple-500/10 p-2 rounded-xl text-purple-600">
+                    <i data-lucide="coffee" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Catación SCA</h2>
+            </div>
+            <button id="btn-cerrar-catacion" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-catacion" class="space-y-4">
+            <input type="hidden" id="catacion-muestra-id" />
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="catacion-fragancia" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Fragancia/Aroma <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-fragancia"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-sabor" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Sabor <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-sabor"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-residual" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Sabor Residual <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-residual"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-acidez" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Acidez <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-acidez"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-cuerpo" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Cuerpo <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-cuerpo"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-uniformidad" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Uniformidad <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-uniformidad"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-balance" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Balance <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-balance"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-taza-limpia" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Taza Limpia <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-taza-limpia"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-dulzor" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Dulzor <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-dulzor"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-puntaje-catador" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Puntaje Catador <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-puntaje-catador"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="catacion-defectos" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Defectos <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        id="catacion-defectos"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="10"
+                        placeholder="0.0"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <div class="col-span-2">
+                    <label for="catacion-tueste" class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Nivel de Tueste <span class="text-red-500">*</span>
+                    </label>
+                    <select
+                        id="catacion-tueste"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white"
+                        required
+                    >
+                        <option value="">Selecciona un nivel</option>
+                        <option value="CLARO">Claro</option>
+                        <option value="MEDIO">Medio</option>
+                        <option value="OSCURO">Oscuro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="catacion-error" class="hidden text-red-500 text-sm flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span id="catacion-error-text">Error al registrar catación</span>
+            </div>
+
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                    type="button"
+                    id="btn-cancelar-catacion"
+                    class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    id="btn-guardar-catacion"
+                    class="flex-1 h-12 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-500 transition flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Guardar Catación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA VER DETALLE DE MUESTRA                          -->
+<!-- ============================================================ -->
+<div id="modal-detalle-muestra" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-500/10 p-2 rounded-xl text-blue-600">
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Detalle de Muestra</h2>
+            </div>
+            <button id="btn-cerrar-detalle" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div id="detalle-content" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                    <span class="text-slate-500">ID:</span>
+                    <span id="detalle-id" class="font-mono text-xs block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Código QR:</span>
+                    <span id="detalle-qr" class="font-mono text-xs block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Finca:</span>
+                    <span id="detalle-finca" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Productor:</span>
+                    <span id="detalle-productor" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Tipo de Proceso:</span>
+                    <span id="detalle-tipo" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Peso:</span>
+                    <span id="detalle-peso" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Fecha:</span>
+                    <span id="detalle-fecha" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Estado:</span>
+                    <span id="detalle-estado" class="font-medium block mt-1"></span>
+                </div>
+            </div>
+            <div id="detalle-foto-container" class="hidden">
+                <span class="text-slate-500 text-sm">Evidencia Fotográfica:</span>
+                <div class="mt-2">
+                    <img id="detalle-foto" src="#" alt="Evidencia" class="max-h-60 rounded-lg border border-slate-200" />
+                </div>
+            </div>
+            <div id="detalle-analisis-container" class="border-t border-slate-100 pt-3 mt-3">
+                <p class="text-sm font-semibold text-slate-700">Análisis</p>
+                <div id="detalle-analisis-fisico" class="mt-2 text-sm">
+                    <span class="text-slate-500">Físico:</span>
+                    <span id="detalle-fisico-status" class="font-medium">Cargando...</span>
+                </div>
+                <div id="detalle-analisis-sensorial" class="mt-1 text-sm">
+                    <span class="text-slate-500">Sensorial:</span>
+                    <span id="detalle-sensorial-status" class="font-medium">Cargando...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-3 pt-4 border-t border-slate-100 mt-4">
+            <button
+                type="button"
+                id="btn-cerrar-detalle-btn"
+                class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+            >
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+</DashboardLayout>
+
+<!-- Estilos CSS Inyectados -->
+<style is:global>
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    .animate-modal-in {
+        animation: modalIn 0.2s ease-out;
+    }
+</style>
+
+<script is:inline src="https://unpkg.com/lucide@latest"></script>
+
+<script>
+    import { AuthService } from "/src/services/auth.service.ts";
+    import { AcopioService } from "/src/services/acopio.service.ts";
+    import { FincaService } from "/src/services/finca.service.ts";
+
+    console.log("🔬 Página de Laboratorio cargada");
+
+    const API_URL = "https://geoguard-exped.onrender.com";
+    let muestraSeleccionada = null;
+
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    function getToken() {
+        return getCookie('token');
+    }
+
+    // ============================================================
+    // FUNCIONES DE LOS MODALES
+    // ============================================================
+
+    function toggleModalFisico(show, muestraId = null) {
+        const modal = document.getElementById('modal-analisis-fisico');
+        if (show && muestraId) {
+            document.getElementById('fisico-muestra-id').value = muestraId;
+            
+            // Limpiar campos
+            document.getElementById('fisico-humedad').value = '';
+            document.getElementById('fisico-criba').value = '';
+            document.getElementById('fisico-densidad').value = '';
+            document.getElementById('fisico-defectos-prim').value = '';
+            document.getElementById('fisico-defectos-sec').value = '';
+            
+            document.getElementById('fisico-error').classList.add('hidden');
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function toggleModalCatacion(show, muestraId = null) {
+        const modal = document.getElementById('modal-catacion');
+        if (show && muestraId) {
+            document.getElementById('catacion-muestra-id').value = muestraId;
+            
+            // Limpiar campos
+            document.getElementById('catacion-fragancia').value = '';
+            document.getElementById('catacion-sabor').value = '';
+            document.getElementById('catacion-residual').value = '';
+            document.getElementById('catacion-acidez').value = '';
+            document.getElementById('catacion-cuerpo').value = '';
+            document.getElementById('catacion-uniformidad').value = '';
+            document.getElementById('catacion-balance').value = '';
+            document.getElementById('catacion-taza-limpia').value = '';
+            document.getElementById('catacion-dulzor').value = '';
+            document.getElementById('catacion-puntaje-catador').value = '';
+            document.getElementById('catacion-defectos').value = '';
+            document.getElementById('catacion-tueste').value = '';
+            
+            document.getElementById('catacion-error').classList.add('hidden');
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function toggleModalDetalle(show, muestraData = null) {
+        const modal = document.getElementById('modal-detalle-muestra');
+        if (show && muestraData) {
+            document.getElementById('detalle-id').textContent = muestraData.id || 'N/A';
+            document.getElementById('detalle-qr').textContent = muestraData.codigoQR || 'N/A';
+            document.getElementById('detalle-finca').textContent = muestraData.fincaNombre || 'N/A';
+            document.getElementById('detalle-productor').textContent = muestraData.productorId || 'N/A';
+            document.getElementById('detalle-tipo').textContent = muestraData.tipoProceso || 'N/A';
+            document.getElementById('detalle-peso').textContent = muestraData.pesoKg ? `${muestraData.pesoKg} kg` : 'N/A';
+            document.getElementById('detalle-fecha').textContent = muestraData.creadoEn ? new Date(muestraData.creadoEn).toLocaleDateString('es-ES') : 'N/A';
+            document.getElementById('detalle-estado').textContent = muestraData.estado || 'Pendiente';
+            
+            // Foto
+            const fotoContainer = document.getElementById('detalle-foto-container');
+            const fotoImg = document.getElementById('detalle-foto');
+            if (muestraData.evidenciaFoto) {
+                fotoImg.src = muestraData.evidenciaFoto;
+                fotoContainer.classList.remove('hidden');
+            } else {
+                fotoContainer.classList.add('hidden');
+            }
+
+            // Cargar análisis
+            cargarAnalisisMuestra(muestraData.id);
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // ============================================================
+    // CARGAR ANÁLISIS DE MUESTRA
+    // ============================================================
+
+    async function cargarAnalisisMuestra(muestraId) {
+        try {
+            const token = getToken();
+            if (!token) {
+                console.warn('⚠️ No hay token para cargar análisis');
+                return;
+            }
+
+            console.log('🔍 Cargando análisis para muestra:', muestraId);
+
+            // Cargar análisis físico
+            try {
+                const fisico = await AcopioService.getAnalisisFisico(muestraId, token);
+                const statusEl = document.getElementById('detalle-fisico-status');
+                if (fisico) {
+                    statusEl.textContent = `✅ Realizado - Humedad: ${fisico.humedad}% | Criba: ${fisico.criba}mm`;
+                    statusEl.className = 'font-medium text-emerald-600';
+                } else {
+                    statusEl.textContent = '⏳ Pendiente de análisis físico';
+                    statusEl.className = 'font-medium text-yellow-600';
+                }
+            } catch (error) {
+                console.warn('⚠️ Error cargando análisis físico:', error);
+                const statusEl = document.getElementById('detalle-fisico-status');
+                statusEl.textContent = '❌ Error al cargar';
+                statusEl.className = 'font-medium text-red-500';
+            }
+
+            // Cargar análisis sensorial
+            try {
+                const sensorial = await AcopioService.getAnalisisSensorial(muestraId, token);
+                const statusEl = document.getElementById('detalle-sensorial-status');
+                if (sensorial) {
+                    statusEl.textContent = `✅ Realizado - Puntaje: ${sensorial.puntajeTotal} | ${sensorial.clasificacion || 'N/A'}`;
+                    statusEl.className = 'font-medium text-emerald-600';
+                } else {
+                    statusEl.textContent = '⏳ Pendiente de catación SCA';
+                    statusEl.className = 'font-medium text-yellow-600';
+                }
+            } catch (error) {
+                console.warn('⚠️ Error cargando análisis sensorial:', error);
+                const statusEl = document.getElementById('detalle-sensorial-status');
+                statusEl.textContent = '❌ Error al cargar';
+                statusEl.className = 'font-medium text-red-500';
+            }
+        } catch (error) {
+            console.error('❌ Error cargando análisis:', error);
+        }
+    }
+
+    // ============================================================
+    // REGISTRAR ANÁLISIS FÍSICO
+    // ============================================================
+
+    async function registrarAnalisisFisico(event) {
+        event.preventDefault();
+
+        const muestraId = document.getElementById('fisico-muestra-id').value;
+        const humedad = parseFloat(document.getElementById('fisico-humedad').value);
+        const criba = document.getElementById('fisico-criba').value.trim();
+        const densidad = parseFloat(document.getElementById('fisico-densidad').value);
+        const defectosPrim = parseInt(document.getElementById('fisico-defectos-prim').value);
+        const defectosSec = parseInt(document.getElementById('fisico-defectos-sec').value);
+
+        if (!muestraId || isNaN(humedad) || !criba || criba === '' || isNaN(densidad) || isNaN(defectosPrim) || isNaN(defectosSec)) {
+            const errorDiv = document.getElementById('fisico-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('fisico-error-text').textContent = 'Todos los campos son obligatorios';
+            return;
+        }
+
+        const payload = {
+            muestraId,
+            humedad,
+            criba,
+            densidad,
+            defectosPrim,
+            defectosSec
+        };
+
+        console.log('📦 Payload análisis físico:', JSON.stringify(payload, null, 2));
+
+        try {
+            const token = getToken();
+            if (!token) {
+                const errorDiv = document.getElementById('fisico-error');
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('fisico-error-text').textContent = 'No hay sesión activa';
+                return;
+            }
+
+            const btnGuardar = document.getElementById('btn-guardar-fisico');
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Guardando...';
+
+            const resultado = await AcopioService.registrarAnalisisFisico(payload, token);
+            console.log('✅ Análisis físico registrado:', resultado);
+
+            const errorDiv = document.getElementById('fisico-error');
+            errorDiv.classList.remove('hidden', 'text-red-500');
+            errorDiv.classList.add('text-emerald-500');
+            document.getElementById('fisico-error-text').textContent = '✅ Análisis físico registrado correctamente';
+
+            setTimeout(() => {
+                toggleModalFisico(false);
+                window.location.reload();
+            }, 1500);
+
+        } catch (error) {
+            console.error('❌ Error al registrar análisis físico:', error);
+            const errorDiv = document.getElementById('fisico-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('fisico-error-text').textContent = error.message || 'Error al registrar análisis físico';
+            
+            const btnGuardar = document.getElementById('btn-guardar-fisico');
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Guardar Análisis';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    // ============================================================
+    // REGISTRAR CATACIÓN SCA
+    // ============================================================
+
+    async function registrarCatacion(event) {
+        event.preventDefault();
+
+        const muestraId = document.getElementById('catacion-muestra-id').value;
+        const fraganciaAroma = parseFloat(document.getElementById('catacion-fragancia').value);
+        const sabor = parseFloat(document.getElementById('catacion-sabor').value);
+        const saborResidual = parseFloat(document.getElementById('catacion-residual').value);
+        const acidez = parseFloat(document.getElementById('catacion-acidez').value);
+        const cuerpo = parseFloat(document.getElementById('catacion-cuerpo').value);
+        const uniformidad = parseFloat(document.getElementById('catacion-uniformidad').value);
+        const balance = parseFloat(document.getElementById('catacion-balance').value);
+        const tazaLimpia = parseFloat(document.getElementById('catacion-taza-limpia').value);
+        const dulzor = parseFloat(document.getElementById('catacion-dulzor').value);
+        const puntajeCatador = parseFloat(document.getElementById('catacion-puntaje-catador').value);
+        const defectos = parseFloat(document.getElementById('catacion-defectos').value);
+        const nivelTueste = document.getElementById('catacion-tueste').value;
+
+        if (!muestraId || !nivelTueste) {
+            const errorDiv = document.getElementById('catacion-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('catacion-error-text').textContent = 'Todos los campos son obligatorios';
+            return;
+        }
+
+        const payload = {
+            muestraId,
+            fraganciaAroma,
+            sabor,
+            saborResidual,
+            acidez,
+            cuerpo,
+            uniformidad,
+            balance,
+            tazaLimpia,
+            dulzor,
+            puntajeCatador,
+            defectos,
+            nivelTueste
+        };
+
+        console.log('📦 Payload catación:', JSON.stringify(payload, null, 2));
+
+        try {
+            const token = getToken();
+            if (!token) {
+                const errorDiv = document.getElementById('catacion-error');
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('catacion-error-text').textContent = 'No hay sesión activa';
+                return;
+            }
+
+            const btnGuardar = document.getElementById('btn-guardar-catacion');
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Guardando...';
+
+            const resultado = await AcopioService.registrarAnalisisSensorial(payload, token);
+            console.log('✅ Catación registrada:', resultado);
+
+            const errorDiv = document.getElementById('catacion-error');
+            errorDiv.classList.remove('hidden', 'text-red-500');
+            errorDiv.classList.add('text-emerald-500');
+            document.getElementById('catacion-error-text').textContent = `✅ Catación registrada - Puntaje: ${resultado.puntajeTotal} | ${resultado.clasificacion || 'N/A'}`;
+
+            setTimeout(() => {
+                toggleModalCatacion(false);
+                window.location.reload();
+            }, 1500);
+
+        } catch (error) {
+            console.error('❌ Error al registrar catación:', error);
+            const errorDiv = document.getElementById('catacion-error');
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('catacion-error-text').textContent = error.message || 'Error al registrar catación';
+            
+            const btnGuardar = document.getElementById('btn-guardar-catacion');
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Guardar Catación';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🔧 Inicializando eventos...');
+
+        // ---- Botones Análisis Físico ----
+        document.querySelectorAll('.btn-analisis-fisico').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const muestraId = this.dataset.muestraId;
+                if (muestraId) {
+                    toggleModalFisico(true, muestraId);
+                }
+            });
+        });
+
+        // ---- Botones Catación ----
+        document.querySelectorAll('.btn-catacion').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const muestraId = this.dataset.muestraId;
+                if (muestraId) {
+                    toggleModalCatacion(true, muestraId);
+                }
+            });
+        });
+
+        // ---- Botones Ver Detalle ----
+        document.querySelectorAll('.btn-ver-detalle').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const muestraId = this.dataset.muestraId;
+                const muestras = document.querySelectorAll('.muestra-item');
+                let muestra = null;
+                muestras.forEach(el => {
+                    if (el.dataset.muestraId == muestraId) {
+                        try {
+                            muestra = JSON.parse(el.dataset.muestraData);
+                            const fincasStr = document.querySelector('script[data-fincas]')?.textContent || '[]';
+                            const fincas = JSON.parse(fincasStr);
+                            const finca = fincas.find(f => f.id === muestra.fincaId);
+                            muestra.fincaNombre = finca?.nombre || 'Finca no encontrada';
+                        } catch (e) {
+                            console.warn('Error parseando muestra:', e);
+                        }
+                    }
+                });
+                if (muestra) {
+                    toggleModalDetalle(true, muestra);
+                } else {
+                    alert('Error: No se pudo obtener el detalle de la muestra');
+                }
+            });
+        });
+
+        // ---- Cerrar Modales ----
+        document.getElementById('btn-cerrar-fisico')?.addEventListener('click', () => toggleModalFisico(false));
+        document.getElementById('btn-cancelar-fisico')?.addEventListener('click', () => toggleModalFisico(false));
+        document.getElementById('modal-analisis-fisico')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) toggleModalFisico(false);
+        });
+
+        document.getElementById('btn-cerrar-catacion')?.addEventListener('click', () => toggleModalCatacion(false));
+        document.getElementById('btn-cancelar-catacion')?.addEventListener('click', () => toggleModalCatacion(false));
+        document.getElementById('modal-catacion')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) toggleModalCatacion(false);
+        });
+
+        document.getElementById('btn-cerrar-detalle')?.addEventListener('click', () => toggleModalDetalle(false));
+        document.getElementById('btn-cerrar-detalle-btn')?.addEventListener('click', () => toggleModalDetalle(false));
+        document.getElementById('modal-detalle-muestra')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) toggleModalDetalle(false);
+        });
+
+        // ---- Formularios ----
+        document.getElementById('form-analisis-fisico')?.addEventListener('submit', registrarAnalisisFisico);
+        document.getElementById('form-catacion')?.addEventListener('submit', registrarCatacion);
+
+        // ---- Recrear íconos Lucide ----
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
+        console.log('✅ Eventos inicializados correctamente');
+    });
+
+    document.addEventListener('astro:after-swap', () => {
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    });
+</script>

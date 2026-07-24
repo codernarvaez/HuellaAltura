@@ -1,0 +1,1055 @@
+---
+// src/pages/acopio/muestras.astro
+import DashboardLayout from "../../layouts/LayoutVariable.astro";
+import { AuthService } from "../../services/auth.service.ts";
+import { AcopioService } from "../../services/acopio.service.ts";
+import { FincaService } from "../../services/finca.service.ts";
+
+// Obtener token y datos del usuario
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let userRole = '';
+let fincas = [];
+let muestras = [];
+let error = null;
+let isLoading = true;
+
+if (token) {
+  try {
+    userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
+    console.log("👤 Usuario:", userData?.first_name, userData?.last_name);
+    console.log("🎭 Rol del usuario:", userRole);
+    
+    const esAdmin = userRole === 'SUPER_ADMIN' || userRole === 'TENANT_ADMIN' || userRole === 'ADMIN';
+    
+    if (esAdmin) {
+      fincas = await FincaService.list(token);
+      console.log("📋 Fincas obtenidas:", fincas.length);
+    } else {
+      const fincasUsuario = await FincaService.getByUsuarioId(userData.id, token);
+      fincas = fincasUsuario || [];
+      console.log("📋 Fincas del usuario:", fincas.length);
+    }
+    
+    // 🔥 Obtener el finca_id de la URL
+    const urlParams = Astro.url.searchParams;
+    const fincaIdFromUrl = urlParams.get("finca_id");
+    
+    // 🔥 Si hay finca_id en la URL, cargar muestras de esa finca
+    if (fincaIdFromUrl) {
+      try {
+        const response = await AcopioService.getMuestrasByFinca(fincaIdFromUrl, token);
+        muestras = response || [];
+        console.log("📋 Muestras obtenidas para finca:", muestras.length);
+      } catch (e: any) {
+        console.warn("⚠️ Error obteniendo muestras:", e.message);
+        // 🔥 Mostrar un mensaje más amigable
+        if (e.message.includes('404') || e.message.includes('no encontrado')) {
+          error = 'La finca no tiene muestras registradas o no existe en el sistema de acopio.';
+        } else if (e.message.includes('500') || e.message.includes('Internal')) {
+          error = 'Error interno del servidor. Contacta al administrador.';
+        } else if (e.message.includes('conexión') || e.message.includes('connect')) {
+          error = 'Error de conexión con el servidor. Verifica tu conexión a internet.';
+        } else {
+          error = e.message || 'Error al cargar las muestras.';
+        }
+        muestras = [];
+      }
+    } else if (fincas.length > 0) {
+      // Si no hay finca_id en URL, cargar muestras de la primera finca
+      try {
+        const fincaId = fincas[0].id;
+        const response = await AcopioService.getMuestrasByFinca(fincaId, token);
+        muestras = response || [];
+        console.log("📋 Muestras obtenidas:", muestras.length);
+      } catch (e: any) {
+        console.warn("⚠️ Error obteniendo muestras:", e.message);
+        if (e.message.includes('404') || e.message.includes('no encontrado')) {
+          error = 'La finca no tiene muestras registradas.';
+        } else {
+          error = e.message || 'Error al cargar las muestras.';
+        }
+        muestras = [];
+      }
+    }
+    
+    isLoading = false;
+  } catch (e: any) {
+    error = e.message || 'Error al cargar los datos.';
+    console.error("❌ Error:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+const puedeCrearMuestras = userRole === 'SUPER_ADMIN' || 
+                          userRole === 'TENANT_ADMIN' || 
+                          userRole === 'ADMIN' || 
+                          userRole === 'TECNICO_CAMPO';
+
+const fincasMap = {};
+fincas.forEach(f => { fincasMap[f.id] = f; });
+
+const fincasStr = JSON.stringify(fincas);
+const muestrasStr = JSON.stringify(muestras);
+const userRoleStr = userRole;
+const puedeCrearMuestrasStr = puedeCrearMuestras ? 'true' : 'false';
+const API_URL = "https://geoguard-exped.onrender.com";
+---
+
+<DashboardLayout title="Muestras - Acopio">
+
+<div class="space-y-6 max-w-[1400px] mx-auto">
+
+    <!-- HEADER -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
+                📋 Muestras de Café
+            </h1>
+            <p class="mt-1 text-sm text-slate-500 max-w-3xl">
+                Gestión de muestras tomadas en finca para análisis y trazabilidad (RF-APE-01, RF-APE-02).
+            </p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-slate-500">Tu rol:</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                    {userRole || 'No definido'}
+                </span>
+                {puedeCrearMuestras && (
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                        ✅ Puede registrar muestras
+                    </span>
+                )}
+            </div>
+        </div>
+        {puedeCrearMuestras && (
+            <button 
+                id="btn-nueva-muestra" 
+                class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 h-12 rounded-xl transition shadow-sm font-medium text-sm whitespace-nowrap"
+            >
+                <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                Nueva Muestra
+            </button>
+        )}
+    </div>
+
+    <!-- FILTRO POR FINCA -->
+    {fincas.length > 0 && (
+        <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-slate-400">agriculture</span>
+                <span class="text-sm font-medium text-slate-700">Finca:</span>
+            </div>
+            <select
+                id="filtro-finca"
+                class="flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white text-sm"
+            >
+                {fincas.map((finca) => (
+                    <option key={finca.id} value={finca.id}>
+                        {finca.nombre} {finca.provincia ? `- ${finca.provincia}` : ''}
+                    </option>
+                ))}
+            </select>
+            <button
+                id="btn-filtrar"
+                class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition"
+            >
+                Cargar Muestras
+            </button>
+        </div>
+    )}
+
+    <!-- INDICADOR DE CARGA -->
+    {isLoading && (
+        <div class="text-center py-12">
+            <span class="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+            <p class="mt-2 text-slate-500">Cargando muestras...</p>
+        </div>
+    )}
+
+    <!-- MENSAJE DE ERROR -->
+    {error && (
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-red-500 text-4xl">error</span>
+            <p class="mt-2 text-red-600 font-semibold">{error}</p>
+            <p class="text-sm text-red-500 mt-1">Verifica que la finca existe y tiene muestras registradas.</p>
+        </div>
+    )}
+
+    <!-- MENSAJE SIN FINCAS -->
+    {!isLoading && !error && fincas.length === 0 && (
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-yellow-500 text-4xl">info</span>
+            <p class="mt-2 font-semibold text-yellow-700">No hay fincas disponibles</p>
+            <p class="text-sm text-yellow-600 mt-1">
+                {userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'TENANT_ADMIN' 
+                    ? 'No hay fincas registradas en el sistema. Crea una finca primero.'
+                    : 'No tienes una finca asociada. Contacta a un administrador.'}
+            </p>
+        </div>
+    )}
+
+    <!-- LISTADO DE MUESTRAS -->
+    {!isLoading && !error && fincas.length > 0 && (
+        <div id="muestras-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {muestras.length === 0 ? (
+                <div class="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-8 text-center">
+                    <span class="material-symbols-outlined text-slate-400 text-4xl">inbox</span>
+                    <p class="mt-2 font-semibold text-slate-700">No hay muestras registradas</p>
+                    <p class="text-sm text-slate-500 mt-1">
+                        {puedeCrearMuestras 
+                            ? 'Registra una nueva muestra haciendo clic en "Nueva Muestra".'
+                            : 'Las muestras aparecerán aquí cuando sean registradas por el técnico de campo.'}
+                    </p>
+                </div>
+            ) : (
+                muestras.map((muestra) => {
+                    const finca = fincasMap[muestra.fincaId] || { nombre: 'Finca no encontrada' };
+                    const fecha = new Date(muestra.creadoEn).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                    
+                    return (
+                        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow muestra-item" data-muestra-id={muestra.id} data-muestra-data={JSON.stringify(muestra)}>
+                            <div class="p-4">
+                                <div class="flex justify-between items-start">
+                                    <div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+                                        <span class="text-xs font-mono text-slate-500">{muestra.codigoQR?.substring(0, 8) || 'QR'}</span>
+                                    </div>
+                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                        {muestra.tipoProceso || 'N/A'}
+                                    </span>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h3 class="font-semibold text-slate-900 text-sm truncate" title={finca.nombre}>
+                                        {finca.nombre}
+                                    </h3>
+                                    <div class="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                        <span>📅 {fecha}</span>
+                                        <span>•</span>
+                                        <span>⚖️ {muestra.pesoKg || 0} kg</span>
+                                    </div>
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <span class="text-xs text-slate-400">ID:</span>
+                                        <span class="text-xs font-mono text-slate-600">{muestra.id}</span>
+                                    </div>
+                                    {muestra.evidenciaFoto && (
+                                        <div class="mt-2">
+                                            <span class="text-xs text-emerald-600 flex items-center gap-1">
+                                                <i data-lucide="camera" class="w-3 h-3"></i>
+                                                Con evidencia
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div class="border-t border-slate-100 px-4 py-3 bg-slate-50/50 flex flex-wrap justify-end gap-2">
+                                <button 
+                                    class="btn-ver-muestra text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded transition font-medium"
+                                    data-muestra-id={muestra.id}
+                                >
+                                    <i data-lucide="eye" class="w-3 h-3 inline mr-1"></i>
+                                    Ver
+                                </button>
+                                {muestra.evidenciaFoto && (
+                                    <button 
+                                        class="btn-ver-foto text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1 rounded transition font-medium"
+                                        data-foto-url={muestra.evidenciaFoto}
+                                    >
+                                        <i data-lucide="image" class="w-3 h-3 inline mr-1"></i>
+                                        Ver Foto
+                                    </button>
+                                )}
+                                <button 
+                                    class="btn-analizar-muestra text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-1 rounded transition font-medium"
+                                    data-muestra-id={muestra.id}
+                                >
+                                    <i data-lucide="flask" class="w-3 h-3 inline mr-1"></i>
+                                    Analizar
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })
+            )}
+        </div>
+    )}
+
+    <!-- CONTADOR DE MUESTRAS -->
+    {!isLoading && !error && muestras.length > 0 && (
+        <div class="text-xs text-slate-500 text-right">
+            Total: <span class="font-semibold">{muestras.length}</span> muestras
+        </div>
+    )}
+
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA REGISTRAR NUEVA MUESTRA                          -->
+<!-- ============================================================ -->
+<div id="modal-nueva-muestra" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-600">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Registrar Nueva Muestra</h2>
+            </div>
+            <button id="btn-cerrar-modal" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-nueva-muestra" class="space-y-4">
+            <!-- Finca -->
+            <div>
+                <label for="muestra-finca" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Finca <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="muestra-finca"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white"
+                    required
+                >
+                    <option value="">Selecciona una finca</option>
+                    {fincas.map((finca) => (
+                        <option key={finca.id} value={finca.id}>
+                            {finca.nombre} {finca.provincia ? `- ${finca.provincia}` : ''}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <!-- Productor (autocompletado) -->
+            <div>
+                <label for="muestra-productor" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Productor <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                    <input
+                        id="muestra-productor"
+                        type="text"
+                        placeholder="Se autocompleta al seleccionar la finca"
+                        class="w-full h-12 px-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-700"
+                        readonly
+                        required
+                    />
+                    <div id="productor-loading" class="hidden absolute right-3 top-3">
+                        <span class="material-symbols-outlined animate-spin text-slate-400 text-sm">progress_activity</span>
+                    </div>
+                </div>
+                <div id="productor-info" class="mt-1 text-xs text-slate-400 hidden">
+                    <span id="productor-nombre" class="text-emerald-600 font-medium"></span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Se autocompleta automáticamente al seleccionar la finca</p>
+            </div>
+
+            <!-- Código QR -->
+            <div>
+                <label for="muestra-qr" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Código QR <span class="text-red-500">*</span>
+                </label>
+                <div class="flex gap-2">
+                    <input
+                        id="muestra-qr"
+                        type="text"
+                        placeholder="QR-123456"
+                        class="flex-1 h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                        required
+                    />
+                    <button
+                        type="button"
+                        id="btn-generar-qr"
+                        class="h-12 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition font-medium text-sm whitespace-nowrap"
+                    >
+                        Generar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tipo de Proceso -->
+            <div>
+                <label for="muestra-tipo" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Tipo de Proceso <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="muestra-tipo"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white"
+                    required
+                >
+                    <option value="">Selecciona un tipo</option>
+                    <option value="Lavado">Lavado</option>
+                    <option value="Natural">Natural</option>
+                    <option value="Honey">Honey</option>
+                </select>
+            </div>
+
+            <!-- Peso -->
+            <div>
+                <label for="muestra-peso" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Peso (lb) <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="muestra-peso"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    required
+                />
+                <p class="text-xs text-slate-400 mt-1">El peso se convertirá automáticamente a kilogramos</p>
+            </div>
+
+            <!-- 🔥 Captura de Evidencia Fotográfica -->
+            <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-emerald-400 transition">
+                <div class="flex flex-col items-center gap-2">
+                    <i data-lucide="camera" class="w-10 h-10 text-slate-400"></i>
+                    <p class="text-sm font-medium text-slate-700">Captura de Evidencia Fotográfica Digital In-Situ</p>
+                    <p class="text-xs text-red-500 font-semibold">* Obligatorio</p>
+                    <button
+                        type="button"
+                        id="btn-seleccionar-foto"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-500 transition"
+                    >
+                        <i data-lucide="camera" class="w-4 h-4"></i>
+                        <span>📷 Tomar Foto de Labor</span>
+                    </button>
+                    <input type="file" id="ejecucion-foto" accept="image/*" capture="environment" class="hidden" />
+                    <div id="foto-preview" class="hidden mt-2">
+                        <img id="foto-preview-img" src="#" alt="Vista previa" class="max-h-40 rounded-lg border border-slate-200" />
+                        <button type="button" id="btn-eliminar-foto" class="mt-1 text-sm text-red-500 hover:text-red-700">
+                            Eliminar foto
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Formatos: JPG, PNG, WEBP (máx. 5MB)</p>
+                </div>
+            </div>
+
+            <!-- Mensaje de error -->
+            <div id="muestra-error" class="hidden text-red-500 text-sm flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span id="muestra-error-text">Error al crear la muestra</span>
+            </div>
+
+            <!-- Botones -->
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                    type="button"
+                    id="btn-cancelar-muestra"
+                    class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    id="btn-guardar-muestra"
+                    class="flex-1 h-12 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Guardar Muestra
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA VER DETALLE DE MUESTRA                          -->
+<!-- ============================================================ -->
+<div id="modal-detalle-muestra" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-500/10 p-2 rounded-xl text-blue-600">
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Detalle de Muestra</h2>
+            </div>
+            <button id="btn-cerrar-detalle" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div id="detalle-content" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                    <span class="text-slate-500">ID:</span>
+                    <span id="detalle-id" class="font-mono text-xs block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Código QR:</span>
+                    <span id="detalle-qr" class="font-mono text-xs block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Finca:</span>
+                    <span id="detalle-finca" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Productor:</span>
+                    <span id="detalle-productor" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Tipo de Proceso:</span>
+                    <span id="detalle-tipo" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Peso:</span>
+                    <span id="detalle-peso" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Fecha:</span>
+                    <span id="detalle-fecha" class="font-medium block mt-1"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500">Estado:</span>
+                    <span id="detalle-estado" class="font-medium block mt-1"></span>
+                </div>
+            </div>
+            <div id="detalle-foto-container" class="hidden">
+                <span class="text-slate-500 text-sm">Evidencia Fotográfica:</span>
+                <div class="mt-2">
+                    <img id="detalle-foto" src="#" alt="Evidencia" class="max-h-60 rounded-lg border border-slate-200" />
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-3 pt-4 border-t border-slate-100 mt-4">
+            <button
+                type="button"
+                id="btn-cerrar-detalle-btn"
+                class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+            >
+                Cerrar
+            </button>
+            <button
+                type="button"
+                id="btn-ir-laboratorio"
+                class="flex-1 h-12 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-500 transition flex items-center justify-center gap-2"
+            >
+                <i data-lucide="flask" class="w-4 h-4"></i>
+                Ir a Laboratorio
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA VER FOTO                                          -->
+<!-- ============================================================ -->
+<div id="modal-ver-foto" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden">
+    <div class="max-w-4xl max-h-[90vh] p-4">
+        <div class="relative">
+            <button id="btn-cerrar-foto" class="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg hover:bg-slate-100 transition">
+                <i data-lucide="x" class="w-6 h-6 text-slate-700"></i>
+            </button>
+            <img id="modal-foto-img" src="#" alt="Evidencia" class="max-w-full max-h-[85vh] rounded-lg shadow-2xl" />
+        </div>
+    </div>
+</div>
+
+</DashboardLayout>
+
+<!-- Estilos CSS Inyectados -->
+<style is:global>
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    .animate-modal-in {
+        animation: modalIn 0.2s ease-out;
+    }
+</style>
+
+<script is:inline src="https://unpkg.com/lucide@latest"></script>
+
+<script>
+    import { AuthService } from "/src/services/auth.service.ts";
+    import { AcopioService } from "/src/services/acopio.service.ts";
+    import { FincaService } from "/src/services/finca.service.ts";
+    import { LaboresService } from "/src/services/labores.service.ts";
+
+    console.log("📋 Página de Muestras cargada");
+
+    const API_URL = "https://geoguard-exped.onrender.com";
+    let fotoSeleccionada = null;
+    let fotoPreviewUrl = null;
+
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    function getToken() {
+        return getCookie('token');
+    }
+
+    // ============================================================
+    // 🔥 AUTCOMPLETAR PRODUCTOR DESDE FINCA
+    // ============================================================
+
+    async function cargarProductorDesdeFinca(fincaUuid) {
+        const productorInput = document.getElementById('muestra-productor');
+        const productorInfo = document.getElementById('productor-info');
+        const productorNombre = document.getElementById('productor-nombre');
+        const loading = document.getElementById('productor-loading');
+
+        if (!fincaUuid) {
+            productorInput.value = '';
+            productorInfo.classList.add('hidden');
+            return;
+        }
+
+        try {
+            loading.classList.remove('hidden');
+            const token = getToken();
+            
+            const finca = await FincaService.getById(fincaUuid, token);
+            
+            if (finca && finca.usuario_id) {
+                const productorUuid = finca.usuario_id;
+                productorInput.value = productorUuid;
+                
+                try {
+                    const userData = await AuthService.getMe(token);
+                    if (userData && userData.id === productorUuid) {
+                        productorNombre.textContent = `${userData.first_name} ${userData.last_name}`;
+                        productorInfo.classList.remove('hidden');
+                    } else if (finca.usuario_nombre) {
+                        productorNombre.textContent = finca.usuario_nombre;
+                        productorInfo.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    if (finca.usuario_nombre) {
+                        productorNombre.textContent = finca.usuario_nombre;
+                        productorInfo.classList.remove('hidden');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error cargando productor:', error);
+            productorInput.value = '';
+            productorInfo.classList.add('hidden');
+        } finally {
+            loading.classList.add('hidden');
+        }
+    }
+
+    // ============================================================
+    // 🔥 SELECCIONAR Y PREVISUALIZAR FOTO
+    // ============================================================
+
+    function seleccionarFoto(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor selecciona una imagen válida');
+            event.target.value = '';
+            return;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+            alert('La imagen no debe superar los 5MB');
+            event.target.value = '';
+            return;
+        }
+        
+        fotoSeleccionada = file;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            fotoPreviewUrl = e.target.result;
+            const previewContainer = document.getElementById('foto-preview');
+            const previewImg = document.getElementById('foto-preview-img');
+            previewImg.src = fotoPreviewUrl;
+            previewContainer.classList.remove('hidden');
+            document.querySelector('#btn-seleccionar-foto span').textContent = '📷 Cambiar Foto';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function eliminarFoto() {
+        fotoSeleccionada = null;
+        fotoPreviewUrl = null;
+        document.getElementById('foto-preview').classList.add('hidden');
+        document.getElementById('ejecucion-foto').value = '';
+        document.querySelector('#btn-seleccionar-foto span').textContent = '📷 Tomar Foto de Labor';
+    }
+
+    // ============================================================
+    // MODALES
+    // ============================================================
+
+    function toggleModalNuevaMuestra(show) {
+        const modal = document.getElementById('modal-nueva-muestra');
+        if (show) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('form-nueva-muestra').reset();
+            document.getElementById('muestra-error').classList.add('hidden');
+            document.getElementById('productor-info').classList.add('hidden');
+            document.getElementById('muestra-productor').value = '';
+            fotoSeleccionada = null;
+            fotoPreviewUrl = null;
+            document.getElementById('foto-preview').classList.add('hidden');
+            document.getElementById('ejecucion-foto').value = '';
+            document.querySelector('#btn-seleccionar-foto span').textContent = '📷 Tomar Foto de Labor';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function toggleModalDetalle(show, muestraData = null) {
+        const modal = document.getElementById('modal-detalle-muestra');
+        if (show && muestraData) {
+            document.getElementById('detalle-id').textContent = muestraData.id || 'N/A';
+            document.getElementById('detalle-qr').textContent = muestraData.codigoQR || 'N/A';
+            document.getElementById('detalle-finca').textContent = muestraData.fincaNombre || 'N/A';
+            document.getElementById('detalle-productor').textContent = muestraData.productorId || 'N/A';
+            document.getElementById('detalle-tipo').textContent = muestraData.tipoProceso || 'N/A';
+            document.getElementById('detalle-peso').textContent = muestraData.pesoKg ? `${muestraData.pesoKg} kg` : 'N/A';
+            document.getElementById('detalle-fecha').textContent = muestraData.creadoEn ? new Date(muestraData.creadoEn).toLocaleDateString('es-ES') : 'N/A';
+            document.getElementById('detalle-estado').textContent = muestraData.estado || 'Pendiente';
+            
+            const fotoContainer = document.getElementById('detalle-foto-container');
+            const fotoImg = document.getElementById('detalle-foto');
+            if (muestraData.evidenciaFoto) {
+                fotoImg.src = muestraData.evidenciaFoto;
+                fotoContainer.classList.remove('hidden');
+            } else {
+                fotoContainer.classList.add('hidden');
+            }
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function toggleModalVerFoto(show, fotoUrl = null) {
+        const modal = document.getElementById('modal-ver-foto');
+        if (show && fotoUrl) {
+            document.getElementById('modal-foto-img').src = fotoUrl;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function generarQR() {
+        const prefix = 'QR';
+        const timestamp = Date.now().toString(36).toUpperCase();
+        const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const qr = `${prefix}-${timestamp}-${random}`;
+        document.getElementById('muestra-qr').value = qr;
+    }
+
+    // ============================================================
+    // 🔥 CREAR MUESTRA CON FOTO
+    // ============================================================
+
+    async function crearMuestra(event) {
+        event.preventDefault();
+
+        const btnGuardar = document.getElementById('btn-guardar-muestra');
+        const errorDiv = document.getElementById('muestra-error');
+
+        try {
+            const fincaSelect = document.getElementById('muestra-finca');
+            const fincaUuid = fincaSelect.value;
+            const productorUuid = document.getElementById('muestra-productor').value.trim();
+            const codigoQR = document.getElementById('muestra-qr').value.trim();
+            const tipoProceso = document.getElementById('muestra-tipo').value;
+            const peso_lb = parseFloat(document.getElementById('muestra-peso').value);
+
+            if (!fincaUuid || !productorUuid || !codigoQR || !tipoProceso || !peso_lb) {
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('muestra-error-text').textContent = 'Todos los campos son obligatorios';
+                return;
+            }
+
+            if (!fotoSeleccionada) {
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('muestra-error-text').textContent = '⚠️ La foto de evidencia es obligatoria';
+                return;
+            }
+
+            const token = getToken();
+            if (!token) {
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('muestra-error-text').textContent = 'No hay sesión activa';
+                return;
+            }
+
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Subiendo foto...';
+
+            let fotoUrl = null;
+            let fotoHash = null;
+
+            try {
+                const resultado = await LaboresService.subirEvidencia(fotoSeleccionada, token);
+                fotoUrl = resultado.foto_url;
+                fotoHash = resultado.foto_hash;
+                console.log('✅ Foto subida a Cloudinary:', fotoUrl);
+            } catch (error) {
+                console.error('❌ Error al subir foto:', error);
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('text-red-500');
+                document.getElementById('muestra-error-text').textContent = 'Error al subir la foto: ' + (error.message || 'Error desconocido');
+                btnGuardar.disabled = false;
+                btnGuardar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Guardar Muestra';
+                if (window.lucide) window.lucide.createIcons();
+                return;
+            }
+
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Guardando muestra...';
+
+            const payload = {
+                fincaId: fincaUuid,
+                productorId: productorUuid,
+                codigoQR: codigoQR,
+                tipoProceso: tipoProceso,
+                peso_lb: peso_lb,
+                evidenciaFoto: fotoUrl
+            };
+
+            console.log('📦 Payload con foto:', JSON.stringify(payload, null, 2));
+
+            const resultado = await AcopioService.registrarMuestra(payload, token);
+            console.log('✅ Muestra creada:', resultado);
+
+            errorDiv.classList.remove('hidden', 'text-red-500');
+            errorDiv.classList.add('text-emerald-500');
+            document.getElementById('muestra-error-text').textContent = '✅ Muestra creada correctamente';
+
+            setTimeout(() => {
+                toggleModalNuevaMuestra(false);
+                window.location.reload();
+            }, 1500);
+
+        } catch (error) {
+            console.error('❌ Error al crear muestra:', error);
+            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('text-red-500');
+            document.getElementById('muestra-error-text').textContent = error.message || 'Error al crear la muestra';
+            
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Guardar Muestra';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    // ============================================================
+    // 🔥 CARGAR MUESTRAS POR FINCA
+    // ============================================================
+
+    async function cargarMuestrasPorFinca(fincaUuid) {
+        try {
+            const token = getToken();
+            if (!token) {
+                console.error('No hay token');
+                alert('No hay sesión activa');
+                return;
+            }
+
+            window.location.href = `/acopio/muestras?finca_id=${fincaUuid}`;
+            
+        } catch (error) {
+            console.error('❌ Error cargando muestras:', error);
+            alert('Error al cargar las muestras: ' + (error.message || 'Error desconocido'));
+        }
+    }
+
+    // ============================================================
+    // 🔥 EVENTOS
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🔧 Inicializando eventos...');
+
+        // ---- Evento: cambio de finca en el modal ----
+        document.getElementById('muestra-finca')?.addEventListener('change', function() {
+            const fincaUuid = this.value;
+            if (fincaUuid) {
+                cargarProductorDesdeFinca(fincaUuid);
+            } else {
+                document.getElementById('muestra-productor').value = '';
+                document.getElementById('productor-info').classList.add('hidden');
+            }
+        });
+
+        // ---- Seleccionar Foto ----
+        document.getElementById('btn-seleccionar-foto')?.addEventListener('click', function() {
+            document.getElementById('ejecucion-foto').click();
+        });
+
+        document.getElementById('ejecucion-foto')?.addEventListener('change', seleccionarFoto);
+
+        document.getElementById('btn-eliminar-foto')?.addEventListener('click', eliminarFoto);
+
+        // ---- Botón Nueva Muestra ----
+        const btnNuevaMuestra = document.getElementById('btn-nueva-muestra');
+        if (btnNuevaMuestra) {
+            btnNuevaMuestra.addEventListener('click', () => toggleModalNuevaMuestra(true));
+        }
+
+        // ---- Cerrar Modal Nueva Muestra ----
+        const btnCerrarModal = document.getElementById('btn-cerrar-modal');
+        if (btnCerrarModal) {
+            btnCerrarModal.addEventListener('click', () => toggleModalNuevaMuestra(false));
+        }
+
+        const btnCancelarMuestra = document.getElementById('btn-cancelar-muestra');
+        if (btnCancelarMuestra) {
+            btnCancelarMuestra.addEventListener('click', () => toggleModalNuevaMuestra(false));
+        }
+
+        document.getElementById('modal-nueva-muestra')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                toggleModalNuevaMuestra(false);
+            }
+        });
+
+        // ---- Generar QR ----
+        const btnGenerarQR = document.getElementById('btn-generar-qr');
+        if (btnGenerarQR) {
+            btnGenerarQR.addEventListener('click', generarQR);
+        }
+
+        // ---- Formulario Nueva Muestra ----
+        const formNuevaMuestra = document.getElementById('form-nueva-muestra');
+        if (formNuevaMuestra) {
+            formNuevaMuestra.addEventListener('submit', crearMuestra);
+        }
+
+        // ---- Botón Filtrar ----
+        const btnFiltrar = document.getElementById('btn-filtrar');
+        const filtroFinca = document.getElementById('filtro-finca');
+        if (btnFiltrar && filtroFinca) {
+            btnFiltrar.addEventListener('click', () => {
+                const fincaUuid = filtroFinca.value;
+                if (fincaUuid) {
+                    cargarMuestrasPorFinca(fincaUuid);
+                }
+            });
+        }
+
+        // ---- 🔥 Botones Ver Muestra ----
+        document.querySelectorAll('.btn-ver-muestra').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const muestraId = this.dataset.muestraId;
+                const muestras = document.querySelectorAll('.muestra-item');
+                let muestra = null;
+                muestras.forEach(el => {
+                    if (el.dataset.muestraId == muestraId) {
+                        try {
+                            muestra = JSON.parse(el.dataset.muestraData);
+                            const fincas = JSON.parse('{fincasStr}');
+                            const finca = fincas.find(f => f.id === muestra.fincaId);
+                            muestra.fincaNombre = finca?.nombre || 'Finca no encontrada';
+                        } catch (e) {
+                            console.warn('Error parseando muestra:', e);
+                        }
+                    }
+                });
+                if (muestra) {
+                    toggleModalDetalle(true, muestra);
+                } else {
+                    alert('Error: No se pudo obtener el detalle de la muestra');
+                }
+            });
+        });
+
+        // ---- 🔥 Botones Ver Foto ----
+        document.querySelectorAll('.btn-ver-foto').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const fotoUrl = this.dataset.fotoUrl;
+                if (fotoUrl) {
+                    toggleModalVerFoto(true, fotoUrl);
+                }
+            });
+        });
+
+        // ---- 🔥 BOTÓN ANALIZAR - Redirige a laboratorio ----
+        document.querySelectorAll('.btn-analizar-muestra').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const muestraId = this.dataset.muestraId;
+                if (muestraId) {
+                    window.location.href = `/acopio/laboratorio?muestra_id=${muestraId}`;
+                }
+            });
+        });
+
+        // ---- Cerrar Modal Foto ----
+        document.getElementById('btn-cerrar-foto')?.addEventListener('click', () => toggleModalVerFoto(false));
+        document.getElementById('modal-ver-foto')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                toggleModalVerFoto(false);
+            }
+        });
+
+        // ---- Cerrar Modal Detalle ----
+        const btnCerrarDetalle = document.getElementById('btn-cerrar-detalle');
+        if (btnCerrarDetalle) {
+            btnCerrarDetalle.addEventListener('click', () => toggleModalDetalle(false));
+        }
+
+        const btnCerrarDetalleBtn = document.getElementById('btn-cerrar-detalle-btn');
+        if (btnCerrarDetalleBtn) {
+            btnCerrarDetalleBtn.addEventListener('click', () => toggleModalDetalle(false));
+        }
+
+        document.getElementById('modal-detalle-muestra')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                toggleModalDetalle(false);
+            }
+        });
+
+        // ---- 🔥 Botón Ir a Laboratorio desde detalle ----
+        document.getElementById('btn-ir-laboratorio')?.addEventListener('click', function() {
+            const muestraId = document.getElementById('detalle-id').textContent;
+            if (muestraId && muestraId !== 'N/A') {
+                window.location.href = `/acopio/laboratorio?muestra_id=${muestraId}`;
+            }
+        });
+
+        // ---- Recrear íconos Lucide ----
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
+        console.log('✅ Eventos inicializados correctamente');
+    });
+
+    document.addEventListener('astro:after-swap', () => {
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    });
+</script>
