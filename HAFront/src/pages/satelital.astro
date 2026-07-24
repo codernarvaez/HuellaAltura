@@ -1,6 +1,6 @@
 ---
 import Layout from "../layouts/LayoutVariable.astro";
-import { GeoespacialService } from "../services/geoespacial.service.ts";
+import { GeoespacialService } from "/src/services/geoespacial.service.ts";
 import { FincaService } from "../services/finca.service.ts";
 import { AuthService } from "../services/auth.service.ts";
 import { ExpedienteService } from "../services/expediente.service.ts";
@@ -578,7 +578,7 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
 </style>
 
 <script>
-  import { GeoespacialService } from "/src/services/geoespacial.service.ts";
+  import { GeoespacialService } from "/src/services/geoespacial.service.ts"
   import { ExpedienteService } from "/src/services/expediente.service.ts";
 
   document.addEventListener('DOMContentLoaded', () => {
