@@ -15,6 +15,21 @@ interface ImportMeta {
 
 declare global {
   interface Window {
+    USUARIO_ID: string;
+    FINCA_ID: string;
+    USER_DATA: any;
+    FINCA_DATA: any;
+    POLIGONO_DATA: any;
+    POLIGONO_CARGADO: any;
+    ERROR: string | null;
+    guardarFinca: () => Promise<void>;
+    L: any;
+  }
+}
+export {};
+
+declare global {
+  interface Window {
     ethereum?: {
       request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
     };
