@@ -112,7 +112,7 @@ def obtener_analisis_fisico(
     current_user: dict = Depends(require_roles(*ANALISIS_FISICO)),
 ):
     """Obtiene el análisis físico de una muestra (RF-APE-03)."""
-    fisico = db.analisisfisico.find_unique(where={"muestraId": muestraId})
+    fisico = db.analisisfisico.find_first(where={"muestraId": muestraId})
     if not fisico:
         raise HTTPException(status_code=404, detail="Análisis físico no encontrado")
 
@@ -137,7 +137,7 @@ def obtener_analisis_sensorial(
     current_user: dict = Depends(require_roles(*CATACION)),
 ):
     """Obtiene el análisis sensorial (catación SCA) de una muestra (RF-APE-04)."""
-    sensorial = db.analisissensorial.find_unique(where={"muestraId": muestraId})
+    sensorial = db.analisissensorial.find_first(where={"muestraId": muestraId})
     if not sensorial:
         raise HTTPException(status_code=404, detail="Análisis sensorial no encontrado")
 
