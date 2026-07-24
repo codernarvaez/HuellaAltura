@@ -80,3 +80,33 @@ def obtener_muestras_por_finca(
         }
         for m in muestras
     ]
+
+
+@router.get("/uuid/{muestraId}")
+def obtener_muestra_por_uuid(
+    muestraId: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*MUESTREO)),
+):
+    """
+    Obtiene una muestra específica por su UUID.
+
+    Parámetro:
+    - muestraId: UUID de la muestra
+
+    Devuelve toda la información de la muestra.
+    """
+    muestra = db.muestra.find_unique(where={"id": muestraId})
+    if not muestra:
+        raise HTTPException(status_code=404, detail="Muestra no encontrada")
+
+    return {
+        "id": muestra.id,
+        "fincaId": muestra.fincaId,
+        "productorId": muestra.productorId,
+        "codigoQR": muestra.codigoQR,
+        "tipoProceso": muestra.tipoProceso,
+        "pesoKg": muestra.pesoKg,
+        "evidenciaFoto": muestra.evidenciaFoto,
+        "fechaToma": muestra.fechaToma,
+    }
