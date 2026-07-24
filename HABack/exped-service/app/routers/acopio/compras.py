@@ -4,11 +4,59 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import log_user_action, require_roles
+from app.dependencies import log_user_action, require_roles, get_current_user
 from app.routers.acopio.roles import GERENCIA
-from app.schemas.acopio import OrdenCompraCreate
+from app.schemas.acopio import OrdenCompraCreate, OrdenCompraOut
 
 router = APIRouter(prefix="/acopio/compras", tags=["Acopio - Órdenes de Compra"])
+
+
+@router.get(
+    "/",
+    response_model=list[OrdenCompraOut],
+    summary="Listar todas las órdenes de compra",
+)
+def listar_ordenes_compra(
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Obtiene todas las órdenes de compra registradas en el sistema.
+
+    **Retorna:**
+    - Lista completa de órdenes con sus detalles (ID, muestra, precio, volumen, estado EUDR, etc.)
+    """
+    ordenes = db.ordencompra.find_many(include={"muestra": True})
+    return ordenes
+
+
+@router.get(
+    "/muestra/{muestraId}",
+    response_model=OrdenCompraOut,
+    summary="Obtener orden de compra por muestraId",
+)
+def obtener_orden_por_muestra(
+    muestraId: str,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Obtiene la orden de compra asociada a una muestra específica.
+
+    **Parámetros:**
+    - `muestraId`: ID único de la muestra
+
+    **Retorna:**
+    - Orden de compra con todos sus detalles si existe
+    - Error 404 si no existe orden para esa muestra
+    """
+    orden = db.ordencompra.find_unique(where={"muestraId": muestraId})
+    if not orden:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No existe orden de compra para la muestra {muestraId}",
+        )
+    return orden
 
 
 @router.post(
