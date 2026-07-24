@@ -1034,7 +1034,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 <!-- SCRIPT 1: Mapa y carga de archivos                            -->
 <!-- ============================================================ -->
 <script type="module">
-  import { GeoespacialService } from "../src/services/geoespacial.service.ts"; 
+  import { GeoespacialService } from "../../src/services/geoespacial.service.ts"; 
 
   function notify(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
