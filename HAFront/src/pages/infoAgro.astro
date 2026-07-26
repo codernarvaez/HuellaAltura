@@ -362,8 +362,8 @@ console.log("🔍 esProductor:", esProductor);
 </DashboardLayout>
 
 <script type="module">
-  import { FincaService } from "../services/finca.service.ts";
-  import { AgroambientalService } from "../services/InfoAgroambiental.ts";
+  import { FincaService } from "/src/services/finca.service.ts";
+  import { AgroambientalService } from "/src/services/InfoAgroambiental.ts";
 
   // DOM Elements
   const form = document.getElementById("infoagro-form");
@@ -527,6 +527,8 @@ console.log("🔍 esProductor:", esProductor);
     try {
       const datos = await AgroambientalService.getByFinca(fincaId, token);
       
+      console.log('📥 Datos agroambientales obtenidos:', datos);
+
       if (datos && datos.length > 0) {
         const dato = datos[0];
         datoId = dato.id;
