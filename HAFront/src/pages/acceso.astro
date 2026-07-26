@@ -269,7 +269,7 @@ const error = Astro.url.searchParams.get("error");
         `;
 
         if (mode === "register") {
-          const res = await fetch("/api/auth/register", {
+          const res = await fetch("https://huellaaltura.onrender.com/api/auth/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

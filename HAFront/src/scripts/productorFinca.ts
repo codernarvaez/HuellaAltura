@@ -1,5 +1,6 @@
 import { FincaService } from "../services/finca.service.ts";
 import { GeoespacialService } from "../services/geoespacial.service.ts";
+import { API_URL } from "../services/Api_Base.ts";
 
 // ===== Tipos opcionales, si usas TS estricto =====
 interface UserData {
@@ -111,44 +112,45 @@ document.addEventListener('DOMContentLoaded', () => {
   cancelarProductorBtn?.addEventListener('click', () => location.reload());
 
   guardarProductorBtn?.addEventListener('click', async () => {
-    const nombreCompleto = (document.getElementById('productor-nombre') as HTMLInputElement)?.value || '';
-    const partes = nombreCompleto.trim().split(' ');
-    const firstName = partes[0] || '';
-    const lastName = partes.slice(1).join(' ') || '';
+  const nombreCompleto = (document.getElementById('productor-nombre') as HTMLInputElement)?.value || '';
+  const partes = nombreCompleto.trim().split(' ');
+  const firstName = partes[0] || '';
+  const lastName = partes.slice(1).join(' ') || '';
 
-    const payload = {
-      first_name: firstName,
-      last_name: lastName,
-      identifier: (document.getElementById('productor-cedula') as HTMLInputElement)?.value || '',
-      organizacion: (document.getElementById('productor-organizacion') as HTMLInputElement)?.value || '',
-      phone_number: (document.getElementById('productor-celular') as HTMLInputElement)?.value || '',
-      genero: (document.getElementById('productor-genero') as HTMLSelectElement)?.value || '',
-      edad: parseInt((document.getElementById('productor-edad') as HTMLInputElement)?.value) || null,
-      nivel_educativo: (document.getElementById('productor-nivel') as HTMLSelectElement)?.value || ''
-    };
+  const payload = {
+    first_name: firstName,
+    last_name: lastName,
+    identifier: (document.getElementById('productor-cedula') as HTMLInputElement)?.value || '',
+    organizacion: (document.getElementById('productor-organizacion') as HTMLInputElement)?.value || '',
+    phone_number: (document.getElementById('productor-celular') as HTMLInputElement)?.value || '',
+    genero: (document.getElementById('productor-genero') as HTMLSelectElement)?.value || '',
+    edad: parseInt((document.getElementById('productor-edad') as HTMLInputElement)?.value) || null,
+    nivel_educativo: (document.getElementById('productor-nivel') as HTMLSelectElement)?.value || ''
+  };
 
-    try {
-      notify('⏳ Guardando cambios...', 'warning');
-      const token = getCookie('token');
-      const response = await fetch('/api/usuarios/update', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
+  try {
+    notify('⏳ Guardando cambios...', 'warning');
+    const token = getCookie('token');
 
-      if (response.ok) {
-        userData = await response.json();
-        updateAuthNameDisplay();
-        notify('✅ Productor actualizado correctamente', 'success');
-        setTimeout(() => location.reload(), 1500);
-      } else {
-        const errorData = await response.json();
-        notify('❌ Error: ' + (errorData.message || 'Error al actualizar'), 'error');
-      }
-    } catch {
-      notify('❌ Error al guardar los cambios', 'error');
+    const response = await fetch(`${API_URL}/api/v1/usuarios/${usuarioId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      userData = await response.json();
+      updateAuthNameDisplay();
+      notify('✅ Productor actualizado correctamente', 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      notify('❌ Error: ' + (errorData.detail || errorData.message || 'Error al actualizar'), 'error');
     }
-  });
+  } catch {
+    notify('❌ Error al guardar los cambios', 'error');
+  }
+});
 
   editarFincaBtn?.addEventListener('click', () => {
     ['finca-nombre', 'finca-barrio', 'finca-area-cultivada', 'finca-variedad', 'finca-densidad', 'finca-origen-semilla', 'finca-anio']

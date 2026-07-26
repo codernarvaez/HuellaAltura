@@ -185,18 +185,29 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
 <Layout title="Huella de Altura | Auditoría Satelital">
 
 <!-- Datos inyectados para el cliente -->
-<script>
-  window.ES_PRODUCTOR = {esProductorStr};
-  window.PUEDE_VER_RESULTADO = {puedeVerResultadoStr};
-  window.VALIDACION_REALIZADA = {validacionRealizadaStr};
-  window.EXPEDIENTE_HABILITADO = {expedienteHabilitadoStr};
-  window.TIENE_PERMISO_AUDITORIA = {tienePermisoAuditoriaStr};
-  window.FINCA_ID = "{fincaIdStr}";
-  window.EXPEDIENTE_ID = "{expedienteIdStr}";
-  window.ESTADO_EUDR = "{estadoEudrStr}";
-  window.EXISTE_EXPEDIENTE = {existeExpedienteStr};
-  window.EXPEDIENTE_ESTADO = "{expedienteEstadoStr}";
-  
+<script define:vars={{
+  esProductor,
+  puedeVerResultado,
+  validacionRealizada,
+  expedienteHabilitado,
+  tienePermisoAuditoria,
+  fincaIdStr,
+  expedienteIdStr,
+  estadoEudrStr,
+  existeExpediente: !!expedienteExistente,
+  expedienteEstadoStr
+}}>
+  window.ES_PRODUCTOR = esProductor;
+  window.PUEDE_VER_RESULTADO = puedeVerResultado;
+  window.VALIDACION_REALIZADA = validacionRealizada;
+  window.EXPEDIENTE_HABILITADO = expedienteHabilitado;
+  window.TIENE_PERMISO_AUDITORIA = tienePermisoAuditoria;
+  window.FINCA_ID = fincaIdStr;
+  window.EXPEDIENTE_ID = expedienteIdStr;
+  window.ESTADO_EUDR = estadoEudrStr;
+  window.EXISTE_EXPEDIENTE = existeExpediente;
+  window.EXPEDIENTE_ESTADO = expedienteEstadoStr;
+
   console.log('📋 Datos inyectados en cliente:', {
     ES_PRODUCTOR: window.ES_PRODUCTOR,
     FINCA_ID: window.FINCA_ID,
