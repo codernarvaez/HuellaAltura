@@ -57,10 +57,10 @@ def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
         filename=nombre_seguro,
     )
 
-    secure_url = resultado.get("secure_url")
-    if not secure_url:
-        raise RuntimeError("El storage no devolvió una URL accesible para el documento.")
-    return secure_url
+    public_id = resultado.get("public_id")
+    if not public_id:
+        raise RuntimeError("El storage no devolvió un identificador para el documento.")
+    return public_id
 
 
 def url_firmada(public_id: str) -> str:
