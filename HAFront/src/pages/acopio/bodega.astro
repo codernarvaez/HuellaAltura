@@ -38,7 +38,7 @@ if (token) {
       // 📊 USAR EL SERVICIO PARA OBTENER INVENTARIO
       // ============================================================
       
-      // Obtener todo el inventario usando el servicio
+      // Obtener todo el inventario usando el servicio (ahora con QR)
       const inventarioCompleto = await AcopioService.getInventarioAll(token);
       console.log("📦 Inventario total:", inventarioCompleto.length);
       
@@ -125,7 +125,6 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                 <i data-lucide="arrow-left" class="w-4 h-4"></i>
                 Volver a Compras
             </a>
-            <!-- 🔥 BOTÓN PARA IR A DESPACHOS -->
             <a
                 href="/acopio/despachos"
                 class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 h-10 rounded-xl transition font-medium text-sm shadow-md hover:shadow-lg"
@@ -270,7 +269,7 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
             </div>
 
             <!-- ============================================================ -->
-            <!-- TAB 2: INVENTARIO                                           -->
+            <!-- TAB 2: INVENTARIO - CORREGIDO                                -->
             <!-- ============================================================ -->
             <div id="tab-inventario" class="tab-content hidden space-y-6">
                 <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -316,9 +315,15 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                                 <tbody>
                                     {inventario.map((item) => (
                                         <tr key={item.id} class="border-b border-slate-100 hover:bg-slate-50/50 transition">
-                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">{item.id}</td>
-                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">{item.ordenCompraId?.substring(0, 8) || 'N/A'}</td>
-                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">{item.codigoQR || 'N/A'}</td>
+                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">
+                                                {item.id.substring(0, 8)}
+                                            </td>
+                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">
+                                                {item.ordenCompraId?.substring(0, 8) || 'N/A'}
+                                            </td>
+                                            <td class="py-3 px-4 font-mono text-xs text-slate-600">
+                                                {item.codigoQR || 'N/A'}
+                                            </td>
                                             <td class="py-3 px-4 text-right font-medium text-slate-700">{item.pesoIngresoKg}</td>
                                             <td class="py-3 px-4 text-right text-slate-600">{item.pesoSalidaKg || 0}</td>
                                             <td class="py-3 px-4 text-center">
@@ -357,7 +362,7 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
             </div>
 
             <!-- ============================================================ -->
-            <!-- TAB 3: TRILLA - CORREGIDA CON UUID                         -->
+            <!-- TAB 3: TRILLA                                               -->
             <!-- ============================================================ -->
             <div id="tab-trilla" class="tab-content hidden space-y-6">
                 <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -974,7 +979,6 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
         console.log('🔍 Iniciando trilla para inventario (UUID):', inventarioId);
         console.log('🔍 Peso de ingreso:', pesoIngreso);
         
-        // 🔥 Buscar el input específico por data-inventario-id (UUID)
         const input = document.querySelector(`input.factor-trilla-input[data-inventario-id="${inventarioId}"]`);
         
         console.log('🔍 Input encontrado:', input);
@@ -1000,7 +1004,6 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
             return;
         }
 
-        // 🔥 CORREGIDO: Payload con inventarioId como string (UUID)
         const payload = {
             inventarioId: inventarioId,
             factorRendimiento: factorRendimiento
@@ -1024,7 +1027,6 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                 if (window.lucide) window.lucide.createIcons();
             }
 
-            // ✅ Usar el servicio para procesar trilla
             const resultado = await AcopioService.procesarTrilla(payload, token);
             console.log('✅ Trilla procesada:', resultado);
 
@@ -1060,7 +1062,6 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
             window.location.reload();
         });
 
-        // ---- Botones Ingreso a Bodega ----
         document.querySelectorAll('.btn-ingresar-bodega').forEach(btn => {
             btn.addEventListener('click', function() {
                 const ordenId = this.dataset.ordenId;
@@ -1070,7 +1071,6 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
             });
         });
 
-        // ---- Cerrar Modal Ingreso ----
         document.getElementById('btn-cerrar-ingreso')?.addEventListener('click', () => toggleModalIngreso(false));
         document.getElementById('btn-cancelar-ingreso')?.addEventListener('click', () => toggleModalIngreso(false));
         document.getElementById('modal-ingreso-bodega')?.addEventListener('click', (e) => {
@@ -1079,15 +1079,11 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
 
         document.getElementById('form-ingreso-bodega')?.addEventListener('submit', registrarIngresoBodega);
 
-        // ---- 🔥 Botones Procesar Trilla - CORREGIDO CON UUID ----
         document.querySelectorAll('.btn-procesar-trilla').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 
-                // Obtener el contenedor del botón
                 const container = this.closest('.border') || this.closest('.flex');
-                
-                // Buscar el input dentro del mismo contenedor
                 const input = container?.querySelector('.factor-trilla-input');
                 
                 console.log('🔍 Contenedor encontrado:', container);
@@ -1099,14 +1095,12 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                     return;
                 }
                 
-                // 🔥 CORREGIDO: Usar el ID como string (UUID), no parseInt
                 const inventarioId = input.dataset.inventarioId;
                 const peso = parseFloat(this.dataset.peso);
                 
                 console.log('🔘 Botón clickeado - Inventario ID (UUID):', inventarioId);
                 console.log('🔘 Peso:', peso);
                 
-                // 🔥 Validar que el ID sea un string válido
                 if (!inventarioId || inventarioId === 'undefined' || inventarioId === 'null') {
                     console.error('❌ Inventario ID inválido:', { inventarioId });
                     alert('Error: ID de inventario inválido. Por favor recarga la página.');
@@ -1119,12 +1113,10 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                     return;
                 }
                 
-                // 🔥 Llamar a la función con el ID como string
                 procesarTrilla(inventarioId, peso);
             });
         });
 
-        // ---- Botones "Ir a Trillar" desde inventario ----
         document.querySelectorAll('.btn-ir-trillar').forEach(btn => {
             btn.addEventListener('click', function() {
                 const tabTrilla = document.querySelector('.tab-btn[data-tab="trilla"]');
@@ -1138,14 +1130,12 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
             });
         });
 
-        // ---- Cerrar Modal Trilla ----
         document.getElementById('btn-cerrar-trilla')?.addEventListener('click', () => toggleModalTrilla(false));
         document.getElementById('btn-cerrar-trilla-btn')?.addEventListener('click', () => toggleModalTrilla(false));
         document.getElementById('modal-resultado-trilla')?.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) toggleModalTrilla(false);
         });
 
-        // ---- Ver Inventario desde modal de trilla ----
         document.getElementById('btn-ver-inventario')?.addEventListener('click', () => {
             toggleModalTrilla(false);
             const tabInventario = document.querySelector('.tab-btn[data-tab="inventario"]');

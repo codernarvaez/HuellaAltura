@@ -127,13 +127,13 @@ export interface BodegaIngresoCreate {
 
 export interface BodegaIngresoOut {
   mensaje: string;
-  inventario_id: number;
+  inventario_id: string;
   peso_ingreso_kg: number;
   estado: string;
 }
 
 export interface InventarioOut {
-  id: number;
+  id: string;
   ordenCompraId: string;
   codigoQR?: string;
   pesoIngresoKg: number;
@@ -148,7 +148,7 @@ export interface InventarioOut {
 // ============================================================
 
 export interface TrillaCreate {
-  inventarioId: number;
+  inventarioId: string;
   factorRendimiento: number;
 }
 
@@ -160,7 +160,7 @@ export interface TrillaOut {
     kg_cafe_oro_esperados: number;
     merma_esperada_kg: number;
   };
-  proceso_id: number;
+  proceso_id: string;
 }
 
 // ============================================================
@@ -168,7 +168,7 @@ export interface TrillaOut {
 // ============================================================
 
 export interface DespachoCreate {
-  inventarioId: number;
+  inventarioId: string;
   peso_salida_kg: number;
   destino: string;
 }
@@ -189,8 +189,8 @@ export interface CertificadoTrazabilidad {
   identificador_trazabilidad: string;
   fecha_emision: string;
   origen: {
-    productor_id: number;
-    finca_id: number;
+    productor_id: string;
+    finca_id: string;
     finca_nombre: string;
   };
   cumplimiento_eudr: {
@@ -200,12 +200,12 @@ export interface CertificadoTrazabilidad {
   perfil_calidad: {
     clasificacion: string;
     puntaje_sca: number;
-    humedad_fisica: string;
+    humedad_fisica: number;
   };
   rendimiento_industrial: {
     peso_ingreso_pergamino_kg: number;
-    factor_trilla: string | number;
-    peso_oro_exportable_kg: string | number;
+    factor_trilla: number;
+    peso_oro_exportable_kg: number;
   };
   estado_despacho: {
     kg_autorizados_salida: number;
@@ -432,7 +432,7 @@ export class AcopioService {
   static async aprobarOrdenCompra(
     payload: OrdenCompraCreate,
     token?: string
-  ): Promise<{ mensaje: string; orden_id: number }> {
+  ): Promise<{ mensaje: string; orden_id: string }> {
     console.log('🛒 Aprobando orden de compra:', payload);
     
     const response = await fetch(`${ACOPIO_BASE}/compras/aprobar`, {
@@ -467,7 +467,7 @@ export class AcopioService {
   }
 
   static async getOrdenCompraById(
-    ordenId: number | string,
+    ordenId: string,
     token?: string
   ): Promise<OrdenCompraOut> {
     console.log('🔍 Obteniendo orden de compra:', ordenId);
@@ -497,10 +497,10 @@ export class AcopioService {
   }
 
   static async actualizarEstadoOrden(
-    ordenId: number | string,
+    ordenId: string,
     estado: string,
     token?: string
-  ): Promise<{ mensaje: string; orden_id: number; estado: string }> {
+  ): Promise<{ mensaje: string; orden_id: string; estado: string }> {
     console.log('📝 Actualizando estado de orden:', ordenId, '->', estado);
     
     const response = await fetch(`${ACOPIO_BASE}/compras/${ordenId}/estado`, {
@@ -514,7 +514,7 @@ export class AcopioService {
   }
 
   // ============================================================
-  // 5. BODEGA
+  // 5. BODEGA - CORREGIDO CON QR DESDE MUESTRA
   // ============================================================
 
   static async registrarIngresoBodega(
@@ -533,12 +533,8 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
-  /**
-   * Obtiene un inventario por ID
-   * GET /acopio/bodega/{inventarioId}
-   */
   static async getInventarioById(
-    inventarioId: number | string,
+    inventarioId: string,
     token?: string
   ): Promise<InventarioOut | null> {
     console.log('🔍 Obteniendo inventario por ID:', inventarioId);
@@ -568,9 +564,6 @@ export class AcopioService {
     }
   }
 
-  /**
-   * Obtiene el inventario asociado a una orden de compra
-   */
   static async getInventarioByOrdenCompra(
     ordenCompraId: string,
     token?: string
@@ -580,14 +573,116 @@ export class AcopioService {
   }
 
   /**
-   * 🔥 NUEVO: Obtiene todos los inventarios (recorriendo órdenes)
+   * 🔥 Obtiene el código QR desde una muestra por UUID
+   */
+  static async getQRFromMuestra(
+    muestraId: string,
+    token?: string
+  ): Promise<string | null> {
+    console.log('🔍 Obteniendo QR desde muestra:', muestraId);
+    
+    try {
+      const muestra = await this.getMuestraByUuid(muestraId, token);
+      return muestra?.codigoQR || null;
+    } catch (error) {
+      console.warn(`⚠️ Error obteniendo QR de muestra ${muestraId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * 🔥 Obtiene el código QR desde una orden (si tiene) o desde su muestra
+   */
+  static async getQRFromOrden(
+    ordenId: string,
+    token?: string
+  ): Promise<string | null> {
+    console.log('🔍 Obteniendo QR desde orden:', ordenId);
+    
+    try {
+      const orden = await this.getOrdenCompraById(ordenId, token);
+      
+      // Si la orden tiene QR, devolverlo
+      if (orden?.codigoQR) {
+        console.log('✅ QR encontrado en orden:', orden.codigoQR);
+        return orden.codigoQR;
+      }
+      
+      // Si no, buscar en la muestra
+      if (orden?.muestraId) {
+        console.log(`ℹ️ Buscando QR en muestra ${orden.muestraId}...`);
+        return await this.getQRFromMuestra(orden.muestraId, token);
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn(`⚠️ Error obteniendo QR de orden ${ordenId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * 🔥 Enriquecer inventario con código QR desde órdenes o muestras
+   */
+  static async enriquecerInventarioConQR(
+    inventario: InventarioOut[],
+    token?: string
+  ): Promise<InventarioOut[]> {
+    console.log('📦 Enriqueciendo inventario con QR...');
+    
+    if (inventario.length === 0) {
+      return inventario;
+    }
+    
+    try {
+      // Obtener todas las órdenes
+      const ordenes = await this.getOrdenesCompra(token);
+      console.log('📋 Órdenes obtenidas:', ordenes.length);
+      
+      // Crear mapa de ordenId -> QR
+      const mapaQR = new Map();
+      
+      for (const orden of ordenes) {
+        let qr = orden.codigoQR || null;
+        
+        // Si la orden no tiene QR, buscar en su muestra
+        if (!qr && orden.muestraId) {
+          try {
+            const muestra = await this.getMuestraByUuid(orden.muestraId, token);
+            qr = muestra?.codigoQR || null;
+            if (qr) {
+              console.log(`✅ QR encontrado en muestra ${orden.muestraId}: ${qr}`);
+            }
+          } catch (e) {
+            console.warn(`⚠️ Error obteniendo muestra ${orden.muestraId}:`, e);
+          }
+        }
+        
+        mapaQR.set(orden.id, qr || 'N/A');
+      }
+      
+      // Actualizar cada item de inventario con su QR
+      const resultado = inventario.map(item => ({
+        ...item,
+        codigoQR: mapaQR.get(item.ordenCompraId) || item.codigoQR || 'N/A'
+      }));
+      
+      console.log('📦 Inventario enriquecido:', resultado.length, 'items');
+      return resultado;
+    } catch (error) {
+      console.error('❌ Error enriqueciendo inventario con QR:', error);
+      return inventario;
+    }
+  }
+
+  /**
+   * Obtiene todos los inventarios con código QR desde las órdenes o muestras
    * GET /acopio/bodega/
    */
   static async getInventarioAll(token?: string): Promise<InventarioOut[]> {
     console.log('📋 Obteniendo todo el inventario');
     
     try {
-      // Primero intentamos obtener directamente de /acopio/bodega/
       const response = await fetch(`${ACOPIO_BASE}/bodega/`, {
         method: "GET",
         headers: authHeaders(token),
@@ -596,10 +691,21 @@ export class AcopioService {
       if (response.ok) {
         const data = await response.json();
         console.log('📦 Inventario obtenido directamente:', data.length || 0);
-        return data;
+        
+        if (data.length > 0) {
+          console.log('🔍 Item de inventario:', JSON.stringify(data[0], null, 2));
+        }
+        
+        // Si ya tiene QR, devolver directamente
+        if (data.length > 0 && data[0].codigoQR) {
+          console.log('✅ Inventario ya tiene QR');
+          return data;
+        }
+        
+        console.log('ℹ️ Inventario sin QR, enriqueciendo desde órdenes/muestras...');
+        return await this.enriquecerInventarioConQR(data, token);
       }
       
-      // Si el endpoint directo falla, intentamos con el método alternativo
       console.log('ℹ️ Endpoint directo falló, usando método alternativo...');
       
       const ordenes = await this.getOrdenesCompra(token);
@@ -609,10 +715,23 @@ export class AcopioService {
       for (const orden of ordenes) {
         const inventario = await this.getInventarioByOrdenCompra(orden.id, token);
         if (inventario) {
+          let qr = orden.codigoQR || null;
+          
+          // Si la orden no tiene QR, buscar en la muestra
+          if (!qr && orden.muestraId) {
+            try {
+              const muestra = await this.getMuestraByUuid(orden.muestraId, token);
+              qr = muestra?.codigoQR || null;
+              console.log(`📝 QR desde muestra ${orden.muestraId}:`, qr);
+            } catch (e) {
+              console.warn(`⚠️ Error obteniendo muestra ${orden.muestraId}:`, e);
+            }
+          }
+          
           inventarios.push({
             ...inventario,
             ordenCompraId: orden.id,
-            codigoQR: orden.codigoQR || 'N/A'
+            codigoQR: qr || 'N/A'
           });
         }
       }
@@ -646,7 +765,7 @@ export class AcopioService {
   }
 
   static async getHistorialTrilla(
-    inventarioId: number,
+    inventarioId: string,
     token?: string
   ): Promise<any[]> {
     console.log('🔍 Obteniendo historial de trilla:', inventarioId);
@@ -699,7 +818,7 @@ export class AcopioService {
   // ============================================================
 
   static async getCertificadoTrazabilidad(
-    inventarioId: number,
+    inventarioId: string,
     token?: string
   ): Promise<CertificadoTrazabilidad> {
     console.log('📄 Obteniendo certificado:', inventarioId);
@@ -710,11 +829,17 @@ export class AcopioService {
     });
     
     const data = await response.json();
+    console.log('📡 Response:', data);
+    
+    if (data.datos_certificado) {
+      return data.datos_certificado;
+    }
+    
     return handleResponse(response, data);
   }
 
   static async descargarCertificadoPDF(
-    inventarioId: number,
+    inventarioId: string,
     token?: string
   ): Promise<Blob> {
     console.log('📄 Descargando certificado PDF:', inventarioId);
