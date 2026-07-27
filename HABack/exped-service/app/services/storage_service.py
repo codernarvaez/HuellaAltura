@@ -11,6 +11,7 @@ versionado y política de retención, que es lo que exige un expediente auditabl
 
 import logging
 import os
+import uuid
 from typing import Any
 
 import cloudinary
@@ -34,8 +35,16 @@ def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
 
     Se persiste el `public_id` y no una URL, porque las URLs de acceso son
     firmadas y caducan: se generan bajo demanda con `url_firmada`.
+
+    IMPORTANTE: Usa UUID como nombre para evitar problemas con caracteres especiales
+    en Cloudinary. El nombre original se pierde pero la integridad del documento
+    se verifica con hash_sha256.
     """
     _configurar()
+
+    # Usar UUID + extensión para evitar problemas con caracteres especiales
+    ext = os.path.splitext(nombre)[1] or ".bin"
+    nombre_seguro = f"{uuid.uuid4()}{ext}"
 
     resultado: dict[str, Any] = cloudinary.uploader.upload(
         contenido,
@@ -43,8 +52,8 @@ def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
         resource_type="auto",
         type="authenticated",
         use_filename=True,
-        unique_filename=True,
-        filename=nombre,
+        unique_filename=False,  # Ya es único con UUID
+        filename=nombre_seguro,
     )
 
     public_id = resultado.get("public_id")
