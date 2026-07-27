@@ -31,50 +31,38 @@ def _configurar() -> None:
 
 def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
     """
-    Sube el documento como asset autenticado y devuelve su URL completa y accesible.
-
-    Retorna el secure_url (URL completa con dominio, resource_type, versión, extensión)
-    que el navegador puede usar directamente. NO retorna el public_id porque ese es
-    solo un identificador interno que Cloudinary usa.
-
-    IMPORTANTE: Usa UUID como nombre para evitar problemas con caracteres especiales
-    en Cloudinary. El nombre original se pierde pero la integridad del documento
-    se verifica con hash_sha256.
+    Sube el documento como asset autenticado de tipo raw (para PDFs y documentos)
+    y devuelve su public_id único.
     """
     _configurar()
 
-    # Usar UUID + extensión para evitar problemas con caracteres especiales
     ext = os.path.splitext(nombre)[1] or ".bin"
     nombre_seguro = f"{uuid.uuid4()}{ext}"
 
     resultado: dict[str, Any] = cloudinary.uploader.upload(
         contenido,
         folder=f"expedientes/{carpeta}",
-        resource_type="auto",
-        type="authenticated",
+        resource_type="raw",   # <--- Forzamos tipo raw para conservar la extensión del PDF
+        type="authenticated",  # <--- Privado y seguro
         use_filename=True,
-        unique_filename=False,  # Ya es único con UUID
+        unique_filename=False,
         filename=nombre_seguro,
     )
 
-    secure_url = resultado.get("secure_url")
-    if not secure_url:
-        raise RuntimeError("El storage no devolvió una URL accesible para el documento.")
-    return secure_url
+    public_id = resultado.get("public_id")
+    if not public_id:
+        raise RuntimeError("El storage no devolvió un identificador para el documento.")
+    return public_id
 
 
 def url_firmada(public_id: str) -> str:
     """
-    Genera la URL firmada para descargar un documento autenticado.
-
-    LIMITACIÓN: la firma impide adivinar la URL, pero no caduca. La caducidad
-    real requiere `auth_token`, que a su vez exige habilitar token-based
-    authentication en la cuenta de Cloudinary. Al migrar a un bucket privado
-    con URLs pre-firmadas, esta función pasa a devolver enlaces con TTL.
+    Genera la URL firmada para descargar un documento autenticado de tipo raw.
     """
     _configurar()
     url, _ = cloudinary.utils.cloudinary_url(
         public_id,
+        resource_type="raw",   # <--- Debe coincidir con el tipo con el que se subió
         type="authenticated",
         sign_url=True,
         secure=True,
