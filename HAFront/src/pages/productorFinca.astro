@@ -7,7 +7,8 @@ import { FincaService } from "../services/finca.service.ts";
 const token = Astro.cookies.get("token")?.value;
 
 let userData = null;
-let fincaData = null;
+let fincas = [];
+let fincaSeleccionada = null;
 let error = null;
 let isLoading = true;
 
@@ -17,13 +18,16 @@ if (token) {
     
     if (userData?.id) {
       try {
-        const fincas = await FincaService.getByUsuarioId(userData.id, token);
+        fincas = await FincaService.getByUsuarioId(userData.id, token) || [];
+        console.log(`📋 Fincas encontradas: ${fincas.length}`);
         
-        if (fincas && fincas.length > 0) {
-          fincaData = fincas[0];
+        if (fincas.length > 0) {
+          fincaSeleccionada = fincas[0];
+          console.log('📍 Finca seleccionada por defecto:', fincaSeleccionada?.nombre);
         }
       } catch (e) {
-        fincaData = null;
+        console.error('❌ Error obteniendo fincas:', e);
+        fincas = [];
       }
     }
     isLoading = false;
@@ -38,16 +42,18 @@ if (token) {
 
 // Preparar datos para el cliente
 const usuarioId = userData?.id || '';
-const fincaId = fincaData?.id || '';
+const fincaSeleccionadaId = fincaSeleccionada?.id || '';
 
 // Convertir a JSON seguro
 const userDataStr = userData ? JSON.stringify(userData) : 'null';
-const fincaDataStr = fincaData ? JSON.stringify(fincaData) : 'null';
-const poligonoDataStr = fincaData?.poligono ? JSON.stringify(fincaData.poligono) : 'null';
+const fincasStr = JSON.stringify(fincas);
+const fincaSeleccionadaStr = fincaSeleccionada ? JSON.stringify(fincaSeleccionada) : 'null';
+const poligonoDataStr = fincaSeleccionada?.poligono ? JSON.stringify(fincaSeleccionada.poligono) : 'null';
 
 // Escapar caracteres especiales
 const userDataEscaped = userDataStr.replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-const fincaDataEscaped = fincaDataStr.replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+const fincasEscaped = fincasStr.replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+const fincaSeleccionadaEscaped = fincaSeleccionadaStr.replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 ---
 
@@ -228,22 +234,65 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     border-radius: 12px;
     font-weight: 400;
   }
+
+  .finca-selector {
+    background: white;
+    border: 1px solid var(--outline-variant);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .finca-selector select {
+    border: none;
+    background: transparent;
+    padding: 10px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--on-surface);
+    cursor: pointer;
+    outline: none;
+    width: 100%;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 20px;
+    padding-right: 40px;
+  }
+  .finca-selector select:focus {
+    ring: 2px solid var(--primary);
+  }
+  .finca-selector select option {
+    padding: 8px;
+  }
+  .finca-selector select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 </style>
 
-<!-- INYECCIÓN DE DATOS CON define:vars -->
-<script define:vars={{ usuarioId, fincaId, userDataEscaped, fincaDataEscaped, poligonoDataEscaped, error }}>
+<!-- INYECCIÓN DE DATOS -->
+<script define:vars={{ 
+  usuarioId, 
+  fincaSeleccionadaId, 
+  userDataEscaped, 
+  fincasEscaped, 
+  fincaSeleccionadaEscaped, 
+  poligonoDataEscaped, 
+  error 
+}}>
   window.USUARIO_ID = usuarioId;
-  window.FINCA_ID = fincaId;
+  window.FINCA_SELECCIONADA_ID = fincaSeleccionadaId;
   window.USER_DATA = JSON.parse(userDataEscaped);
-  window.FINCA_DATA = JSON.parse(fincaDataEscaped);
+  window.FINCAS = JSON.parse(fincasEscaped);
+  window.FINCA_SELECCIONADA = JSON.parse(fincaSeleccionadaEscaped);
   window.POLIGONO_DATA = JSON.parse(poligonoDataEscaped);
   window.ERROR = error || null;
 
   console.log('📦 Datos inyectados:');
   console.log('  - USUARIO_ID:', window.USUARIO_ID);
-  console.log('  - FINCA_ID:', window.FINCA_ID);
-  console.log('  - USER_DATA:', window.USER_DATA);
-  console.log('  - FINCA_DATA:', window.FINCA_DATA);
+  console.log('  - FINCA_SELECCIONADA_ID:', window.FINCA_SELECCIONADA_ID);
+  console.log('  - FINCAS:', window.FINCAS);
+  console.log('  - FINCA_SELECCIONADA:', window.FINCA_SELECCIONADA);
   console.log('  - POLIGONO_DATA:', window.POLIGONO_DATA);
   console.log('  - ERROR:', window.ERROR);
 </script>
@@ -260,29 +309,9 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
         Formulario dinámico de recopilación de datos de origen requeridos por el reglamento EUDR.
       </p>
     </div>
-    <div class="flex items-center gap-2">
-      <button
-        id="editar-productor"
-        class="flex items-center justify-center gap-2 px-4 h-12 bg-surface text-primary border border-outline rounded-xl hover:opacity-90 transition"
-      >
-        <span class="material-symbols-outlined">person</span>
-        Editar Productor
-      </button>
-
-      <!-- Botón Editar Finca: solo si ya existe -->
-      {fincaData && (
-        <button
-          id="editar-finca"
-          class="flex items-center justify-center gap-2 px-4 h-12 bg-surface text-primary border border-outline rounded-xl hover:opacity-90 transition"
-        >
-          <span class="material-symbols-outlined">agriculture</span>
-          Editar Finca
-        </button>
-      )}
-    </div>
   </div>
 
-  <!-- PRODUCTOR AUTHENTICADO -->
+  <!-- PRODUCTOR AUTENTICADO -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 items-end">
     <div class="md:col-span-2">
       <label class="block mb-2 text-sm font-medium text-on-surface-variant">
@@ -304,10 +333,6 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     <div class="flex items-center gap-3 border-b border-outline-variant pb-4 mb-6">
       <span class="material-symbols-outlined text-primary">person</span>
       <h2 class="text-xl font-semibold">Información del Productor</h2>
-      <div class="ml-auto flex gap-2">
-        <button id="guardar-productor" class="hidden px-3 py-1 bg-primary text-white rounded">Guardar</button>
-        <button id="cancelar-productor" class="hidden px-3 py-1 bg-surface text-primary border rounded">Cancelar</button>
-      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -402,15 +427,68 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     </div>
   </section>
 
+  <!-- SELECTOR DE FINCAS -->
+  <section class="bg-surface-container-low border border-outline-variant rounded-xl p-6 hover-lift">
+    <div class="flex items-center gap-3 border-b border-outline-variant pb-4 mb-4">
+      <span class="material-symbols-outlined text-primary">agriculture</span>
+      <h2 class="text-xl font-semibold">Selección de Finca</h2>
+    </div>
+    
+    <div class="flex flex-col md:flex-row md:items-center gap-4">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-on-surface-variant">Finca:</span>
+      </div>
+      <div class="finca-selector flex-1">
+        <select id="finca-selector">
+          <option value="">-- Selecciona una finca --</option>
+          {fincas.map((finca) => (
+            <option 
+              key={finca.id} 
+              value={finca.id}
+              selected={finca.id === fincaSeleccionada?.id}
+            >
+              {finca.nombre || 'Sin nombre'} {finca.provincia ? `- ${finca.provincia}` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button
+        id="btn-cargar-finca"
+        class="px-4 py-2 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition flex items-center gap-2 whitespace-nowrap"
+      >
+        <span class="material-symbols-outlined text-sm">refresh</span>
+        Cargar Finca
+      </button>
+      <button
+        id="btn-nueva-finca"
+        class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-medium hover:opacity-90 transition flex items-center gap-2 whitespace-nowrap"
+      >
+        <span class="material-symbols-outlined text-sm">add</span>
+        Nueva Finca
+      </button>
+    </div>
+    
+    {fincas.length === 0 && (
+      <p class="text-sm text-yellow-600 mt-3 flex items-center gap-2">
+        <span class="material-symbols-outlined text-sm">info</span>
+        No tienes fincas registradas. Crea una nueva finca.
+      </p>
+    )}
+    {fincas.length > 0 && (
+      <p class="text-xs text-on-surface-variant mt-3">
+        {fincas.length} finca(s) registrada(s). Selecciona una para ver y editar su información.
+      </p>
+    )}
+  </section>
+
   <!-- FINCA -->
   <section class="bg-surface-container-low border border-outline-variant rounded-xl p-8 hover-lift">
     <div class="flex items-center gap-3 border-b border-outline-variant pb-4 mb-6">
       <span class="material-symbols-outlined text-primary">agriculture</span>
       <h2 class="text-xl font-semibold">Información de la Finca</h2>
-      <div class="ml-auto flex gap-2">
-        <button id="guardar-finca" class="hidden px-3 py-1 bg-primary text-white rounded">Guardar</button>
-        <button id="cancelar-finca" class="hidden px-3 py-1 bg-surface text-primary border rounded">Cancelar</button>
-      </div>
+      <span id="finca-seleccionada-nombre" class="ml-2 text-sm text-primary font-medium">
+        {fincaSeleccionada?.nombre || 'Nueva Finca'}
+      </span>
     </div>
 
     <!-- SELECTOR DE MÉTODO -->
@@ -427,12 +505,10 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
     <!-- FORMULARIO DE FINCA -->
     <div id="finca-form">
-      <!-- Ingreso Manual -->
       <div id="manual-content" class="method-content active">
         <p class="text-sm text-on-surface-variant mb-4">Ingresa los datos de la finca manualmente.</p>
       </div>
 
-      <!-- Carga de Archivo -->
       <div id="archivo-content" class="method-content">
         <p class="text-sm text-on-surface-variant mb-4">
           Sube un archivo GPX, KML o GeoJSON para cargar automáticamente los datos.
@@ -448,9 +524,6 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
             placeholder="Ingresa el nombre de la finca"
             class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
-          <p class="text-xs text-on-surface-variant mt-1">
-            Este nombre se usará para la finca que se cree desde el archivo.
-          </p>
         </div>
 
         <div id="drop-zone" class="drop-zone">
@@ -491,212 +564,179 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
       <!-- CAMPOS DE LA FINCA -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-outline-variant">
-        <!-- Nombre: editable si es nueva finca, readonly si ya existe -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Nombre de la Finca *</label>
           <input
             id="finca-nombre"
             type="text"
-            readonly={!!fincaData}
-            value={fincaData?.nombre || ''}
+            value={fincaSeleccionada?.nombre || ''}
             placeholder="Nombre de la finca"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Código EUDR (siempre readonly) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Código Único de Finca</label>
           <input
             id="finca-eudr"
             type="text"
             readonly
-            value={fincaData?.eudr_id || ''}
+            value={fincaSeleccionada?.eudr_id || ''}
             placeholder="Código EUDR"
             class="w-full h-14 px-4 bg-surface-container border border-outline-variant rounded-xl"
           />
         </div>
 
-        <!-- Provincia (readonly siempre, viene del archivo) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Provincia</label>
           <input
             id="finca-provincia"
             type="text"
-            readonly
-            value={fincaData?.provincia || ''}
+            value={fincaSeleccionada?.provincia || ''}
             placeholder="Provincia"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Cantón (readonly siempre) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Cantón</label>
           <input
             id="finca-canton"
             type="text"
-            readonly
-            value={fincaData?.canton || ''}
+            value={fincaSeleccionada?.canton || ''}
             placeholder="Cantón"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Parroquia (readonly siempre) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Parroquia</label>
           <input
             id="finca-parroquia"
             type="text"
-            readonly
-            value={fincaData?.parroquia || ''}
+            value={fincaSeleccionada?.parroquia || ''}
             placeholder="Parroquia"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Barrio / Sector: editable si es nueva finca, readonly si existe -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Barrio / Sector</label>
           <input
             id="finca-barrio"
             type="text"
-            readonly={!!fincaData}
-            value={fincaData?.sector || ''}
+            value={fincaSeleccionada?.sector || ''}
             placeholder="Barrio o sector"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Área Total (readonly siempre, viene del archivo) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Área Total (ha) *</label>
           <input
             id="finca-area-total"
             type="number"
             step="0.01"
-            readonly
-            value={fincaData?.area_total_ha || ''}
+            value={fincaSeleccionada?.area_total_ha || ''}
             placeholder="Área total en hectáreas"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Área Cultivada: editable siempre (nueva o existente) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Área Cultivada (ha)</label>
           <input
             id="finca-area-cultivada"
             type="number"
             step="0.01"
-            readonly={!!fincaData}
-            value={fincaData?.area_cultivada_ha || ''}
+            value={fincaSeleccionada?.area_cultivada_ha || ''}
             placeholder="Área cultivada en hectáreas"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Latitud (readonly siempre) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Latitud</label>
           <input
             id="finca-latitud"
             type="number"
             step="0.000001"
-            readonly
-            value={fincaData?.latitud || ''}
+            value={fincaSeleccionada?.latitud || ''}
             placeholder="-4.262500"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl coord-input"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl coord-input focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Longitud (readonly siempre) -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Longitud</label>
           <input
             id="finca-longitud"
             type="number"
             step="0.000001"
-            readonly
-            value={fincaData?.longitud || ''}
+            value={fincaSeleccionada?.longitud || ''}
             placeholder="-79.223100"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl coord-input"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl coord-input focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
 
-        <!-- Tenencia: editable si es nueva finca, disabled si existe -->
         <div class="md:col-span-2">
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Tenencia de Tierra</label>
           <select
             id="finca-tenencia"
-            disabled={!!fincaData}
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           >
             <option value="">Seleccionar tenencia</option>
-            <option value="PROPIA" selected={fincaData?.tenencia === 'PROPIA'}>Propia</option>
-            <option value="ARRENDAMIENTO" selected={fincaData?.tenencia === 'ARRENDAMIENTO'}>Arrendamiento</option>
-            <option value="POSESION" selected={fincaData?.tenencia === 'POSESION'}>Posesión</option>
+            <option value="PROPIA" selected={fincaSeleccionada?.tenencia === 'PROPIA'}>Propia</option>
+            <option value="ARRENDAMIENTO" selected={fincaSeleccionada?.tenencia === 'ARRENDAMIENTO'}>Arrendamiento</option>
+            <option value="POSESION" selected={fincaSeleccionada?.tenencia === 'POSESION'}>Posesión</option>
           </select>
         </div>
 
-        <!-- Variedad de Café: editable si es nueva finca, readonly si existe -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Variedad de Café</label>
           <input
             id="finca-variedad"
             type="text"
-            readonly={!!fincaData}
-            value={fincaData?.variedad_cafe || ''}
+            value={fincaSeleccionada?.variedad_cafe || ''}
             placeholder="Ej: Caturra, Typica, etc."
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
-          {!fincaData?.variedad_cafe && <span class="null-badge text-xs">No registrado</span>}
         </div>
 
-        <!-- Densidad de Siembra: editable si es nueva finca, readonly si existe -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Densidad de Siembra (plantas/ha)</label>
           <input
             id="finca-densidad"
-            type="number"
-            step="100"
-            readonly={!!fincaData}
-            value={fincaData?.densidad_siembra || ''}
+            type="text"
+            value={fincaSeleccionada?.densidad_siembra || ''}
             placeholder="Ej: 5000"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
-          {!fincaData?.densidad_siembra && <span class="null-badge text-xs">No registrado</span>}
         </div>
 
-        <!-- Origen de Semilla: editable si es nueva finca, readonly si existe -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Origen de Semilla</label>
           <input
             id="finca-origen-semilla"
             type="text"
-            readonly={!!fincaData}
-            value={fincaData?.origen_semilla || ''}
+            value={fincaSeleccionada?.origen_semilla || ''}
             placeholder="Ej: Vivero local"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
-          {!fincaData?.origen_semilla && <span class="null-badge text-xs">No registrado</span>}
         </div>
 
-        <!-- Año de Establecimiento: editable si es nueva finca, readonly si existe -->
         <div>
           <label class="block mb-2 text-sm font-medium text-on-surface-variant">Año de Establecimiento</label>
           <input
             id="finca-anio"
             type="number"
             step="1"
-            readonly={!!fincaData}
-            value={fincaData?.anio_establecimiento || ''}
+            value={fincaSeleccionada?.anio_establecimiento || ''}
             placeholder="Ej: 2020"
-            class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
+            class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none"
           />
-          {!fincaData?.anio_establecimiento && <span class="null-badge text-xs">No registrado</span>}
         </div>
+      </div>
 
               <!-- DOCUMENTOS DE LA FINCA -->
       {fincaData && (
@@ -783,7 +823,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
       <div class="flex items-center gap-2 mb-4">
         <span class="material-symbols-outlined text-primary">map</span>
         <h3 class="text-lg font-semibold text-on-surface">Ubicación de la Finca</h3>
-        {fincaData?.poligono && (
+        {fincaSeleccionada?.poligono && (
           <span class="ml-auto text-sm">
             <span class="inline-flex items-center gap-1 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs">
               <span class="material-symbols-outlined text-sm">check_circle</span>
@@ -794,7 +834,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
       </div>
       <div id="map"></div>
       <p class="text-xs text-on-surface-variant mt-2">
-        {fincaData?.poligono 
+        {fincaSeleccionada?.poligono 
           ? '✅ El polígono de la finca se muestra en el mapa.'
           : 'ℹ️ No hay un polígono registrado. Carga un archivo GPX/KML/GeoJSON para agregarlo.'}
       </p>
@@ -807,22 +847,22 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
       <div>
         <p class="text-xs uppercase tracking-wider text-on-surface-variant mb-1">Siguiente Paso</p>
         <p class="text-on-surface font-medium">
-          {fincaId 
+          {fincaSeleccionada?.id 
             ? 'Continúa con la información agroambiental de la finca.' 
             : 'Guarda la información de la finca para continuar.'}
         </p>
-        {!fincaId && (
+        {!fincaSeleccionada?.id && (
           <p class="text-sm text-warning mt-1">⚠️ Guarda la finca primero para continuar.</p>
         )}
       </div>
       
       <a 
         id="ir-info-agro"
-        href={fincaId ? `/infoAgro?finca_id=${fincaId}` : '#'}
-        class={fincaId 
+        href={fincaSeleccionada?.id ? `/infoAgro?finca_id=${fincaSeleccionada.id}` : '#'}
+        class={fincaSeleccionada?.id 
           ? 'flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:opacity-90 transition shadow-sm' 
           : 'flex items-center gap-2 px-6 py-3 bg-gray-300 text-gray-500 rounded-xl font-semibold cursor-not-allowed opacity-60'}
-        onclick={!fincaId ? "event.preventDefault(); alert('⚠️ Primero debes guardar la información de la finca.');" : ''}
+        onclick={!fincaSeleccionada?.id ? "event.preventDefault(); alert('⚠️ Primero debes guardar la información de la finca.');" : ''}
       >
         <span>Siguiente Paso</span>
         <span class="material-symbols-outlined">arrow_forward</span>
@@ -834,8 +874,362 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
 </DashboardLayout>
 
-<!-- Leaflet JS (debe ir ANTES del script porque usa L global) -->
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Script único consolidado -->
-<script src="../scripts/productorFinca.ts"></script>
+<!-- Script integrado -->
+<script>
+  (function() {
+    'use strict';
+
+    console.log('🚀 Script de productorFinca cargado');
+
+    // ============================================================
+    // CONFIGURACIÓN
+    // ============================================================
+
+    const USUARIO_ID = window.USUARIO_ID || '';
+    const FINCA_SELECCIONADA_ID = window.FINCA_SELECCIONADA_ID || '';
+    const FINCAS = window.FINCAS || [];
+    const FINCA_SELECCIONADA = window.FINCA_SELECCIONADA || null;
+    const POLIGONO_DATA = window.POLIGONO_DATA || null;
+
+    console.log('🔧 Configuración:');
+    console.log('  - USUARIO_ID:', USUARIO_ID);
+    console.log('  - FINCA_SELECCIONADA_ID:', FINCA_SELECCIONADA_ID);
+    console.log('  - FINCAS:', FINCAS.length);
+
+    // ============================================================
+    // DOM ELEMENTS
+    // ============================================================
+
+    const fincaSelector = document.getElementById('finca-selector');
+    const btnCargarFinca = document.getElementById('btn-cargar-finca');
+    const btnNuevaFinca = document.getElementById('btn-nueva-finca');
+    const btnGuardarFincaSubmit = document.getElementById('guardar-finca-submit');
+    const fincaSeleccionadaNombre = document.getElementById('finca-seleccionada-nombre');
+
+    const fields = {
+      nombre: document.getElementById('finca-nombre'),
+      eudr: document.getElementById('finca-eudr'),
+      provincia: document.getElementById('finca-provincia'),
+      canton: document.getElementById('finca-canton'),
+      parroquia: document.getElementById('finca-parroquia'),
+      barrio: document.getElementById('finca-barrio'),
+      area_total: document.getElementById('finca-area-total'),
+      area_cultivada: document.getElementById('finca-area-cultivada'),
+      latitud: document.getElementById('finca-latitud'),
+      longitud: document.getElementById('finca-longitud'),
+      tenencia: document.getElementById('finca-tenencia'),
+      variedad: document.getElementById('finca-variedad'),
+      densidad: document.getElementById('finca-densidad'),
+      origen_semilla: document.getElementById('finca-origen-semilla'),
+      anio: document.getElementById('finca-anio'),
+    };
+
+    // Mapa
+    let map = null;
+
+    // ============================================================
+    // FUNCIONES AUXILIARES
+    // ============================================================
+
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+      return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    function getToken() {
+      return getCookie('token');
+    }
+
+    function limpiarFormulario() {
+      Object.values(fields).forEach(field => {
+        if (field) field.value = '';
+      });
+      if (fincaSeleccionadaNombre) fincaSeleccionadaNombre.textContent = 'Nueva Finca';
+      
+      if (map) {
+        map.eachLayer(layer => {
+          if (layer instanceof L.Polygon || layer instanceof L.Marker) {
+            map.removeLayer(layer);
+          }
+        });
+      }
+    }
+
+    function cargarFincaEnFormulario(finca) {
+      if (!finca) return;
+      
+      console.log('📋 Cargando finca en formulario:', finca.nombre);
+      
+      fields.nombre.value = finca.nombre || '';
+      fields.eudr.value = finca.eudr_id || '';
+      fields.provincia.value = finca.provincia || '';
+      fields.canton.value = finca.canton || '';
+      fields.parroquia.value = finca.parroquia || '';
+      fields.barrio.value = finca.sector || '';
+      fields.area_total.value = finca.area_total_ha || '';
+      fields.area_cultivada.value = finca.area_cultivada_ha || '';
+      fields.latitud.value = finca.latitud || '';
+      fields.longitud.value = finca.longitud || '';
+      fields.tenencia.value = finca.tenencia || '';
+      fields.variedad.value = finca.variedad_cafe || '';
+      fields.densidad.value = finca.densidad_siembra || '';
+      fields.origen_semilla.value = finca.origen_semilla || '';
+      fields.anio.value = finca.anio_establecimiento || '';
+      
+      if (fincaSeleccionadaNombre) {
+        fincaSeleccionadaNombre.textContent = finca.nombre || 'Sin nombre';
+      }
+      
+      if (finca.poligono) {
+        dibujarPoligono(finca.poligono);
+      } else if (finca.latitud && finca.longitud) {
+        dibujarMarcador(finca.latitud, finca.longitud, finca.nombre);
+      }
+    }
+
+    // ============================================================
+    // MAPA
+    // ============================================================
+
+    function initMap() {
+      const mapElement = document.getElementById('map');
+      if (!mapElement) return;
+      
+      map = L.map('map', {
+        center: [-4.2625, -79.2231],
+        zoom: 13,
+        zoomControl: false
+      });
+
+      L.control.zoom({ position: 'topright' }).addTo(map);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      if (FINCA_SELECCIONADA) {
+        if (FINCA_SELECCIONADA.poligono) {
+          dibujarPoligono(FINCA_SELECCIONADA.poligono);
+        } else if (FINCA_SELECCIONADA.latitud && FINCA_SELECCIONADA.longitud) {
+          dibujarMarcador(FINCA_SELECCIONADA.latitud, FINCA_SELECCIONADA.longitud, FINCA_SELECCIONADA.nombre);
+        }
+      }
+
+      console.log('🗺️ Mapa inicializado');
+    }
+
+    function dibujarPoligono(poligono) {
+      if (!map || !poligono) return;
+      
+      map.eachLayer(layer => {
+        if (layer instanceof L.Polygon || layer instanceof L.Marker) {
+          map.removeLayer(layer);
+        }
+      });
+
+      try {
+        if (poligono.type === 'Polygon' || poligono.type === 'MultiPolygon') {
+          const geoJsonLayer = L.geoJSON(poligono, {
+            style: {
+              color: '#2563eb',
+              weight: 3,
+              opacity: 0.8,
+              fillColor: '#3b82f6',
+              fillOpacity: 0.2
+            }
+          }).addTo(map);
+          
+          const bounds = geoJsonLayer.getBounds();
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
+          return;
+        }
+        
+        if (Array.isArray(poligono) && poligono.length > 0) {
+          const latLngs = poligono.map(coord => [coord[1], coord[0]]);
+          const polygon = L.polygon(latLngs, {
+            color: '#2563eb',
+            weight: 3,
+            opacity: 0.8,
+            fillColor: '#3b82f6',
+            fillOpacity: 0.2
+          }).addTo(map);
+          
+          const bounds = polygon.getBounds();
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error dibujando polígono:', error);
+      }
+    }
+
+    function dibujarMarcador(lat, lng, nombre) {
+      if (!map || !lat || !lng) return;
+      
+      map.eachLayer(layer => {
+        if (layer instanceof L.Polygon || layer instanceof L.Marker) {
+          map.removeLayer(layer);
+        }
+      });
+
+      const marker = L.marker([lat, lng])
+        .addTo(map)
+        .bindPopup(`<strong>${nombre || 'Finca'}</strong><br>Lat: ${lat}<br>Lng: ${lng}`)
+        .openPopup();
+
+      map.setView([lat, lng], 14);
+    }
+
+    // ============================================================
+    // GUARDAR FINCA - CON PAYLOAD CORRECTO
+    // ============================================================
+
+    async function guardarFinca() {
+      console.log('💾 Guardando finca...');
+      
+      try {
+        const token = getToken();
+        if (!token) {
+          alert('No hay sesión activa');
+          return;
+        }
+
+        const nombre = fields.nombre.value.trim();
+        const areaTotal = parseFloat(fields.area_total.value) || 0;
+
+        if (!nombre) {
+          alert('El nombre de la finca es obligatorio');
+          fields.nombre.focus();
+          return;
+        }
+
+        if (!areaTotal || areaTotal <= 0) {
+          alert('El área total es obligatoria y debe ser mayor a 0');
+          fields.area_total.focus();
+          return;
+        }
+
+        // 🔥 CONSTRUIR PAYLOAD BASE
+        const payloadBase = {
+          nombre: nombre,
+          productor_id: USUARIO_ID,
+          provincia: fields.provincia.value.trim(),
+          canton: fields.canton.value.trim(),
+          parroquia: fields.parroquia.value.trim(),
+          sector: fields.barrio.value.trim(),
+          area_total_ha: areaTotal,
+          area_cultivada_ha: parseFloat(fields.area_cultivada.value) || 0,
+          tenencia: fields.tenencia.value || 'PROPIA',
+          latitud: parseFloat(fields.latitud.value) || 0,
+          longitud: parseFloat(fields.longitud.value) || 0,
+          variedad_cafe: fields.variedad.value.trim(),
+          densidad_siembra: fields.densidad.value || '0',
+          origen_semilla: fields.origen_semilla.value.trim(),
+          anio_establecimiento: parseInt(fields.anio.value) || 0,
+        };
+
+        if (POLIGONO_DATA) {
+          payloadBase.poligono = POLIGONO_DATA;
+        }
+
+        console.log('📦 Payload base:', JSON.stringify(payloadBase, null, 2));
+
+        const { FincaService } = await import('/src/services/finca.service.ts');
+
+        let resultado;
+        if (FINCA_SELECCIONADA_ID) {
+          // 🔥 ACTUALIZAR - SIN usuario_id
+          const updatePayload = { ...payloadBase };
+          delete updatePayload.usuario_id;
+          
+          console.log('📝 Actualizando finca:', FINCA_SELECCIONADA_ID);
+          resultado = await FincaService.update(FINCA_SELECCIONADA_ID, updatePayload, token);
+          console.log('✅ Finca actualizada:', resultado);
+        } else {
+          // 🔥 CREAR - CON usuario_id
+          const createPayload = {
+            ...payloadBase,
+            usuario_id: USUARIO_ID,
+          };
+          
+          console.log('📝 Creando nueva finca');
+          resultado = await FincaService.create(createPayload, token);
+          console.log('✅ Finca creada:', resultado);
+          
+          const option = document.createElement('option');
+          option.value = resultado.id;
+          option.textContent = resultado.nombre || 'Sin nombre';
+          fincaSelector.appendChild(option);
+          fincaSelector.value = resultado.id;
+        }
+
+        alert('✅ Finca guardada correctamente');
+        window.location.reload();
+
+      } catch (error) {
+        console.error('❌ Error guardando finca:', error);
+        let mensaje = error.message || 'Error desconocido';
+        if (mensaje.includes('CORS')) {
+          mensaje = 'Error de conexión con el servidor. Verifica que el backend esté disponible.';
+        }
+        alert('Error al guardar la finca: ' + mensaje);
+      }
+    }
+
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+
+    if (btnCargarFinca) {
+      btnCargarFinca.addEventListener('click', () => {
+        const fincaId = fincaSelector.value;
+        if (!fincaId) {
+          alert('Selecciona una finca');
+          return;
+        }
+        
+        const finca = FINCAS.find(f => f.id === fincaId);
+        if (finca) {
+          cargarFincaEnFormulario(finca);
+        } else {
+          alert('Finca no encontrada');
+        }
+      });
+    }
+
+    if (btnNuevaFinca) {
+      btnNuevaFinca.addEventListener('click', () => {
+        limpiarFormulario();
+        fincaSelector.value = '';
+        if (fincaSeleccionadaNombre) {
+          fincaSeleccionadaNombre.textContent = 'Nueva Finca';
+        }
+        window.FINCA_SELECCIONADA_ID = null;
+      });
+    }
+
+    if (btnGuardarFincaSubmit) {
+      btnGuardarFincaSubmit.addEventListener('click', guardarFinca);
+    }
+
+    // ============================================================
+    // INICIALIZAR
+    // ============================================================
+
+    setTimeout(initMap, 500);
+
+    if (FINCA_SELECCIONADA) {
+      cargarFincaEnFormulario(FINCA_SELECCIONADA);
+    }
+
+    console.log('✅ Script de productorFinca inicializado correctamente');
+
+  })();
+</script>

@@ -6,6 +6,8 @@ desde el móvil) y RF-28 (consulta de evidencias documentales).
 """
 
 import hashlib
+import unicodedata
+import re
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from prisma import Json, Prisma
@@ -28,6 +30,15 @@ router = APIRouter()
 _ADMIN = ("SUPER_ADMIN", "TENANT_ADMIN")
 _CAPTURA = ("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")
 _VALIDADORES = ("SUPER_ADMIN", "TENANT_ADMIN", "AUDITOR_INTERNO")
+
+
+def _normalizar_carpeta(valor: str) -> str:
+    """Convierte tildes, espacios y caracteres especiales en guiones para rutas seguras en Cloudinary."""
+    # Normalizar Unicode y eliminar diacríticos (Asociación -> Asociacion)
+    valor = unicodedata.normalize("NFKD", valor).encode("ASCII", "ignore").decode("ASCII")
+    # Convertir espacios en guiones y eliminar caracteres especiales (Asociacion APECAEL -> Asociacion-APECAEL)
+    valor = re.sub(r"[^\w\-]", "", re.sub(r"\s+", "-", valor))
+    return valor.lower()
 
 
 # ===== Catálogo de requisitos documentales (administrativo) =====
@@ -166,10 +177,12 @@ async def subir_documento(
         raise HTTPException(status_code=400, detail="El archivo está vacío.")
 
     hash_sha256 = hashlib.sha256(contenido).hexdigest()
+    carpeta_normalizada = f"{_normalizar_carpeta(organizacion_inquilino)}/{productor_id or finca_id}"
+    nombre_normalizado = _normalizar_carpeta(archivo.filename or tipo_documento)
     url = subir_documento_privado(
         contenido=contenido,
-        nombre=archivo.filename or tipo_documento,
-        carpeta=f"{organizacion_inquilino}/{productor_id or finca_id}",
+        nombre=nombre_normalizado,
+        carpeta=carpeta_normalizada,
     )
 
     return db.documento.create(

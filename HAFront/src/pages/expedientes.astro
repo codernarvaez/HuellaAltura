@@ -1,4 +1,5 @@
 ---
+// src/pages/expedientes.astro
 import Layout from "../layouts/LayoutVariable.astro";
 import { AuthService } from "../services/auth.service.ts";
 import { ExpedienteService } from "../services/expediente.service.ts";
@@ -16,38 +17,29 @@ let userRole = null;
 let expedienteCreado = false;
 let fincaData = null;
 let datosAgroambientales = null;
-let productoresMap = new Map(); // Para cachear nombres de usuarios por ID
+let productoresMap = new Map();
 
 if (token) {
   try {
-    // Obtener datos del usuario autenticado
     userData = await AuthService.getMe(token);
     userRole = userData?.role?.name || '';
     console.log("🎭 Rol del usuario:", userRole);
-    console.log("👤 Datos del usuario autenticado:", {
-      id: userData.id,
-      first_name: userData.first_name,
-      last_name: userData.last_name,
-      email: userData.email
-    });
     
     const urlParams = Astro.url.searchParams;
     const fincaIdFilter = urlParams.get("finca_id");
     console.log("🔍 Filtro por finca_id:", fincaIdFilter);
     
-    // Función auxiliar para obtener usuario por ID (si no existe servicio)
+    // Función auxiliar para obtener usuario por ID
     async function getUsuarioById(usuarioId) {
       if (!usuarioId) return null;
       if (productoresMap.has(usuarioId)) return productoresMap.get(usuarioId);
       
       try {
-        // Intentar usar AuthService si tiene un método getById
         if (typeof AuthService.getById === 'function') {
           const user = await AuthService.getById(usuarioId, token);
           productoresMap.set(usuarioId, user);
           return user;
         }
-        // Si no, intentar con fetch directo al endpoint
         const response = await fetch(`/api/usuarios/${usuarioId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -65,26 +57,19 @@ if (token) {
     if (fincaIdFilter) {
       console.log(`🔄 Verificando expediente para finca: ${fincaIdFilter}`);
       
-      // Obtener la finca
       try {
         fincaData = await FincaService.getById(fincaIdFilter, token);
         console.log(`✅ Finca encontrada: ${fincaData.nombre}`);
-        console.log(`👤 Productor en finca (desde API): ${fincaData.usuario_nombre || 'No viene en la respuesta'}`);
-        console.log(`🆔 usuario_id en finca: ${fincaData.usuario_id}`);
         
-        // Si la finca tiene usuario_id y no tiene usuario_nombre, intentar obtenerlo
         if (fincaData.usuario_id && !fincaData.usuario_nombre) {
           const usuario = await getUsuarioById(fincaData.usuario_id);
           if (usuario) {
             fincaData.usuario_nombre = `${usuario.first_name || ''} ${usuario.last_name || ''}`.trim() || usuario.email;
-            console.log(`✅ Nombre obtenido para usuario ${fincaData.usuario_id}: ${fincaData.usuario_nombre}`);
           }
         }
         
-        // Obtener datos agroambientales
         try {
           datosAgroambientales = await AgroambientalService.getByFinca(fincaIdFilter, token);
-          console.log(`📊 Datos agroambientales: ${datosAgroambientales?.length || 0} registros`);
         } catch (e) {
           console.warn("⚠️ Error obteniendo datos agroambientales:", e.message);
         }
@@ -92,24 +77,14 @@ if (token) {
         console.warn("⚠️ Error obteniendo finca:", e.message);
       }
       
-      // Obtener o crear expediente
       const resultado = await ExpedienteService.getOrCreate(fincaIdFilter, token, userData);
       
       if (resultado.expediente) {
-        // Asegurarnos de que el expediente tenga la finca
         if (!resultado.expediente.finca && fincaData) {
           resultado.expediente.finca = fincaData;
         }
         expedientes = [resultado.expediente];
         expedienteCreado = resultado.creado;
-        
-        if (expedienteCreado) {
-          console.log(`✅ Expediente creado automáticamente para finca ${fincaIdFilter}`);
-        } else {
-          console.log(`✅ Expediente existente encontrado para finca ${fincaIdFilter}`);
-        }
-      } else {
-        console.warn(`⚠️ No se pudo crear expediente para finca ${fincaIdFilter}`);
       }
       
     } else {
@@ -119,7 +94,6 @@ if (token) {
         expedientes = expedientesData;
         console.log(`📋 Total expedientes: ${expedientes.length}`);
         
-        // Para cada expediente, asegurar que tenga usuario_nombre
         for (const exp of expedientes) {
           if (exp.finca && exp.finca.usuario_id && !exp.finca.usuario_nombre) {
             const usuario = await getUsuarioById(exp.finca.usuario_id);
@@ -144,10 +118,8 @@ if (token) {
   error = "No hay sesión activa";
 }
 
-// Determinar si es PRODUCTOR
 const esProductor = userRole === 'PRODUCTOR';
 
-// Función para obtener iniciales
 function getInitials(nombre) {
   if (!nombre) return "U";
   const partes = nombre.trim().split(' ');
@@ -155,13 +127,11 @@ function getInitials(nombre) {
   return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
 }
 
-// Función para formatear área
 function formatArea(area) {
   if (!area) return "0.00 Hectáreas";
   return `${Number(area).toFixed(2)} Hectáreas`;
 }
 
-// Función para obtener badge de estado
 function getStatusBadge(estado) {
   const estados = {
     'APROBADO': { label: 'Aprobado', color: 'bg-green-100 text-green-700', icon: 'check_circle' },
@@ -214,7 +184,7 @@ const fincaIdFilter = urlParams.get("finca_id");
       </div>
     )}
 
-    <!-- TABLA -->
+    <!-- TABLA CON EXPANDIBLE -->
     <div class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
 
       {isLoading ? (
@@ -238,153 +208,232 @@ const fincaIdFilter = urlParams.get("finca_id");
           </p>
         </div>
       ) : (
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-surface-container">
-              <tr>
-                <th class="p-4 text-left">Productor</th>
-                <th class="p-4 text-left">Finca</th>
-                <th class="p-4 text-left">Área</th>
-                <th class="p-4 text-left">Estado Expediente</th>
-                <th class="p-4 text-left">Expediente</th>
-                <th class="p-4 text-right">Acciones</th>
-              </tr>
-            </thead>
+        <div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-surface-container">
+                <tr>
+                  <th class="p-4 text-left">Productor</th>
+                  <th class="p-4 text-left">Finca</th>
+                  <th class="p-4 text-left">Área</th>
+                  <th class="p-4 text-left">Estado Expediente</th>
+                  <th class="p-4 text-left">Expediente</th>
+                  <th class="p-4 text-right">Acciones</th>
+                </tr>
+              </thead>
 
-            <tbody class="divide-y divide-outline-variant">
-              {expedientes.map((expediente) => {
-                const finca = expediente.finca || fincaData;
-                
-                // ==============================================================
-                // 🔥 OBTENER NOMBRE COMPLETO DEL PRODUCTOR
-                // ==============================================================
-                let nombreProductor = 'Productor no especificado';
-                let idProductor = finca?.usuario_id || 'N/A';
-                
-                // 1. Si el usuario autenticado es productor y coincide con el id de la finca, usar sus datos
-                if (esProductor && userData && idProductor === userData.id) {
-                  nombreProductor = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email || 'Productor';
-                }
-                // 2. Si finca tiene usuario_nombre (ya enriquecido)
-                else if (finca?.usuario_nombre && finca.usuario_nombre !== 'null' && finca.usuario_nombre !== '') {
-                  nombreProductor = finca.usuario_nombre;
-                }
-                // 3. Si expediente tiene productor_nombre
-                else if (expediente?.productor_nombre) {
-                  nombreProductor = expediente.productor_nombre;
-                }
-                // 4. Si expediente tiene productor.nombre
-                else if (expediente?.productor?.nombre) {
-                  nombreProductor = expediente.productor.nombre;
-                }
-                // 5. Si tenemos el ID del usuario, mostrar un placeholder
-                else if (idProductor && idProductor !== 'N/A') {
-                  // Intentar obtener el nombre del cache (si se cargó)
-                  const cachedUser = productoresMap.get(idProductor);
-                  if (cachedUser) {
-                    nombreProductor = `${cachedUser.first_name || ''} ${cachedUser.last_name || ''}`.trim() || cachedUser.email || idProductor;
-                  } else {
-                    nombreProductor = `Productor ${idProductor.substring(0, 8)}`;
+              <tbody class="divide-y divide-outline-variant">
+                {expedientes.map((expediente, index) => {
+                  const finca = expediente.finca || fincaData;
+                  
+                  let nombreProductor = 'Productor no especificado';
+                  let idProductor = finca?.usuario_id || 'N/A';
+                  
+                  if (esProductor && userData && idProductor === userData.id) {
+                    nombreProductor = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email || 'Productor';
                   }
-                }
-                // 6. Fallback final
-                else {
-                  nombreProductor = 'Productor desconocido';
-                }
-                
-                // ==============================================================
-                // DATOS ADICIONALES
-                // ==============================================================
-                const nombreFinca = finca?.nombre || 'Finca no especificada';
-                const provincia = finca?.provincia || '';
-                const canton = finca?.canton || '';
-                const area = finca?.area_total_ha || 0;
-                
-                const estado = expediente.estado || 'PENDIENTE';
-                const status = getStatusBadge(estado);
-                const initials = getInitials(nombreProductor);
-                const idExpediente = expediente.id?.substring(0, 8) || 'N/A';
-                const fechaCreacion = expediente.creado_en 
-                  ? new Date(expediente.creado_en).toLocaleDateString('es-ES') 
-                  : 'N/A';
-                const organizacion = expediente.organizacion_inquilino || 'No especificado';
+                  else if (finca?.usuario_nombre && finca.usuario_nombre !== 'null' && finca.usuario_nombre !== '') {
+                    nombreProductor = finca.usuario_nombre;
+                  }
+                  else if (expediente?.productor_nombre) {
+                    nombreProductor = expediente.productor_nombre;
+                  }
+                  else if (expediente?.productor?.nombre) {
+                    nombreProductor = expediente.productor.nombre;
+                  }
+                  else if (idProductor && idProductor !== 'N/A') {
+                    const cachedUser = productoresMap.get(idProductor);
+                    if (cachedUser) {
+                      nombreProductor = `${cachedUser.first_name || ''} ${cachedUser.last_name || ''}`.trim() || cachedUser.email || idProductor;
+                    } else {
+                      nombreProductor = `Productor ${idProductor.substring(0, 8)}`;
+                    }
+                  }
+                  
+                  const nombreFinca = finca?.nombre || 'Finca no especificada';
+                  const provincia = finca?.provincia || '';
+                  const canton = finca?.canton || '';
+                  const area = finca?.area_total_ha || 0;
+                  
+                  const estado = expediente.estado || 'PENDIENTE';
+                  const status = getStatusBadge(estado);
+                  const initials = getInitials(nombreProductor);
+                  const idExpediente = expediente.id?.substring(0, 8) || 'N/A';
+                  const fechaCreacion = expediente.creado_en 
+                    ? new Date(expediente.creado_en).toLocaleDateString('es-ES') 
+                    : 'N/A';
+                  const organizacion = expediente.organizacion_inquilino || 'No especificado';
 
-                return (
-                  <tr class="hover:bg-surface-container transition" key={expediente.id}>
-                    <td class="p-4">
-                      <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
-                          {initials}
-                        </div>
-                        <div>
-                          <p class="font-semibold">{nombreProductor}</p>
+                  return (
+                    <>
+                      <tr class="hover:bg-surface-container transition cursor-pointer" key={expediente.id}>
+                        <td class="p-4">
+                          <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                              {initials}
+                            </div>
+                            <div>
+                              <p class="font-semibold">{nombreProductor}</p>
+                              <p class="text-xs text-on-surface-variant">
+                                ID: {idProductor.substring(0, 8) || 'N/A'}
+                              </p>
+                              <p class="text-xs text-emerald-600 mt-0.5">
+                                📋 {organizacion}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td class="p-4">
+                          <p class="font-medium">{nombreFinca}</p>
                           <p class="text-xs text-on-surface-variant">
-                            ID: {idProductor.substring(0, 8) || 'N/A'}
+                            {provincia}{canton ? `, ${canton}` : ''}
                           </p>
-                          <p class="text-xs text-emerald-600 mt-0.5">
-                            📋 {organizacion}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
+                        </td>
 
-                    <td class="p-4">
-                      <p class="font-medium">{nombreFinca}</p>
-                      <p class="text-xs text-on-surface-variant">
-                        {provincia}{canton ? `, ${canton}` : ''}
-                      </p>
-                    </td>
+                        <td class="p-4">{formatArea(area)}</td>
 
-                    <td class="p-4">{formatArea(area)}</td>
+                        <td class="p-4">
+                          <span class={`inline-flex items-center gap-1 px-3 py-1 rounded-full ${status.color} text-xs font-semibold`}>
+                            <span class="material-symbols-outlined text-sm">{status.icon}</span>
+                            {status.label}
+                          </span>
+                          <div class="text-[10px] text-on-surface-variant mt-1">
+                            Creado: {fechaCreacion}
+                          </div>
+                        </td>
 
-                    <td class="p-4">
-                      <span class={`inline-flex items-center gap-1 px-3 py-1 rounded-full ${status.color} text-xs font-semibold`}>
-                        <span class="material-symbols-outlined text-sm">{status.icon}</span>
-                        {status.label}
-                      </span>
-                      <div class="text-[10px] text-on-surface-variant mt-1">
-                        Creado: {fechaCreacion}
-                      </div>
-                    </td>
+                        <td class="p-4">
+                          <span class="font-mono text-xs bg-surface-container px-2 py-1 rounded">{idExpediente}</span>
+                        </td>
 
-                    <td class="p-4">
-                      <span class="font-mono text-xs bg-surface-container px-2 py-1 rounded">{idExpediente}</span>
-                    </td>
+                        <td class="p-4 text-right">
+                          <div class="flex justify-end gap-2">
+                            {/* 🔥 BOTÓN DESCARGAR EXPEDIENTE - Habilitado solo si está APROBADO o VALIDADO */}
+                            {estado === 'APROBADO' || estado === 'VALIDADO' ? (
+                              <button
+                                class="bg-secondary-container px-3 py-2 rounded-lg text-sm hover:bg-secondary-container/80 transition flex items-center gap-1"
+                                onclick="event.stopPropagation(); alert('📄 Descarga del expediente en construcción');"
+                              >
+                                <span class="material-symbols-outlined text-sm">file_download</span>
+                                Descargar Expediente
+                              </button>
+                            ) : (
+                              <button
+                                class="bg-surface-container px-3 py-2 rounded-lg text-sm text-on-surface-variant cursor-not-allowed opacity-50 flex items-center gap-1"
+                                disabled
+                                title="El expediente debe estar aprobado para descargar"
+                              >
+                                <span class="material-symbols-outlined text-sm">file_download</span>
+                                Descargar Expediente
+                              </button>
+                            )}
 
-                    <td class="p-4 text-right">
-                      <div class="flex justify-end gap-2">
-                        {estado === 'APROBADO' || estado === 'VALIDADO' ? (
-                          <button
-                            class="bg-secondary-container px-3 py-2 rounded-lg text-sm hover:bg-secondary-container/80 transition flex items-center gap-1"
-                            onclick={`window.location.href='/satelital?finca_id=${finca?.id || ''}&expediente_id=${expediente.id}'`}
-                          >
-                            <span class="material-symbols-outlined text-sm">file_download</span>
-                            DDS
-                          </button>
-                        ) : (
-                          <button
-                            class="bg-surface-container px-3 py-2 rounded-lg text-sm text-on-surface-variant cursor-not-allowed opacity-50 flex items-center gap-1"
-                            disabled
-                            title="El expediente debe estar aprobado para generar el certificado DDS"
-                          >
-                            <span class="material-symbols-outlined text-sm">file_download</span>
-                            DDS
-                          </button>
-                        )}
+                            {/* 🔥 BOTÓN VER - Expande la fila para mostrar detalles */}
+                            <button
+                              class="border border-outline-variant p-2 rounded-lg hover:bg-surface-container transition"
+                              onclick="event.stopPropagation(); toggleDetalle('${expediente.id}')"
+                            >
+                              <span class="material-symbols-outlined">visibility</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
 
-                        <button
-                          class="border border-outline-variant p-2 rounded-lg hover:bg-surface-container transition"
-                          onclick={`window.location.href='/infoAgro?finca_id=${finca?.id || ''}&expediente_id=${expediente.id}'`}
-                        >
-                          <span class="material-symbols-outlined">visibility</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {/* 🔥 FILA DE DETALLE EXPANDIBLE */}
+                      <tr id="detalle-${expediente.id}" class="hidden bg-surface-container-high">
+                        <td colspan="6" class="p-4">
+                          <div class="bg-white rounded-xl p-6 border border-outline-variant">
+                            <div class="flex justify-between items-center mb-4">
+                              <h3 class="text-lg font-semibold text-on-surface flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary">info</span>
+                                Detalle del Expediente
+                              </h3>
+                              <button
+                                class="text-on-surface-variant hover:text-on-surface transition"
+                                onclick="toggleDetalle('${expediente.id}')"
+                              >
+                                <span class="material-symbols-outlined">close</span>
+                              </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <p class="text-xs text-on-surface-variant uppercase tracking-wider">ID Expediente</p>
+                                <p class="font-mono text-sm">{expediente.id}</p>
+                              </div>
+                              <div>
+                                <p class="text-xs text-on-surface-variant uppercase tracking-wider">Estado</p>
+                                <span class={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${status.color} text-xs font-semibold`}>
+                                  <span class="material-symbols-outlined text-sm">{status.icon}</span>
+                                  {status.label}
+                                </span>
+                              </div>
+                              <div>
+                                <p class="text-xs text-on-surface-variant uppercase tracking-wider">Fecha Creación</p>
+                                <p class="font-medium">{new Date(expediente.creado_en).toLocaleDateString('es-ES')}</p>
+                              </div>
+                              <div>
+                                <p class="text-xs text-on-surface-variant uppercase tracking-wider">Organización</p>
+                                <p>{expediente.organizacion_inquilino || 'No especificada'}</p>
+                              </div>
+                            </div>
+
+                            {finca && (
+                              <div class="mt-4 pt-4 border-t border-outline-variant">
+                                <h4 class="font-semibold text-on-surface flex items-center gap-2">
+                                  <span class="material-symbols-outlined text-sm text-primary">agriculture</span>
+                                  Información de la Finca
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2 text-sm">
+                                  <div><span class="text-on-surface-variant">Nombre:</span> {finca.nombre || 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Productor:</span> {finca.usuario_nombre || idProductor || 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Provincia:</span> {finca.provincia || 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Cantón:</span> {finca.canton || 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Área Total:</span> {formatArea(finca.area_total_ha)}</div>
+                                  <div><span class="text-on-surface-variant">Tenencia:</span> {finca.tenencia || 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Variedad Café:</span> {finca.variedad_cafe || 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Densidad Siembra:</span> {finca.densidad_siembra || 'N/A'} plantas/ha</div>
+                                  <div><span class="text-on-surface-variant">Año Establecimiento:</span> {finca.anio_establecimiento || 'N/A'}</div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div class="mt-4 pt-4 border-t border-outline-variant flex gap-3">
+                              {estado === 'APROBADO' || estado === 'VALIDADO' ? (
+                                <button
+                                  class="px-4 py-2 bg-primary text-white rounded-xl hover:opacity-90 transition flex items-center gap-2"
+                                  onclick="alert('📄 Descarga del expediente en construcción'); event.stopPropagation();"
+                                >
+                                  <span class="material-symbols-outlined text-sm">file_download</span>
+                                  Descargar Expediente
+                                </button>
+                              ) : (
+                                <button
+                                  class="px-4 py-2 bg-surface-container text-on-surface-variant border border-outline-variant rounded-xl cursor-not-allowed opacity-50 flex items-center gap-2"
+                                  disabled
+                                >
+                                  <span class="material-symbols-outlined text-sm">file_download</span>
+                                  Expediente no disponible
+                                </button>
+                              )}
+                              <button
+                                class="px-4 py-2 bg-surface text-on-surface-variant border border-outline-variant rounded-xl hover:bg-surface-container-high transition flex items-center gap-2"
+                                onclick="toggleDetalle('${expediente.id}')"
+                              >
+                                <span class="material-symbols-outlined text-sm">close</span>
+                                Cerrar
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
           
           <div class="p-4 border-t border-outline-variant flex justify-between items-center text-xs text-on-surface-variant">
             <span>Total: {expedientes.length} expedientes</span>
@@ -397,3 +446,20 @@ const fincaIdFilter = urlParams.get("finca_id");
     </div>
   </div>
 </Layout>
+
+<!-- 🔥 SCRIPT CON LA FUNCIÓN toggleDetalle -->
+<script>
+  function toggleDetalle(id) {
+    console.log('🔍 toggleDetalle llamado para:', id);
+    const detalleRow = document.getElementById(`detalle-${id}`);
+    if (detalleRow) {
+      detalleRow.classList.toggle('hidden');
+      console.log('✅ Detalle toggled:', detalleRow.classList.contains('hidden') ? 'cerrado' : 'abierto');
+    } else {
+      console.error('❌ No se encontró la fila de detalle para:', id);
+    }
+  }
+
+  window.toggleDetalle = toggleDetalle;
+  console.log('✅ toggleDetalle registrada globalmente');
+</script>

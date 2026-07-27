@@ -4,11 +4,31 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import log_user_action, require_roles
+from app.dependencies import log_user_action, require_roles, get_current_user
 from app.routers.acopio.roles import BODEGA
-from app.schemas.acopio import BodegaIngresoCreate
+from app.schemas.acopio import BodegaIngresoCreate, InventarioAcopioOut
 
 router = APIRouter(prefix="/acopio/bodega", tags=["Acopio - Bodega"])
+
+
+@router.get(
+    "/",
+    response_model=list[InventarioAcopioOut],
+    summary="Listar todo el registro de inventario",
+)
+def listar_inventario(
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*BODEGA)),
+):
+    """
+    Obtiene el registro completo de inventario en bodega.
+
+    **Retorna:**
+    - Lista de todos los lotes con: ID, orden asociada, peso ingreso, peso salida, estado actual
+    - Permite filtrar y auditar el historial completo del inventario
+    """
+    inventarios = db.inventarioacopio.find_many(include={"ordenCompra": True})
+    return inventarios
 
 
 @router.post(
