@@ -31,7 +31,7 @@ interface FincaData {
   longitud?: number;
   poligono?: any;
   variedad_cafe?: string;
-  densidad_siembra?: number;
+  densidad_siembra?: number | string;
   origen_semilla?: string;
   anio_establecimiento?: number;
 }

@@ -739,7 +739,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
       </div>
 
               <!-- DOCUMENTOS DE LA FINCA -->
-      {fincaData && (
+      {fincaSeleccionada && (
         <div class="mt-8 pt-6 border-t border-outline-variant">
           <div class="flex items-center gap-2 mb-4">
             <span class="material-symbols-outlined text-primary">description</span>
@@ -898,6 +898,9 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     console.log('  - USUARIO_ID:', USUARIO_ID);
     console.log('  - FINCA_SELECCIONADA_ID:', FINCA_SELECCIONADA_ID);
     console.log('  - FINCAS:', FINCAS.length);
+
+    // ID de la finca actualmente cargada en el formulario (cambia al seleccionar otra finca)
+    let fincaActualId = FINCA_SELECCIONADA_ID;
 
     // ============================================================
     // DOM ELEMENTS
@@ -1144,13 +1147,13 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
         const { FincaService } = await import('/src/services/finca.service.ts');
 
         let resultado;
-        if (FINCA_SELECCIONADA_ID) {
+        if (fincaActualId) {
           // 🔥 ACTUALIZAR - SIN usuario_id
           const updatePayload = { ...payloadBase };
           delete updatePayload.usuario_id;
           
-          console.log('📝 Actualizando finca:', FINCA_SELECCIONADA_ID);
-          resultado = await FincaService.update(FINCA_SELECCIONADA_ID, updatePayload, token);
+          console.log('📝 Actualizando finca:', fincaActualId);
+          resultado = await FincaService.update(fincaActualId, updatePayload, token);
           console.log('✅ Finca actualizada:', resultado);
         } else {
           // 🔥 CREAR - CON usuario_id
@@ -1198,6 +1201,8 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
         const finca = FINCAS.find(f => f.id === fincaId);
         if (finca) {
           cargarFincaEnFormulario(finca);
+          fincaActualId = finca.id;
+          cargarListaDocumentos();
         } else {
           alert('Finca no encontrada');
         }
@@ -1211,12 +1216,191 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
         if (fincaSeleccionadaNombre) {
           fincaSeleccionadaNombre.textContent = 'Nueva Finca';
         }
+        fincaActualId = null;
         window.FINCA_SELECCIONADA_ID = null;
       });
     }
 
     if (btnGuardarFincaSubmit) {
       btnGuardarFincaSubmit.addEventListener('click', guardarFinca);
+    }
+
+    // ============================================================
+    // BLOQUE: DOCUMENTOS DE LA FINCA
+    // ============================================================
+
+    const docTipoSelect = document.getElementById('doc-tipo');
+    const docArchivoInput = document.getElementById('doc-archivo');
+    const docArchivoBtn = document.getElementById('doc-archivo-btn');
+    const docArchivoNombre = document.getElementById('doc-archivo-nombre');
+    const docSubirBtn = document.getElementById('doc-subir-btn');
+    const docProgreso = document.getElementById('doc-progreso');
+    const docResultado = document.getElementById('doc-resultado');
+    const documentosLista = document.getElementById('documentos-lista');
+
+    const TIPO_DOC_LABELS = {
+      TITULO_PROPIEDAD: 'Título de Propiedad',
+      CEDULA: 'Cédula',
+      RUC: 'RUC',
+      ESCRITURA: 'Escritura'
+    };
+
+    // Botón custom que dispara el input file oculto
+    if (docArchivoBtn) {
+      docArchivoBtn.addEventListener('click', () => {
+        if (docArchivoInput) docArchivoInput.click();
+      });
+    }
+
+    // Muestra el nombre del archivo elegido antes de subirlo
+    if (docArchivoInput) {
+      docArchivoInput.addEventListener('change', () => {
+        const archivo = docArchivoInput.files && docArchivoInput.files[0];
+        if (docArchivoNombre) {
+          if (archivo) {
+            docArchivoNombre.textContent = archivo.name;
+            docArchivoNombre.classList.add('doc-archivo-seleccionado');
+          } else {
+            docArchivoNombre.textContent = 'Seleccionar archivo...';
+            docArchivoNombre.classList.remove('doc-archivo-seleccionado');
+          }
+        }
+      });
+    }
+
+    function resetDocArchivoInput() {
+      if (docArchivoInput) docArchivoInput.value = '';
+      if (docArchivoNombre) {
+        docArchivoNombre.textContent = 'Seleccionar archivo...';
+        docArchivoNombre.classList.remove('doc-archivo-seleccionado');
+      }
+    }
+
+    async function abrirArchivo(doc, modo) {
+      try {
+        const resUrl = await fetch(`https://geoguard-exped.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+
+        if (!resUrl.ok) {
+          throw new Error(`El servidor respondió ${resUrl.status}. No se pudo obtener el enlace seguro.`);
+        }
+
+        const data = await resUrl.json();
+        const urlFirmadaCloudinary = data.url;
+
+        const pdfRes = await fetch(urlFirmadaCloudinary);
+        if (!pdfRes.ok) {
+          throw new Error("No se pudo descargar el archivo desde el storage.");
+        }
+
+        const buffer = await pdfRes.blob();
+        const blob = new Blob([buffer], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+
+        if (modo === 'ver') {
+          window.open(blobUrl, '_blank');
+        } else {
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = doc.nombre_archivo || 'documento.pdf';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } catch (err) {
+        alert('❌ No se pudo acceder al archivo: ' + (err.message || 'error en el servidor'));
+      }
+    }
+
+    async function cargarListaDocumentos() {
+      if (!documentosLista || !fincaActualId) return;
+      try {
+        const { FincaService } = await import('/src/services/finca.service.ts');
+        const token = getToken();
+        const documentos = await FincaService.listarDocumentos(fincaActualId, token);
+
+        if (!documentos || documentos.length === 0) {
+          documentosLista.innerHTML = `<p class="text-sm text-on-surface-variant">No hay documentos cargados aún.</p>`;
+          return;
+        }
+
+        documentosLista.innerHTML = documentos.map((doc) => `
+          <div class="flex items-center gap-3 p-3 bg-surface border border-outline-variant rounded-xl">
+            <span class="material-symbols-outlined text-primary">description</span>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-sm truncate">${doc.nombre_archivo}</p>
+              <p class="text-xs text-on-surface-variant">${TIPO_DOC_LABELS[doc.tipo_documento] || doc.tipo_documento}</p>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" class="doc-descargar-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition text-primary" title="Descargar documento" data-doc-id="${doc.id}">
+                <span class="material-symbols-outlined text-sm">download</span>
+              </button>
+            </div>
+          </div>
+        `).join('');
+
+        documentosLista.querySelectorAll('.doc-descargar-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.docId;
+            const doc = documentos.find((d) => d.id === id);
+            if (doc) abrirArchivo(doc, 'descargar');
+          });
+        });
+      } catch (e) {
+        documentosLista.innerHTML = `<p class="text-sm text-red-600">Error al cargar documentos.</p>`;
+      }
+    }
+
+    if (docSubirBtn) {
+      docSubirBtn.addEventListener('click', async () => {
+        const tipo = docTipoSelect ? docTipoSelect.value : '';
+        const archivo = docArchivoInput && docArchivoInput.files ? docArchivoInput.files[0] : null;
+
+        if (!tipo) {
+          alert('⚠️ Selecciona un tipo de documento.');
+          return;
+        }
+        if (!archivo) {
+          alert('⚠️ Selecciona un archivo.');
+          return;
+        }
+        if (!fincaActualId) {
+          alert('⚠️ Primero debes guardar la finca antes de subir documentos.');
+          return;
+        }
+
+        if (docProgreso) docProgreso.classList.remove('hidden');
+        if (docResultado) docResultado.classList.add('hidden');
+        if (docSubirBtn instanceof HTMLButtonElement) docSubirBtn.disabled = true;
+
+        try {
+          const { FincaService } = await import('/src/services/finca.service.ts');
+          const token = getToken();
+          const result = await FincaService.subirDocumento(fincaActualId, tipo, archivo, token);
+
+          if (docResultado) {
+            docResultado.className = 'mb-3 p-3 bg-green-50 text-green-700 border border-green-500 rounded-xl text-sm';
+            docResultado.textContent = `✅ "${result.nombre_archivo || archivo.name}" subido exitosamente.`;
+            docResultado.classList.remove('hidden');
+          }
+
+          if (docTipoSelect) docTipoSelect.value = '';
+          resetDocArchivoInput();
+          await cargarListaDocumentos();
+        } catch (error) {
+          if (docResultado) {
+            docResultado.className = 'mb-3 p-3 bg-red-50 text-red-700 border border-red-500 rounded-xl text-sm';
+            docResultado.textContent = '❌ Error: ' + (error.message || 'Error al subir documento');
+            docResultado.classList.remove('hidden');
+          }
+        } finally {
+          if (docProgreso) docProgreso.classList.add('hidden');
+          if (docSubirBtn instanceof HTMLButtonElement) docSubirBtn.disabled = false;
+        }
+      });
     }
 
     // ============================================================
@@ -1227,6 +1411,10 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
     if (FINCA_SELECCIONADA) {
       cargarFincaEnFormulario(FINCA_SELECCIONADA);
+    }
+
+    if (fincaActualId) {
+      cargarListaDocumentos();
     }
 
     console.log('✅ Script de productorFinca inicializado correctamente');
