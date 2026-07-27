@@ -31,10 +31,11 @@ def _configurar() -> None:
 
 def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
     """
-    Sube el documento como asset autenticado y devuelve su `public_id`.
+    Sube el documento como asset autenticado y devuelve su URL completa y accesible.
 
-    Se persiste el `public_id` y no una URL, porque las URLs de acceso son
-    firmadas y caducan: se generan bajo demanda con `url_firmada`.
+    Retorna el secure_url (URL completa con dominio, resource_type, versión, extensión)
+    que el navegador puede usar directamente. NO retorna el public_id porque ese es
+    solo un identificador interno que Cloudinary usa.
 
     IMPORTANTE: Usa UUID como nombre para evitar problemas con caracteres especiales
     en Cloudinary. El nombre original se pierde pero la integridad del documento
@@ -56,10 +57,10 @@ def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
         filename=nombre_seguro,
     )
 
-    public_id = resultado.get("public_id")
-    if not public_id:
-        raise RuntimeError("El storage no devolvió un identificador para el documento.")
-    return public_id
+    secure_url = resultado.get("secure_url")
+    if not secure_url:
+        raise RuntimeError("El storage no devolvió una URL accesible para el documento.")
+    return secure_url
 
 
 def url_firmada(public_id: str) -> str:
