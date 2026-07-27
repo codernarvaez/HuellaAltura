@@ -50,8 +50,8 @@ def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
     resultado: dict[str, Any] = cloudinary.uploader.upload(
         contenido,
         folder=f"expedientes/{carpeta}",
-        resource_type="raw",  # Usar "raw" para documentos/PDFs, no "auto"
-        type="upload",  # URL pública accesible, no "authenticated"
+        resource_type="auto",  # Dejar que Cloudinary detecte el tipo automáticamente
+        type="upload",  # URL pública accesible
         use_filename=True,
         unique_filename=False,  # Ya es único con UUID
         filename=nombre_seguro,
