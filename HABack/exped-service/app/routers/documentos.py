@@ -178,9 +178,10 @@ async def subir_documento(
 
     hash_sha256 = hashlib.sha256(contenido).hexdigest()
     carpeta_normalizada = f"{_normalizar_carpeta(organizacion_inquilino)}/{productor_id or finca_id}"
+    nombre_normalizado = _normalizar_carpeta(archivo.filename or tipo_documento)
     url = subir_documento_privado(
         contenido=contenido,
-        nombre=archivo.filename or tipo_documento,
+        nombre=nombre_normalizado,
         carpeta=carpeta_normalizada,
     )
 
