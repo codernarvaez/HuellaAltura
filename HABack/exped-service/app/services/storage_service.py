@@ -51,7 +51,7 @@ def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
         contenido,
         folder=f"expedientes/{carpeta}",
         resource_type="raw",  # Usar "raw" para documentos/PDFs, no "auto"
-        type="authenticated",
+        type="upload",  # URL pública accesible, no "authenticated"
         use_filename=True,
         unique_filename=False,  # Ya es único con UUID
         filename=nombre_seguro,

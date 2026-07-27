@@ -250,7 +250,7 @@ def obtener_enlace_descarga(
         "tipo_documento": documento.tipo_documento,
         "nombre_archivo": documento.nombre_archivo,
         "hash_sha256": documento.hash_sha256,
-        "url": url_firmada(documento.url_storage),
+        "url": documento.url_storage,  # Ya es una URL completa desde Cloudinary
     }
 
 
