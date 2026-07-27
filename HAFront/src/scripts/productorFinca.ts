@@ -513,45 +513,58 @@ document.addEventListener('DOMContentLoaded', () => {
           <p class="text-xs text-on-surface-variant">${TIPO_DOC_LABELS[doc.tipo_documento] || doc.tipo_documento}</p>
         </div>
         <div class="flex items-center gap-1 shrink-0">
-          <button type="button" class="doc-ver-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition text-primary" title="Ver documento" data-doc-id="${doc.id}">
-            <span class="material-symbols-outlined text-sm">visibility</span>
-          </button>
           <button type="button" class="doc-descargar-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition text-primary" title="Descargar documento" data-doc-id="${doc.id}">
             <span class="material-symbols-outlined text-sm">download</span>
-          </button>
-          <button type="button" class="doc-eliminar-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-red-50 transition text-red-600" title="Eliminar documento" data-doc-id="${doc.id}">
-            <span class="material-symbols-outlined text-sm">delete</span>
           </button>
         </div>
       </div>
     `).join('');
 
     async function abrirArchivo(doc: any, modo: 'ver' | 'descargar') {
-      try {
-        const res = await fetch(doc.url_storage, {
-          headers: { 'Authorization': `Bearer ${getCookie('token')}` }
+    try {
+        // 1. Pedimos la URL firmada y segura a tu backend en FastAPI
+        const resUrl = await fetch(`https://geoguard-exped.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
+            headers: { 'Authorization': `Bearer ${getCookie('token')}` }
         });
         
-        if (!res.ok) {
-          throw new Error(`El servidor respondió ${res.status}. La ruta del archivo puede estar mal generada en el backend.`);
+        if (!resUrl.ok) {
+            throw new Error(`El servidor respondió ${resUrl.status}. No se pudo obtener el enlace seguro.`);
         }
-        const blob = await res.blob();
+        
+        const data = await resUrl.json();
+        const urlFirmadaCloudinary = data.url;
+
+        // 2. Descargamos el contenido binario desde la URL firmada de Cloudinary
+        const pdfRes = await fetch(urlFirmadaCloudinary);
+        if (!pdfRes.ok) {
+            throw new Error("No se pudo descargar el archivo desde el storage.");
+        }
+        
+        const buffer = await pdfRes.blob();
+        
+        // 3. Forzamos el tipo MIME a application/pdf para que el visor del navegador no falle
+        const blob = new Blob([buffer], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
+
+        // 4. Visualizamos o descargamos según el modo
         if (modo === 'ver') {
-          window.open(blobUrl, '_blank');
+            window.open(blobUrl, '_blank');
         } else {
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = doc.nombre_archivo;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = doc.nombre_archivo || 'documento.pdf';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
         }
+
+        // Limpieza de memoria del navegador
         setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-      } catch (err: any) {
-        notify('❌ No se pudo acceder al archivo: ' + (err.message || 'ruta inválida en el servidor'), 'error');
-      }
+
+    } catch (err: any) {
+        notify('❌ No se pudo acceder al archivo: ' + (err.message || 'error en el servidor'), 'error');
     }
+}
 
     documentosLista.querySelectorAll('.doc-ver-btn').forEach(btn => {
       btn.addEventListener('click', () => {

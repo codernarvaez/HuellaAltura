@@ -169,7 +169,6 @@ static async subirDocumento(
   token: string
 ): Promise<any> {
   const formData = new FormData();
-  console.log('file:' + archivo.webkitRelativePath + ' type:' + tipoDocumento + ' finca_id:' + fincaId);
   
   formData.append("organizacion_inquilino", "Asociación APECAEL");
   formData.append("tipo_documento", tipoDocumento);
