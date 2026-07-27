@@ -37,10 +37,10 @@ if (token) {
     for (const finca of fincas) {
       try {
         const muestrasFinca = await AcopioService.getMuestrasByFinca(finca.id, token);
-        // Agregar nombre de finca a cada muestra
         const muestrasConFinca = muestrasFinca.map(m => ({
           ...m,
-          fincaNombre: finca.nombre
+          fincaNombre: finca.nombre,
+          fincaId: finca.id
         }));
         todasLasMuestras = [...todasLasMuestras, ...muestrasConFinca];
       } catch (e) {
@@ -48,9 +48,6 @@ if (token) {
       }
     }
     
-    // 🔥 Filtrar solo muestras que tengan análisis completos
-    // Por ahora, mostramos todas las muestras que tienen análisis físico y sensorial
-    // En el frontend se cargarán los análisis para cada muestra
     muestras = todasLasMuestras;
     console.log("📋 Total muestras:", muestras.length);
     
@@ -109,6 +106,13 @@ const API_URL = "https://geoguard-exped.onrender.com";
             >
                 <i data-lucide="arrow-left" class="w-4 h-4"></i>
                 Volver a Muestras
+            </a>
+            <a
+                href="/acopio/bodega"
+                class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 h-10 rounded-xl transition font-medium text-sm"
+            >
+                <i data-lucide="package" class="w-4 h-4"></i>
+                Ir a Bodega
             </a>
         </div>
     </div>
@@ -260,7 +264,7 @@ const API_URL = "https://geoguard-exped.onrender.com";
 </div>
 
 <!-- ============================================================ -->
-<!-- MODAL PARA CREAR ORDEN DE COMPRA                           -->
+<!-- MODAL PARA CREAR ORDEN DE COMPRA                            -->
 <!-- ============================================================ -->
 <div id="modal-orden-compra" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
     <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
@@ -343,24 +347,34 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 <p class="text-xs text-slate-400 mt-1">Opcional - primas por calidad o certificación</p>
             </div>
 
-            <!-- Validación EUDR -->
-            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <!-- VALIDACIÓN EUDR CON INDICADOR DE ESTADO EN TIEMPO REAL -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4" id="eudr-container">
                 <div class="flex items-start gap-3">
-                    <div class="mt-0.5">
-                        <i data-lucide="check-circle" class="w-5 h-5 text-blue-600"></i>
+                    <div class="mt-0.5" id="eudr-icon">
+                        <i data-lucide="clock" class="w-5 h-5 text-blue-600"></i>
                     </div>
-                    <div>
+                    <div class="flex-1">
                         <p class="text-sm font-medium text-blue-700">Validación EUDR</p>
                         <p class="text-xs text-blue-600 mt-1">
-                            La orden de compra será validada automáticamente contra los requisitos EUDR 
-                            (Cero deforestación, trazabilidad, etc.)
+                            La orden será validada contra requisitos de cero deforestación y trazabilidad
                         </p>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="text-xs font-medium text-slate-600">Estado:</span>
+                            <span id="eudr-status" class="text-xs font-medium text-yellow-600">
+                                ⏳ Pendiente de validación
+                            </span>
+                        </div>
+                        <div id="eudr-detalles" class="hidden mt-2 text-xs border-t border-blue-200 pt-2">
+                            <p class="text-blue-600">
+                                <span id="eudr-mensaje">Validación automática contra auditoría EUDR</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Mensaje de error -->
-            <div id="orden-error" class="hidden text-red-500 text-sm flex items-center gap-2">
+            <!-- Mensaje de error/éxito -->
+            <div id="orden-error" class="hidden text-sm flex items-center gap-2 p-3 rounded-xl">
                 <i data-lucide="alert-circle" class="w-4 h-4"></i>
                 <span id="orden-error-text">Error al crear la orden</span>
             </div>
@@ -377,7 +391,7 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 <button
                     type="submit"
                     id="btn-guardar-orden"
-                    class="flex-1 h-12 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition flex items-center justify-center gap-2"
+                    class="flex-1 h-12 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <i data-lucide="check" class="w-4 h-4"></i>
                     Aprobar Orden
@@ -404,6 +418,20 @@ const API_URL = "https://geoguard-exped.onrender.com";
     .animate-modal-in {
         animation: modalIn 0.2s ease-out;
     }
+    .eudr-validando {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .btn-accion-success {
+        transition: all 0.3s ease;
+    }
+    .btn-accion-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
 </style>
 
 <script is:inline src="https://unpkg.com/lucide@latest"></script>
@@ -416,7 +444,6 @@ const API_URL = "https://geoguard-exped.onrender.com";
     console.log("🛒 Página de Órdenes de Compra cargada");
 
     const API_URL = "https://geoguard-exped.onrender.com";
-    let muestrasData = [];
     let muestraSeleccionada = null;
 
     function getCookie(name) {
@@ -460,7 +487,6 @@ const API_URL = "https://geoguard-exped.onrender.com";
             const analisis = await cargarAnalisisMuestra(muestraId);
             
             if (analisis && analisis.fisico && analisis.sensorial) {
-                // ✅ Tiene ambos análisis
                 estadoFisico.textContent = '✅ Completado';
                 estadoFisico.className = 'estado-fisico font-medium text-emerald-600';
                 estadoSensorial.textContent = `✅ ${analisis.sensorial.puntajeTotal} pts`;
@@ -468,7 +494,6 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 btnSeleccionar.disabled = false;
                 btnSeleccionar.title = 'Seleccionar muestra para orden de compra';
             } else if (analisis && analisis.fisico) {
-                // ⚠️ Solo físico
                 estadoFisico.textContent = '✅ Completado';
                 estadoFisico.className = 'estado-fisico font-medium text-emerald-600';
                 estadoSensorial.textContent = '⏳ Pendiente';
@@ -476,7 +501,6 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 btnSeleccionar.disabled = true;
                 btnSeleccionar.title = 'Falta análisis sensorial';
             } else if (analisis && analisis.sensorial) {
-                // ⚠️ Solo sensorial
                 estadoFisico.textContent = '⏳ Pendiente';
                 estadoFisico.className = 'estado-fisico font-medium text-yellow-600';
                 estadoSensorial.textContent = `✅ ${analisis.sensorial.puntajeTotal} pts`;
@@ -484,7 +508,6 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 btnSeleccionar.disabled = true;
                 btnSeleccionar.title = 'Falta análisis físico';
             } else {
-                // ❌ Sin análisis
                 estadoFisico.textContent = '❌ No realizado';
                 estadoFisico.className = 'estado-fisico font-medium text-red-500';
                 estadoSensorial.textContent = '❌ No realizado';
@@ -493,14 +516,12 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 btnSeleccionar.title = 'Faltan análisis completos';
             }
 
-            // Guardar datos de análisis en el elemento
             if (analisis) {
                 item.dataset.analisisFisico = JSON.stringify(analisis.fisico);
                 item.dataset.analisisSensorial = JSON.stringify(analisis.sensorial);
             }
         }
 
-        // Recrear íconos
         if (window.lucide) window.lucide.createIcons();
     }
 
@@ -513,7 +534,6 @@ const API_URL = "https://geoguard-exped.onrender.com";
         if (show && muestraData && analisis) {
             muestraSeleccionada = muestraData;
             
-            // Llenar información de la muestra
             document.getElementById('orden-muestra-id').value = muestraData.id;
             document.getElementById('orden-finca').textContent = muestraData.fincaNombre || 'N/A';
             document.getElementById('orden-qr').textContent = muestraData.codigoQR || 'N/A';
@@ -522,14 +542,15 @@ const API_URL = "https://geoguard-exped.onrender.com";
             const puntaje = analisis.sensorial?.puntajeTotal || 'N/A';
             document.getElementById('orden-puntaje').textContent = puntaje;
             
-            // Volumen máximo disponible
             document.getElementById('orden-volumen-max').textContent = muestraData.pesoKg;
             document.getElementById('orden-volumen').max = muestraData.pesoKg;
             document.getElementById('orden-volumen').value = '';
             document.getElementById('orden-precio').value = '';
             document.getElementById('orden-primas').value = '';
             
-            // Ocultar errores
+            // Resetear estado EUDR
+            resetearEstadoEUDR();
+            
             document.getElementById('orden-error').classList.add('hidden');
             
             modal.classList.remove('hidden');
@@ -543,6 +564,73 @@ const API_URL = "https://geoguard-exped.onrender.com";
     }
 
     // ============================================================
+    // FUNCIONES DE ESTADO EUDR
+    // ============================================================
+
+    function resetearEstadoEUDR() {
+        const statusEl = document.getElementById('eudr-status');
+        const iconEl = document.getElementById('eudr-icon');
+        const detallesEl = document.getElementById('eudr-detalles');
+        const mensajeEl = document.getElementById('eudr-mensaje');
+        const containerEl = document.getElementById('eudr-container');
+        
+        statusEl.textContent = '⏳ Pendiente de validación';
+        statusEl.className = 'text-xs font-medium text-yellow-600';
+        iconEl.innerHTML = '<i data-lucide="clock" class="w-5 h-5 text-blue-600"></i>';
+        containerEl.className = 'bg-blue-50 border border-blue-200 rounded-xl p-4';
+        detallesEl.classList.add('hidden');
+        mensajeEl.textContent = 'Validación automática contra auditoría EUDR';
+        
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function actualizarEstadoEUDR(estado, mensaje, detalles = null) {
+        const statusEl = document.getElementById('eudr-status');
+        const iconEl = document.getElementById('eudr-icon');
+        const detallesEl = document.getElementById('eudr-detalles');
+        const mensajeEl = document.getElementById('eudr-mensaje');
+        const containerEl = document.getElementById('eudr-container');
+        
+        switch(estado) {
+            case 'validando':
+                statusEl.textContent = '⏳ Validando EUDR...';
+                statusEl.className = 'text-xs font-medium text-yellow-600 eudr-validando';
+                iconEl.innerHTML = '<i data-lucide="loader-circle" class="w-5 h-5 text-yellow-600 animate-spin"></i>';
+                containerEl.className = 'bg-yellow-50 border border-yellow-200 rounded-xl p-4';
+                break;
+                
+            case 'aprobado':
+                statusEl.textContent = '✅ Aprobado';
+                statusEl.className = 'text-xs font-medium text-emerald-600';
+                iconEl.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>';
+                containerEl.className = 'bg-emerald-50 border border-emerald-200 rounded-xl p-4';
+                break;
+                
+            case 'rechazado':
+                statusEl.textContent = '❌ Rechazado';
+                statusEl.className = 'text-xs font-medium text-red-600';
+                iconEl.innerHTML = '<i data-lucide="x-circle" class="w-5 h-5 text-red-600"></i>';
+                containerEl.className = 'bg-red-50 border border-red-200 rounded-xl p-4';
+                break;
+                
+            default:
+                resetearEstadoEUDR();
+                return;
+        }
+        
+        if (mensaje) {
+            mensajeEl.textContent = mensaje;
+            detallesEl.classList.remove('hidden');
+        }
+        
+        if (detalles) {
+            // Agregar detalles adicionales si se proporcionan
+        }
+        
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================
     // CREAR ORDEN DE COMPRA
     // ============================================================
 
@@ -553,12 +641,15 @@ const API_URL = "https://geoguard-exped.onrender.com";
         const volumenKg = parseFloat(document.getElementById('orden-volumen').value);
         const precioAcordado = parseFloat(document.getElementById('orden-precio').value);
         const primas = parseFloat(document.getElementById('orden-primas').value) || 0;
+        const errorDiv = document.getElementById('orden-error');
+        const errorText = document.getElementById('orden-error-text');
+        const btnGuardar = document.getElementById('btn-guardar-orden');
 
+        // Validaciones básicas
         if (!muestraId || isNaN(volumenKg) || isNaN(precioAcordado) || volumenKg <= 0 || precioAcordado <= 0) {
-            const errorDiv = document.getElementById('orden-error');
             errorDiv.classList.remove('hidden');
-            errorDiv.classList.add('text-red-500');
-            document.getElementById('orden-error-text').textContent = 'Volumen y precio son obligatorios y deben ser mayores a 0';
+            errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
+            errorText.textContent = 'Volumen y precio son obligatorios y deben ser mayores a 0';
             return;
         }
 
@@ -574,44 +665,109 @@ const API_URL = "https://geoguard-exped.onrender.com";
         try {
             const token = getToken();
             if (!token) {
-                const errorDiv = document.getElementById('orden-error');
                 errorDiv.classList.remove('hidden');
-                errorDiv.classList.add('text-red-500');
-                document.getElementById('orden-error-text').textContent = 'No hay sesión activa';
+                errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
+                errorText.textContent = 'No hay sesión activa';
                 return;
             }
 
-            const btnGuardar = document.getElementById('btn-guardar-orden');
             btnGuardar.disabled = true;
-            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Validando EUDR...';
+            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Validando...';
+
+            // Actualizar estado EUDR a "Validando"
+            actualizarEstadoEUDR('validando', 'Verificando auditoría EUDR de la finca...');
 
             const resultado = await AcopioService.aprobarOrdenCompra(payload, token);
             console.log('✅ Orden de compra creada:', resultado);
 
-            const errorDiv = document.getElementById('orden-error');
-            errorDiv.classList.remove('hidden', 'text-red-500');
-            errorDiv.classList.add('text-emerald-500');
-            document.getElementById('orden-error-text').textContent = `✅ Orden #${resultado.orden_id} aprobada - EUDR: ✅ Validada`;
+            // Actualizar estado EUDR a "Aprobado"
+            actualizarEstadoEUDR(
+                'aprobado', 
+                `✅ Orden #${resultado.orden_id} aprobada - Cumplimiento EUDR verificado`,
+                'La finca cuenta con auditoría EUDR aprobada y sin deforestación'
+            );
 
-            setTimeout(() => {
+            // ============================================================
+            // ✅ MODAL DE ÉXITO CON BOTÓN "IR A BODEGA"
+            // ============================================================
+            errorDiv.classList.remove('hidden');
+            errorDiv.className = 'text-sm flex flex-col items-center gap-2 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700';
+            
+            // Mensaje de éxito
+            const mensajeExito = document.createElement('div');
+            mensajeExito.className = 'flex items-center gap-2 w-full';
+            mensajeExito.innerHTML = `
+                <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600 flex-shrink-0"></i>
+                <span>✅ Orden #${resultado.orden_id} aprobada exitosamente</span>
+            `;
+            errorDiv.appendChild(mensajeExito);
+
+            // Botones de acción
+            const accionesDiv = document.createElement('div');
+            accionesDiv.className = 'flex flex-col sm:flex-row gap-3 w-full mt-2';
+            
+            // Botón "Ir a Bodega" (principal)
+            const btnBodega = document.createElement('button');
+            btnBodega.className = 'flex-1 h-10 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition flex items-center justify-center gap-2 btn-accion-success text-sm';
+            btnBodega.innerHTML = '<i data-lucide="package" class="w-4 h-4"></i> 📦 Ir a Bodega';
+            btnBodega.onclick = () => {
+                window.location.href = '/acopio/bodega';
+            };
+            accionesDiv.appendChild(btnBodega);
+
+            // Botón "Crear otra orden"
+            const btnOtraOrden = document.createElement('button');
+            btnOtraOrden.className = 'flex-1 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm';
+            btnOtraOrden.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i> Crear otra orden';
+            btnOtraOrden.onclick = () => {
                 toggleModalOrden(false);
+                // Recargar para mostrar muestras actualizadas
                 window.location.reload();
-            }, 2000);
+            };
+            accionesDiv.appendChild(btnOtraOrden);
+
+            errorDiv.appendChild(accionesDiv);
+
+            // Actualizar íconos
+            if (window.lucide) window.lucide.createIcons();
+
+            // Habilitar botón guardar
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Aprobar Orden';
 
         } catch (error) {
             console.error('❌ Error al crear orden de compra:', error);
-            const errorDiv = document.getElementById('orden-error');
-            errorDiv.classList.remove('hidden');
-            errorDiv.classList.add('text-red-500');
             
-            // Mensajes específicos para EUDR
             let mensaje = error.message || 'Error al crear la orden';
-            if (mensaje.includes('EUDR') || mensaje.includes('deforestación')) {
-                mensaje = '❌ Validación EUDR fallida: ' + mensaje;
-            }
-            document.getElementById('orden-error-text').textContent = mensaje;
+            let esErrorEUDR = false;
             
-            const btnGuardar = document.getElementById('btn-guardar-orden');
+            // Detectar si es error de EUDR
+            if (mensaje.includes('EUDR') || 
+                mensaje.includes('deforestación') || 
+                mensaje.includes('auditoría') ||
+                mensaje.includes('403')) {
+                esErrorEUDR = true;
+                
+                actualizarEstadoEUDR(
+                    'rechazado',
+                    '❌ Validación EUDR fallida',
+                    'La finca no cumple con los requisitos de cero deforestación'
+                );
+                
+                mensaje = '❌ Validación EUDR fallida: ' + mensaje;
+            } else {
+                resetearEstadoEUDR();
+            }
+            
+            errorDiv.classList.remove('hidden');
+            errorDiv.className = `text-sm flex items-center gap-2 p-3 rounded-xl ${esErrorEUDR ? 'bg-red-50 border border-red-200 text-red-600' : 'bg-orange-50 border border-orange-200 text-orange-600'}`;
+            
+            // Limpiar contenido anterior
+            errorDiv.innerHTML = `
+                <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+                <span id="orden-error-text">${mensaje}</span>
+            `;
+            
             btnGuardar.disabled = false;
             btnGuardar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Aprobar Orden';
             if (window.lucide) window.lucide.createIcons();
@@ -631,12 +787,10 @@ const API_URL = "https://geoguard-exped.onrender.com";
             const data = JSON.parse(item.dataset.muestraData);
             let mostrar = true;
 
-            // Filtro por finca
             if (fincaFilter !== 'todas' && data.fincaId !== fincaFilter) {
                 mostrar = false;
             }
 
-            // Filtro por estado de análisis
             if (estadoFilter !== 'todas') {
                 const btn = item.querySelector('.btn-seleccionar-muestra');
                 const tieneAnalisis = !btn.disabled;
@@ -659,10 +813,8 @@ const API_URL = "https://geoguard-exped.onrender.com";
     document.addEventListener('DOMContentLoaded', () => {
         console.log('🔧 Inicializando eventos...');
 
-        // Cargar análisis para todas las muestras
         cargarTodosLosAnalisis();
 
-        // ---- Botones Seleccionar Muestra ----
         document.querySelectorAll('.btn-seleccionar-muestra').forEach(btn => {
             btn.addEventListener('click', function() {
                 const muestraId = this.dataset.muestraId;
@@ -682,22 +834,18 @@ const API_URL = "https://geoguard-exped.onrender.com";
             });
         });
 
-        // ---- Cerrar Modal ----
         document.getElementById('btn-cerrar-modal')?.addEventListener('click', () => toggleModalOrden(false));
         document.getElementById('btn-cancelar-orden')?.addEventListener('click', () => toggleModalOrden(false));
         document.getElementById('modal-orden-compra')?.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) toggleModalOrden(false);
         });
 
-        // ---- Formulario ----
         document.getElementById('form-orden-compra')?.addEventListener('submit', crearOrdenCompra);
 
-        // ---- Filtros ----
         document.getElementById('btn-filtrar')?.addEventListener('click', filtrarMuestras);
         document.getElementById('filtro-finca')?.addEventListener('change', filtrarMuestras);
         document.getElementById('filtro-estado')?.addEventListener('change', filtrarMuestras);
 
-        // ---- Recrear íconos Lucide ----
         if (window.lucide) {
             window.lucide.createIcons();
         }

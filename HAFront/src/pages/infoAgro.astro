@@ -27,12 +27,19 @@ if (token) {
   error = "No hay sesión activa";
 }
 
-// Determinar si el usuario es INVESTIGADOR (puede editar)
-const esInvestigador = userRole === 'INVESTIGADOR' || userRole === 'TENANT_ADMIN' || userRole === 'SUPER_ADMIN';
-const esProductor = userRole === 'PRODUCTOR';
+// 🔥 DETERMINAR ROLES PERMITIDOS
+// Solo TÉCNICO_DE_CAMPO y ADMIN pueden editar
+const puedeEditar = userRole === 'TECNICO_DE_CAMPO' || 
+                    userRole === 'ADMIN' || 
+                    userRole === 'SUPER_ADMIN' || 
+                    userRole === 'TENANT_ADMIN';
 
-console.log("🔍 esInvestigador:", esInvestigador);
+const esProductor = userRole === 'PRODUCTOR';
+const esSoloLectura = !puedeEditar && !esProductor;
+
+console.log("🔍 puedeEditar:", puedeEditar);
 console.log("🔍 esProductor:", esProductor);
+console.log("🔍 esSoloLectura:", esSoloLectura);
 ---
 
 <DashboardLayout title="Información Agroambiental">
@@ -47,17 +54,28 @@ console.log("🔍 esProductor:", esProductor);
       <p class="text-on-surface-variant mt-2 max-w-3xl">
         Registro de variables ambientales complementarias asociadas a la finca.
       </p>
+      
+      <!-- Mensaje según rol -->
       {esProductor && (
         <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
           <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
           <strong>Modo solo lectura:</strong> Como PRODUCTOR, solo puedes visualizar la información agroambiental. 
-          Para registrar o modificar datos, contacta a un INVESTIGADOR.
+          Para registrar o modificar datos, contacta a un TÉCNICO DE CAMPO o ADMINISTRADOR.
         </div>
       )}
-      {esInvestigador && (
+      
+      {esSoloLectura && (
+        <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-700">
+          <span class="material-symbols-outlined text-sm align-middle mr-1">lock</span>
+          <strong>Sin permisos de edición:</strong> Tu rol no tiene permisos para modificar esta información. 
+          Solo TÉCNICO DE CAMPO y ADMINISTRADOR pueden registrar o modificar datos.
+        </div>
+      )}
+      
+      {puedeEditar && (
         <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
           <span class="material-symbols-outlined text-sm align-middle mr-1">edit</span>
-          <strong>Modo edición:</strong> Como INVESTIGADOR, puedes registrar y modificar la información agroambiental.
+          <strong>Modo edición:</strong> Como <strong>{userRole}</strong>, puedes registrar y modificar la información agroambiental.
         </div>
       )}
     </section>
@@ -87,8 +105,8 @@ console.log("🔍 esProductor:", esProductor);
             Volver
           </button>
           
-          <!-- BOTÓN GUARDAR - SOLO PARA INVESTIGADOR -->
-          {esInvestigador && (
+          <!-- BOTÓN GUARDAR - SOLO PARA TÉCNICO DE CAMPO Y ADMIN -->
+          {puedeEditar && (
             <button
               id="guardar-infoagro"
               class="px-4 py-2 bg-primary text-white rounded-xl hover:opacity-90 transition flex items-center gap-2"
@@ -98,8 +116,8 @@ console.log("🔍 esProductor:", esProductor);
             </button>
           )}
           
-          <!-- BOTÓN LIMPIAR - SOLO PARA INVESTIGADOR -->
-          {esInvestigador && (
+          <!-- BOTÓN LIMPIAR - SOLO PARA TÉCNICO DE CAMPO Y ADMIN -->
+          {puedeEditar && (
             <button
               id="limpiar-infoagro"
               class="px-4 py-2 bg-surface text-on-surface-variant border border-outline-variant rounded-xl hover:bg-surface-container-high transition flex items-center gap-2"
@@ -114,7 +132,7 @@ console.log("🔍 esProductor:", esProductor);
       <div class="p-6">
         <p class="text-on-surface-variant mb-6">
           Complete la información agroambiental de la finca. Los campos marcados con <span class="text-error">*</span> son obligatorios.
-          {esProductor && " (Solo lectura)"}
+          {!puedeEditar && " (Solo lectura)"}
         </p>
 
         <form id="infoagro-form">
@@ -129,8 +147,8 @@ console.log("🔍 esProductor:", esProductor);
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                readonly={esProductor}
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -144,8 +162,8 @@ console.log("🔍 esProductor:", esProductor);
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                readonly={esProductor}
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -154,7 +172,7 @@ console.log("🔍 esProductor:", esProductor);
               <label class="block mb-2 text-sm font-medium text-on-surface-variant">
                 Uso de Suelo <span class="text-error">*</span>
               </label>
-              {esProductor ? (
+              {!puedeEditar ? (
                 <input
                   id="uso_suelo_text"
                   type="text"
@@ -183,7 +201,7 @@ console.log("🔍 esProductor:", esProductor);
               <label class="block mb-2 text-sm font-medium text-on-surface-variant">
                 Cobertura Forestal <span class="text-error">*</span>
               </label>
-              {esProductor ? (
+              {!puedeEditar ? (
                 <input
                   id="cobertura_forestal_text"
                   type="text"
@@ -212,7 +230,7 @@ console.log("🔍 esProductor:", esProductor);
               <label class="block mb-2 text-sm font-medium text-on-surface-variant">
                 Sistema de Producción <span class="text-error">*</span>
               </label>
-              {esProductor ? (
+              {!puedeEditar ? (
                 <input
                   id="sistema_produccion_text"
                   type="text"
@@ -246,8 +264,8 @@ console.log("🔍 esProductor:", esProductor);
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                readonly={esProductor}
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -261,8 +279,8 @@ console.log("🔍 esProductor:", esProductor);
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                readonly={esProductor}
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -276,8 +294,8 @@ console.log("🔍 esProductor:", esProductor);
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                readonly={esProductor}
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -291,8 +309,8 @@ console.log("🔍 esProductor:", esProductor);
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                readonly={esProductor}
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -355,9 +373,6 @@ console.log("🔍 esProductor:", esProductor);
       </div>
     </section>
 
-    <!-- PUNTO GEOGRÁFICO - ELIMINADO -->
-    <!-- La sección de mapa y coordenadas ha sido removida -->
-
   </div>
 </DashboardLayout>
 
@@ -402,9 +417,9 @@ console.log("🔍 esProductor:", esProductor);
   const urlParams = new URLSearchParams(window.location.search);
   const fincaId = urlParams.get("finca_id");
 
-  // Determinar si el usuario es PRODUCTOR (solo lectura)
+  // 🔥 DETERMINAR SI EL USUARIO PUEDE EDITAR (desde el servidor)
+  const puedeEditar = window.PUEDE_EDITAR === true || false;
   const esProductor = window.ES_PRODUCTOR === true || false;
-  const esInvestigador = !esProductor;
 
   // Variable para almacenar el dato_id si existe
   let datoId = null;
@@ -443,7 +458,6 @@ console.log("🔍 esProductor:", esProductor);
     if (siguienteContainer) {
       if (mostrar && fincaId) {
         siguienteContainer.classList.remove('hidden');
-        // Construir URL con finca_id y dato_id
         let url = `/satelital?finca_id=${fincaId}`;
         if (idAgroambiental) {
           url += `&dato_id=${idAgroambiental}`;
@@ -488,7 +502,7 @@ console.log("🔍 esProductor:", esProductor);
     }
   }
 
-  // Limpiar formulario (solo para INVESTIGADOR)
+  // Limpiar formulario (solo para usuarios con permiso)
   function limpiarFormulario() {
     Object.values(fields).forEach(field => {
       if (field && field.tagName === 'INPUT' && !field.readOnly) {
@@ -542,8 +556,8 @@ console.log("🔍 esProductor:", esProductor);
         if (fields.hojarasca_mantillo) fields.hojarasca_mantillo.value = dato.hojarasca_mantillo ?? '';
         if (fields.carbono_organico_suelo) fields.carbono_organico_suelo.value = dato.carbono_organico_suelo ?? '';
         
-        // Si es PRODUCTOR (solo lectura), mostrar los valores en texto
-        if (esProductor) {
+        // Si NO puede editar, mostrar los valores en texto
+        if (!puedeEditar) {
           if (fields.uso_suelo_text) {
             fields.uso_suelo_text.value = mapUsoSuelo[dato.uso_suelo] || dato.uso_suelo || 'No especificado';
           }
@@ -554,7 +568,7 @@ console.log("🔍 esProductor:", esProductor);
             fields.sistema_produccion_text.value = mapSistemaProduccion[dato.sistema_produccion] || dato.sistema_produccion || 'No especificado';
           }
         } else {
-          // Si es INVESTIGADOR, seleccionar los valores en los selects
+          // Si puede editar, seleccionar los valores en los selects
           if (fields.uso_suelo) fields.uso_suelo.value = dato.uso_suelo ?? '';
           if (fields.cobertura_forestal) fields.cobertura_forestal.value = dato.cobertura_forestal ?? '';
           if (fields.sistema_produccion) fields.sistema_produccion.value = dato.sistema_produccion ?? '';
@@ -576,8 +590,8 @@ console.log("🔍 esProductor:", esProductor);
                   name="variables[${v.nombre}]"
                   value="${v.valor || ''}"
                   placeholder="${v.nombre}"
-                  ${esProductor ? 'readonly' : ''}
-                  class="w-full h-14 px-4 rounded-xl border border-outline-variant ${esProductor ? 'bg-surface-container-low' : 'bg-white'} text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                  ${!puedeEditar ? 'readonly' : ''}
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant ${!puedeEditar ? 'bg-surface-container-low' : 'bg-white'} text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
             `)
@@ -590,7 +604,7 @@ console.log("🔍 esProductor:", esProductor);
         // Mostrar el botón "Siguiente" con el dato_id
         mostrarBotonSiguiente(true, datoId);
         
-        if (!esProductor) {
+        if (puedeEditar) {
           showMessage('✅ Datos cargados correctamente. Puedes modificarlos y guardar.', false);
           setTimeout(hideMessage, 3000);
         }
@@ -598,12 +612,11 @@ console.log("🔍 esProductor:", esProductor);
         datosCargados = false;
         dynamicVariablesContainer.classList.add('hidden');
         dynamicVariablesEl.innerHTML = '';
-        if (esProductor) {
+        if (!puedeEditar) {
           if (fields.uso_suelo_text) fields.uso_suelo_text.value = 'No especificado';
           if (fields.cobertura_forestal_text) fields.cobertura_forestal_text.value = 'No especificado';
           if (fields.sistema_produccion_text) fields.sistema_produccion_text.value = 'No especificado';
         }
-        // Ocultar el botón "Siguiente" si no hay datos
         mostrarBotonSiguiente(false);
       }
     } catch (error) {
@@ -611,22 +624,18 @@ console.log("🔍 esProductor:", esProductor);
       datosCargados = false;
       dynamicVariablesContainer.classList.add('hidden');
       dynamicVariablesEl.innerHTML = '';
-      if (esProductor) {
+      if (!puedeEditar) {
         if (fields.uso_suelo_text) fields.uso_suelo_text.value = 'Error al cargar';
         if (fields.cobertura_forestal_text) fields.cobertura_forestal_text.value = 'Error al cargar';
         if (fields.sistema_produccion_text) fields.sistema_produccion_text.value = 'Error al cargar';
       }
-      // Ocultar el botón "Siguiente" en caso de error
       mostrarBotonSiguiente(false);
     }
   }
 
-  // Cargar datos de la finca (solo coordenadas - ELIMINADO)
-  // Ya no se cargan coordenadas porque se eliminó la sección
-
-  // Guardar datos agroambientales (solo para INVESTIGADOR)
+  // Guardar datos agroambientales (solo para usuarios con permiso)
   async function guardarInfoAgro() {
-    if (esProductor) {
+    if (!puedeEditar) {
       showMessage('❌ No tienes permisos para modificar esta información.', true);
       return;
     }
@@ -687,7 +696,6 @@ console.log("🔍 esProductor:", esProductor);
         showMessage('✅ Información agroambiental creada correctamente.', false);
       }
       
-      // Mostrar el botón "Siguiente" después de guardar con el datoId
       mostrarBotonSiguiente(true, datoId);
       
       setTimeout(hideMessage, 3000);
@@ -705,16 +713,16 @@ console.log("🔍 esProductor:", esProductor);
     });
   }
 
-  // --- EVENTO GUARDAR (solo para INVESTIGADOR) ---
-  if (guardarBtn && !esProductor) {
+  // --- EVENTO GUARDAR (solo para usuarios con permiso) ---
+  if (guardarBtn && puedeEditar) {
     guardarBtn.addEventListener('click', (e) => {
       e.preventDefault();
       guardarInfoAgro();
     });
   }
 
-  // --- EVENTO LIMPIAR (solo para INVESTIGADOR) ---
-  if (limpiarBtn && !esProductor) {
+  // --- EVENTO LIMPIAR (solo para usuarios con permiso) ---
+  if (limpiarBtn && puedeEditar) {
     limpiarBtn.addEventListener('click', () => {
       if (confirm('¿Estás seguro de que quieres limpiar todos los campos?')) {
         limpiarFormulario();
@@ -724,19 +732,18 @@ console.log("🔍 esProductor:", esProductor);
     });
   }
 
-  // Recalcular total stock al cambiar campos relevantes (solo para INVESTIGADOR)
-  if (!esProductor) {
-    const camposStock = ['biomasa_arboles', 'biomasa_cafe', 'hojarasca_mantillo', 'carbono_organico_suelo'];
-    camposStock.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener('input', calcularTotalStock);
-        el.addEventListener('change', calcularTotalStock);
-      }
-    });
-  }
+  // Recalcular total stock al cambiar campos relevantes
+  const camposStock = ['biomasa_arboles', 'biomasa_cafe', 'hojarasca_mantillo', 'carbono_organico_suelo'];
+  camposStock.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', calcularTotalStock);
+      el.addEventListener('change', calcularTotalStock);
+    }
+  });
 
   // Inicializar
   console.log('🚀 [INFOAGRO] Inicializando página...');
+  console.log('🔍 puedeEditar:', puedeEditar);
   loadExistingData();
 </script>

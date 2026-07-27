@@ -4,18 +4,62 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from prisma import Prisma
+from pydantic import BaseModel
 
 from app.database import get_db
-from app.dependencies import log_user_action, require_roles
+from app.dependencies import log_user_action, require_roles, get_current_user
 from app.routers.acopio.laboratorio import clasificar
 from app.routers.acopio.roles import CONSULTA, GERENCIA
-from app.schemas.acopio import DespachoCreate
+from app.schemas.acopio import DespachoCreate, InventarioAcopioOut
 from app.utils.pdf_generator import generar_certificado_pdf
+
+
+class DespachoHistorialOut(BaseModel):
+    """Historial de despachos con información de trazabilidad."""
+    id: str
+    ordenCompraId: str
+    pesoIngresoKg: float
+    pesoSalidaKg: float
+    estado: str
+
+    class Config:
+        from_attributes = True
+
 
 router = APIRouter(prefix="/acopio/despachos", tags=["Acopio - Exportación y Despachos"])
 
 
-def obtener_datos_trazabilidad(db: Prisma, inventario_id: int) -> dict:
+@router.get(
+    "/",
+    response_model=list[DespachoHistorialOut],
+    summary="Listar historial de todos los despachos",
+)
+def listar_despachos(
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: dict = Depends(require_roles(*CONSULTA)),
+):
+    """
+    Obtiene el historial completo de despachos registrados.
+
+    **Retorna:**
+    - Lista de todos los despachos con: ID inventario, peso ingreso, peso salida, estado actual
+    - Ordena por más recientes primero
+    - Incluye despachos parciales y completos para auditoría
+
+    **Caso de Uso:**
+    - Auditar trazabilidad de exportación
+    - Verificar control antifraude (kg salida ≤ kg ingreso)
+    - Generar reportes de movimiento en bodega
+    """
+    despachos = db.inventarioacopio.find_many(
+        where={"pesoSalidaKg": {"gt": 0}},
+        include={"ordenCompra": True},
+        order={"id": "desc"}
+    )
+    return despachos
+
+
+def obtener_datos_trazabilidad(db: Prisma, inventario_id: str) -> dict:
     """
     Reconstruye el pasaporte consolidado de trazabilidad de un lote:
     Muestra -> Laboratorio -> EUDR -> Trilla -> Despacho.
@@ -145,7 +189,7 @@ def registrar_despacho(
 
 @router.get("/certificado/{inventario_id}")
 def generar_certificado_trazabilidad(
-    inventario_id: int,
+    inventario_id: str,
     db: Annotated[Prisma, Depends(get_db)],
     current_user: dict = Depends(require_roles(*CONSULTA)),
 ):
@@ -158,7 +202,7 @@ def generar_certificado_trazabilidad(
 
 @router.get("/certificado/{inventario_id}/pdf")
 def descargar_certificado_pdf(
-    inventario_id: int,
+    inventario_id: str,
     db: Annotated[Prisma, Depends(get_db)],
     current_user: dict = Depends(require_roles(*CONSULTA)),
 ):
