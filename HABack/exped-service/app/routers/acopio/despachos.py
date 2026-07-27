@@ -59,7 +59,7 @@ def listar_despachos(
     return despachos
 
 
-def obtener_datos_trazabilidad(db: Prisma, inventario_id: int) -> dict:
+def obtener_datos_trazabilidad(db: Prisma, inventario_id: str) -> dict:
     """
     Reconstruye el pasaporte consolidado de trazabilidad de un lote:
     Muestra -> Laboratorio -> EUDR -> Trilla -> Despacho.
@@ -189,7 +189,7 @@ def registrar_despacho(
 
 @router.get("/certificado/{inventario_id}")
 def generar_certificado_trazabilidad(
-    inventario_id: int,
+    inventario_id: str,
     db: Annotated[Prisma, Depends(get_db)],
     current_user: dict = Depends(require_roles(*CONSULTA)),
 ):
@@ -202,7 +202,7 @@ def generar_certificado_trazabilidad(
 
 @router.get("/certificado/{inventario_id}/pdf")
 def descargar_certificado_pdf(
-    inventario_id: int,
+    inventario_id: str,
     db: Annotated[Prisma, Depends(get_db)],
     current_user: dict = Depends(require_roles(*CONSULTA)),
 ):
