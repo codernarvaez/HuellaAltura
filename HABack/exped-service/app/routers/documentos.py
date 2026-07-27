@@ -178,10 +178,10 @@ async def subir_documento(
 
     hash_sha256 = hashlib.sha256(contenido).hexdigest()
     carpeta_normalizada = f"{_normalizar_carpeta(organizacion_inquilino)}/{productor_id or finca_id}"
-    nombre_normalizado = _normalizar_carpeta(archivo.filename or tipo_documento)
+    # NO normalizar el nombre - solo la carpeta. Cloudinary necesita la extensión real (.pdf, .jpg, etc)
     url = subir_documento_privado(
         contenido=contenido,
-        nombre=nombre_normalizado,
+        nombre=archivo.filename or tipo_documento,
         carpeta=carpeta_normalizada,
     )
 
