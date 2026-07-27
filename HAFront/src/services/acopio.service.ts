@@ -102,14 +102,16 @@ export interface OrdenCompraCreate {
 }
 
 export interface OrdenCompraOut {
-  id: number;
+  id: string;
   muestraId: string;
+  fincaNombre?: string;
   precioAcordado: number;
   volumenKg: number;
   primas: number;
   aprobadoEUDR: boolean;
   estado: string;
   creadoEn: string;
+  codigoQR?: string;
 }
 
 // ============================================================
@@ -133,6 +135,7 @@ export interface BodegaIngresoOut {
 export interface InventarioOut {
   id: number;
   ordenCompraId: string;
+  codigoQR?: string;
   pesoIngresoKg: number;
   pesoSalidaKg: number;
   estado: "EN_BODEGA" | "EN_TRILLA" | "DESPACHADO";
@@ -244,10 +247,6 @@ export class AcopioService {
   // 1. MUESTRAS
   // ============================================================
 
-  /**
-   * Registra una nueva muestra en finca
-   * POST /acopio/muestras/
-   */
   static async registrarMuestra(
     payload: MuestraCreate,
     token?: string
@@ -265,10 +264,6 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
-  /**
-   * Obtiene todas las muestras de una finca por UUID
-   * GET /acopio/muestras/{fincaId}
-   */
   static async getMuestrasByFinca(
     fincaId: string,
     token?: string
@@ -285,10 +280,6 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
-  /**
-   * Obtiene una muestra específica por su UUID
-   * GET /acopio/muestras/uuid/{muestraId}
-   */
   static async getMuestraByUuid(
     muestraId: string,
     token?: string
@@ -305,14 +296,25 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
+  static async getMuestras(
+    token?: string
+  ): Promise<MuestraOut[]> {
+    console.log('🔍 Obteniendo todas las muestras');
+    
+    const response = await fetch(`${ACOPIO_BASE}/muestras/`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    console.log('📡 Response:', data);
+    return handleResponse(response, data);
+  }
+
   // ============================================================
   // 2. LABORATORIO - ANÁLISIS FÍSICO
   // ============================================================
 
-  /**
-   * Registra el análisis físico de una muestra
-   * POST /acopio/laboratorio/fisico
-   */
   static async registrarAnalisisFisico(
     payload: AnalisisFisicoCreate,
     token?: string
@@ -330,10 +332,6 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
-  /**
-   * Obtiene el análisis físico de una muestra
-   * GET /acopio/laboratorio/fisico/{muestraId}
-   */
   static async getAnalisisFisico(
     muestraId: string,
     token?: string
@@ -374,10 +372,6 @@ export class AcopioService {
   // 3. LABORATORIO - ANÁLISIS SENSORIAL
   // ============================================================
 
-  /**
-   * Registra el análisis sensorial (catación) de una muestra
-   * POST /acopio/laboratorio/sensorial
-   */
   static async registrarAnalisisSensorial(
     payload: AnalisisSensorialCreate,
     token?: string
@@ -395,10 +389,6 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
-  /**
-   * Obtiene el análisis sensorial de una muestra
-   * GET /acopio/laboratorio/sensorial/{muestraId}
-   */
   static async getAnalisisSensorial(
     muestraId: string,
     token?: string
@@ -462,15 +452,61 @@ export class AcopioService {
     console.log('📋 Obteniendo órdenes de compra:', params);
     
     let url = `${ACOPIO_BASE}/compras/`;
-    if (params) {
-      const queryParams = new URLSearchParams();
-      if (params.estado) queryParams.append('estado', params.estado);
-      url = `${url}?${queryParams.toString()}`;
+    if (params?.estado) {
+      url = `${url}?estado=${params.estado}`;
     }
     
     const response = await fetch(url, {
       method: "GET",
       headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    console.log('📡 Response:', data.length || 0, 'órdenes');
+    return handleResponse(response, data);
+  }
+
+  static async getOrdenCompraById(
+    ordenId: number | string,
+    token?: string
+  ): Promise<OrdenCompraOut> {
+    console.log('🔍 Obteniendo orden de compra:', ordenId);
+    
+    const response = await fetch(`${ACOPIO_BASE}/compras/${ordenId}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  static async getMuestraCompraById(
+    muestraId: string,
+    token?: string
+  ): Promise<MuestraOut> {
+    console.log('🔍 Obteniendo muestra desde compras:', muestraId);
+    
+    const response = await fetch(`${ACOPIO_BASE}/compras/muestra/${muestraId}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  static async actualizarEstadoOrden(
+    ordenId: number | string,
+    estado: string,
+    token?: string
+  ): Promise<{ mensaje: string; orden_id: number; estado: string }> {
+    console.log('📝 Actualizando estado de orden:', ordenId, '->', estado);
+    
+    const response = await fetch(`${ACOPIO_BASE}/compras/${ordenId}/estado`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ estado }),
     });
     
     const data = await response.json();
@@ -497,33 +533,96 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
-  static async getInventario(
-    inventarioId: number,
+  /**
+   * Obtiene un inventario por ID
+   * GET /acopio/bodega/{inventarioId}
+   */
+  static async getInventarioById(
+    inventarioId: number | string,
     token?: string
-  ): Promise<InventarioOut> {
-    console.log('🔍 Obteniendo inventario:', inventarioId);
+  ): Promise<InventarioOut | null> {
+    console.log('🔍 Obteniendo inventario por ID:', inventarioId);
     
-    const response = await fetch(`${ACOPIO_BASE}/bodega/${inventarioId}`, {
-      method: "GET",
-      headers: authHeaders(token),
-    });
-    
-    const data = await response.json();
-    return handleResponse(response, data);
+    try {
+      const response = await fetch(`${ACOPIO_BASE}/bodega/${inventarioId}`, {
+        method: "GET",
+        headers: authHeaders(token),
+      });
+      
+      if (response.status === 404) {
+        console.log('ℹ️ Inventario no encontrado (404)');
+        return null;
+      }
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || `Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📡 Response:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en getInventarioById:', error);
+      return null;
+    }
   }
 
-  static async getInventarioAll(
+  /**
+   * Obtiene el inventario asociado a una orden de compra
+   */
+  static async getInventarioByOrdenCompra(
+    ordenCompraId: string,
     token?: string
-  ): Promise<InventarioOut[]> {
+  ): Promise<InventarioOut | null> {
+    console.log('🔍 Obteniendo inventario por orden:', ordenCompraId);
+    return this.getInventarioById(ordenCompraId, token);
+  }
+
+  /**
+   * 🔥 NUEVO: Obtiene todos los inventarios (recorriendo órdenes)
+   * GET /acopio/bodega/
+   */
+  static async getInventarioAll(token?: string): Promise<InventarioOut[]> {
     console.log('📋 Obteniendo todo el inventario');
     
-    const response = await fetch(`${ACOPIO_BASE}/bodega/`, {
-      method: "GET",
-      headers: authHeaders(token),
-    });
-    
-    const data = await response.json();
-    return handleResponse(response, data);
+    try {
+      // Primero intentamos obtener directamente de /acopio/bodega/
+      const response = await fetch(`${ACOPIO_BASE}/bodega/`, {
+        method: "GET",
+        headers: authHeaders(token),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📦 Inventario obtenido directamente:', data.length || 0);
+        return data;
+      }
+      
+      // Si el endpoint directo falla, intentamos con el método alternativo
+      console.log('ℹ️ Endpoint directo falló, usando método alternativo...');
+      
+      const ordenes = await this.getOrdenesCompra(token);
+      console.log('📋 Órdenes para buscar inventario:', ordenes.length);
+      
+      const inventarios: InventarioOut[] = [];
+      for (const orden of ordenes) {
+        const inventario = await this.getInventarioByOrdenCompra(orden.id, token);
+        if (inventario) {
+          inventarios.push({
+            ...inventario,
+            ordenCompraId: orden.id,
+            codigoQR: orden.codigoQR || 'N/A'
+          });
+        }
+      }
+      
+      console.log('📦 Inventarios encontrados:', inventarios.length);
+      return inventarios;
+    } catch (error) {
+      console.error('❌ Error en getInventarioAll:', error);
+      return [];
+    }
   }
 
   // ============================================================
@@ -546,6 +645,21 @@ export class AcopioService {
     return handleResponse(response, data);
   }
 
+  static async getHistorialTrilla(
+    inventarioId: number,
+    token?: string
+  ): Promise<any[]> {
+    console.log('🔍 Obteniendo historial de trilla:', inventarioId);
+    
+    const response = await fetch(`${ACOPIO_BASE}/trilla/historial/${inventarioId}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
   // ============================================================
   // 7. DESPACHOS
   // ============================================================
@@ -560,6 +674,20 @@ export class AcopioService {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify(payload),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  static async getDespachos(
+    token?: string
+  ): Promise<any[]> {
+    console.log('📋 Obteniendo despachos');
+    
+    const response = await fetch(`${ACOPIO_BASE}/despachos/`, {
+      method: "GET",
+      headers: authHeaders(token),
     });
     
     const data = await response.json();
@@ -605,4 +733,73 @@ export class AcopioService {
     
     return response.blob();
   }
+
+  // ============================================================
+  // 9. ESTADÍSTICAS Y REPORTES
+  // ============================================================
+
+  static async getEstadisticas(
+    token?: string
+  ): Promise<any> {
+    console.log('📊 Obteniendo estadísticas');
+    
+    const response = await fetch(`${ACOPIO_BASE}/estadisticas`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  static async getResumenFinca(
+    fincaId: string,
+    token?: string
+  ): Promise<any> {
+    console.log('📊 Obteniendo resumen de finca:', fincaId);
+    
+    const response = await fetch(`${ACOPIO_BASE}/estadisticas/finca/${fincaId}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  // ============================================================
+  // 10. CÓDIGOS QR
+  // ============================================================
+
+  static async generarQR(
+    muestraId: string,
+    token?: string
+  ): Promise<{ mensaje: string; codigoQR: string; url: string }> {
+    console.log('🏷️ Generando QR para muestra:', muestraId);
+    
+    const response = await fetch(`${ACOPIO_BASE}/muestras/${muestraId}/generar-qr`, {
+      method: "POST",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
+
+  static async validarQR(
+    codigoQR: string,
+    token?: string
+  ): Promise<{ valido: boolean; muestra?: MuestraOut }> {
+    console.log('🔍 Validando QR:', codigoQR);
+    
+    const response = await fetch(`${ACOPIO_BASE}/muestras/validar-qr/${codigoQR}`, {
+      method: "GET",
+      headers: authHeaders(token),
+    });
+    
+    const data = await response.json();
+    return handleResponse(response, data);
+  }
 }
+
+export const acopioService = AcopioService;
