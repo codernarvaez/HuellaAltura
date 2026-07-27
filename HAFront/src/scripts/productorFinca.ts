@@ -451,4 +451,200 @@ document.addEventListener('DOMContentLoaded', () => {
       notify('❌ Error al procesar el archivo: ' + error.message, 'error');
     }
   });
+
+  // ---------- BLOQUE 3: Documentos de la Finca (título de propiedad, cédula, etc.) ----------
+  const docTipoSelect = document.getElementById('doc-tipo') as HTMLSelectElement | null;
+  const docArchivoInput = document.getElementById('doc-archivo') as HTMLInputElement | null;
+  const docArchivoBtn = document.getElementById('doc-archivo-btn');
+  const docArchivoNombre = document.getElementById('doc-archivo-nombre');
+  const docSubirBtn = document.getElementById('doc-subir-btn');
+  const docProgreso = document.getElementById('doc-progreso');
+  const docResultado = document.getElementById('doc-resultado');
+  const documentosLista = document.getElementById('documentos-lista');
+
+  const TIPO_DOC_LABELS: Record<string, string> = {
+    TITULO_PROPIEDAD: 'Título de Propiedad',
+    CEDULA: 'Cédula',
+    RUC: 'RUC',
+    ESCRITURA: 'Escritura'
+  };
+
+  // Botón custom que dispara el input file oculto
+  docArchivoBtn?.addEventListener('click', () => docArchivoInput?.click());
+
+  // Muestra el nombre del archivo elegido antes de subirlo
+  docArchivoInput?.addEventListener('change', () => {
+    const archivo = docArchivoInput.files?.[0];
+    if (docArchivoNombre) {
+      if (archivo) {
+        docArchivoNombre.textContent = archivo.name;
+        docArchivoNombre.classList.add('doc-archivo-seleccionado');
+      } else {
+        docArchivoNombre.textContent = 'Seleccionar archivo...';
+        docArchivoNombre.classList.remove('doc-archivo-seleccionado');
+      }
+    }
+  });
+
+  function resetDocArchivoInput() {
+    if (docArchivoInput) docArchivoInput.value = '';
+    if (docArchivoNombre) {
+      docArchivoNombre.textContent = 'Seleccionar archivo...';
+      docArchivoNombre.classList.remove('doc-archivo-seleccionado');
+    }
+  }
+
+  async function cargarListaDocumentos() {
+  if (!documentosLista || !fincaData?.id) return;
+  try {
+    const token = getCookie('token');
+    const documentos = await FincaService.listarDocumentos(fincaData.id, token);
+
+    if (!documentos || documentos.length === 0) {
+      documentosLista.innerHTML = `<p class="text-sm text-on-surface-variant">No hay documentos cargados aún.</p>`;
+      return;
+    }
+
+    documentosLista.innerHTML = documentos.map((doc: any) => `
+      <div class="flex items-center gap-3 p-3 bg-surface border border-outline-variant rounded-xl">
+        <span class="material-symbols-outlined text-primary">description</span>
+        <div class="flex-1 min-w-0">
+          <p class="font-medium text-sm truncate">${doc.nombre_archivo}</p>
+          <p class="text-xs text-on-surface-variant">${TIPO_DOC_LABELS[doc.tipo_documento] || doc.tipo_documento}</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" class="doc-ver-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition text-primary" title="Ver documento" data-doc-id="${doc.id}">
+            <span class="material-symbols-outlined text-sm">visibility</span>
+          </button>
+          <button type="button" class="doc-descargar-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition text-primary" title="Descargar documento" data-doc-id="${doc.id}">
+            <span class="material-symbols-outlined text-sm">download</span>
+          </button>
+          <button type="button" class="doc-eliminar-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-red-50 transition text-red-600" title="Eliminar documento" data-doc-id="${doc.id}">
+            <span class="material-symbols-outlined text-sm">delete</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    async function abrirArchivo(doc: any, modo: 'ver' | 'descargar') {
+      try {
+        const res = await fetch(doc.url_storage, {
+          headers: { 'Authorization': `Bearer ${getCookie('token')}` }
+        });
+        
+        if (!res.ok) {
+          throw new Error(`El servidor respondió ${res.status}. La ruta del archivo puede estar mal generada en el backend.`);
+        }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        if (modo === 'ver') {
+          window.open(blobUrl, '_blank');
+        } else {
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = doc.nombre_archivo;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } catch (err: any) {
+        notify('❌ No se pudo acceder al archivo: ' + (err.message || 'ruta inválida en el servidor'), 'error');
+      }
+    }
+
+    documentosLista.querySelectorAll('.doc-ver-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).dataset.docId!;
+        const doc = documentos.find((d: any) => d.id === id);
+        if (doc) abrirArchivo(doc, 'ver');
+      });
+    });
+
+    documentosLista.querySelectorAll('.doc-descargar-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).dataset.docId!;
+        const doc = documentos.find((d: any) => d.id === id);
+        if (doc) abrirArchivo(doc, 'descargar');
+      });
+    });
+
+    documentosLista.querySelectorAll('.doc-eliminar-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.docId!;
+        const doc = documentos.find((d: any) => d.id === id);
+        if (!doc) return;
+        if (!confirm(`¿Eliminar "${doc.nombre_archivo}"? Esta acción no se puede deshacer.`)) return;
+        try {
+          const token = getCookie('token');
+          await FincaService.eliminarDocumento(id, token);
+          notify('✅ Documento eliminado correctamente', 'success');
+          await cargarListaDocumentos();
+        } catch (error: any) {
+          notify('❌ Error al eliminar documento: ' + (error.message || ''), 'error');
+        }
+      });
+    });
+  } catch {
+    documentosLista.innerHTML = `<p class="text-sm text-red-600">Error al cargar documentos.</p>`;
+  }
+}
+
+  docSubirBtn?.addEventListener('click', async () => {
+    const tipo = docTipoSelect?.value || '';
+    const archivo = docArchivoInput?.files?.[0];
+
+    if (!tipo) {
+      alert('⚠️ Selecciona un tipo de documento.');
+      return;
+    }
+    if (!archivo) {
+      alert('⚠️ Selecciona un archivo.');
+      return;
+    }
+    if (!fincaData?.id) {
+      notify('⚠️ Primero debes guardar la finca antes de subir documentos.', 'warning');
+      return;
+    }
+
+    docProgreso?.classList.remove('hidden');
+    docResultado?.classList.add('hidden');
+    if (docSubirBtn instanceof HTMLButtonElement) docSubirBtn.disabled = true;
+
+    try {
+      const token = getCookie('token');
+      console.log('file:' + archivo.name + ' type:' + tipo + ' finca_id:' + fincaData.id);
+      const result = await FincaService.subirDocumento(fincaData.id, tipo, archivo, token);
+
+      if (docResultado) {
+        docResultado.className = 'mb-3 p-3 bg-green-50 text-green-700 border border-green-500 rounded-xl text-sm';
+        docResultado.innerHTML = `
+          <div class="flex items-center justify-between gap-3">
+            <span>✅ "${result.nombre_archivo || archivo.name}" subido exitosamente.</span>
+            ${result.url_storage ? `<a href="${result.url_storage}" target="_blank" rel="noopener noreferrer" class="underline font-medium shrink-0">Ver documento</a>` : ''}
+          </div>
+        `;
+        docResultado.classList.remove('hidden');
+      }
+      notify('✅ Documento subido exitosamente', 'success');
+
+      if (docTipoSelect) docTipoSelect.value = '';
+      resetDocArchivoInput();
+      await cargarListaDocumentos();
+    } catch (error: any) {
+      if (docResultado) {
+        docResultado.className = 'mb-3 p-3 bg-red-50 text-red-700 border border-red-500 rounded-xl text-sm';
+        docResultado.textContent = '❌ Error: ' + (error.message || 'Error al subir documento');
+        docResultado.classList.remove('hidden');
+      }
+      notify('❌ Error al subir documento: ' + (error.message || ''), 'error');
+    } finally {
+      docProgreso?.classList.add('hidden');
+      if (docSubirBtn instanceof HTMLButtonElement) docSubirBtn.disabled = false;
+    }
+  });
+
+  if (fincaData?.id) {
+    cargarListaDocumentos();
+  }
 });

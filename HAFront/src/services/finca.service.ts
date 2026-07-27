@@ -162,4 +162,61 @@ export class FincaService {
     console.log('✅ delete Data:', data);
     return data;
   }
+static async subirDocumento(
+  fincaId: string,
+  tipoDocumento: string,
+  archivo: File,
+  token: string
+): Promise<any> {
+  const formData = new FormData();
+  console.log('file:' + archivo.webkitRelativePath + ' type:' + tipoDocumento + ' finca_id:' + fincaId);
+  
+  formData.append("organizacion_inquilino", "Asociación APECAEL");
+  formData.append("tipo_documento", tipoDocumento);
+  formData.append("finca_id", fincaId);
+  formData.append("archivo", archivo);
+
+
+
+  const response = await fetch(`${API_URL}/api/v1/documentos/subir`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`
+      // No pongas Content-Type: el navegador arma el boundary del multipart solo
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.message || "Error al subir documento");
+  }
+  return await response.json();
 }
+
+static async listarDocumentos(fincaId: string, token: string): Promise<any[]> {
+  const response = await fetch(`${API_URL}/api/v1/documentos/?finca_id=${fincaId}`, {
+    method: "GET",
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+
+  if (!response.ok) {                                                                                                              
+    throw new Error("Error al listar documentos");
+  }
+  return await response.json();
+}
+
+static async eliminarDocumento(documentoId: string, token: string): Promise<any> {
+  const response = await fetch(`${API_URL}/api/v1/documentos/${documentoId}`, {
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.message || "Error al eliminar documento");
+  }
+  return await response.json().catch(() => ({}));
+}
+}
+

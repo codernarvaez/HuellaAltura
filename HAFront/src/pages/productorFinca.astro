@@ -63,6 +63,10 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     background: #f8fafc;
     width: 100%;
   }
+   .doc-archivo-seleccionado {
+    color: var(--on-surface) !important;
+    font-weight: 500;
+  }
   .leaflet-control-zoom {
     border: none !important;
   }
@@ -693,6 +697,73 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
           />
           {!fincaData?.anio_establecimiento && <span class="null-badge text-xs">No registrado</span>}
         </div>
+
+              <!-- DOCUMENTOS DE LA FINCA -->
+      {fincaData && (
+        <div class="mt-8 pt-6 border-t border-outline-variant">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-primary">description</span>
+            <h3 class="text-lg font-semibold text-on-surface">Documentos de la Finca</h3>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">Tipo de Documento *</label>
+              <select id="doc-tipo" class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl">
+                <option value="">Selecciona tipo de documento</option>
+                <option value="TITULO_PROPIEDAD">Título de Propiedad</option>
+                <option value="CEDULA">Cédula</option>
+                <option value="RUC">RUC</option>
+                <option value="ESCRITURA">Escritura</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block mb-2 text-sm font-medium text-on-surface-variant">
+                Archivo (PDF/Imagen) *
+              </label>
+              <input
+                id="doc-archivo"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                class="hidden"
+              />
+              <button
+                type="button"
+                id="doc-archivo-btn"
+                class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl flex items-center gap-2 text-left hover:bg-surface-container-high transition overflow-hidden"
+              >
+                <span class="material-symbols-outlined text-primary shrink-0">attach_file</span>
+                <span id="doc-archivo-nombre" class="text-on-surface-variant truncate">
+                  Seleccionar archivo...
+                </span>
+              </button>
+            </div>
+
+            <div>
+              <button
+                id="doc-subir-btn"
+                type="button"
+                class="w-full h-14 px-4 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition flex items-center justify-center gap-2"
+              >
+                <span class="material-symbols-outlined text-sm">upload_file</span>
+                Subir Documento
+              </button>
+            </div>
+          </div>
+
+          <div id="doc-progreso" class="hidden flex items-center gap-3 mb-3">
+            <span class="material-symbols-outlined text-primary animate-spin">progress_activity</span>
+            <span class="text-sm text-on-surface-variant">Subiendo documento...</span>
+          </div>
+
+          <div id="doc-resultado" class="hidden mb-3"></div>
+
+          <div id="documentos-lista" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <p class="text-sm text-on-surface-variant">Cargando documentos...</p>
+          </div>
+        </div>
+      )}
 
         <!-- Botón Guardar Finca (SIEMPRE VISIBLE) -->
         <div class="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-outline-variant">
