@@ -9,6 +9,8 @@ import hashlib
 import unicodedata
 import re
 
+from fastapi.responses import RedirectResponse
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from prisma import Json, Prisma
 
@@ -317,3 +319,27 @@ def _validar_titular(db: Prisma, productor_id: str | None, finca_id: str | None)
         raise HTTPException(status_code=404, detail="Productor no encontrado")
     if finca_id and not db.finca.find_first(where={"id": finca_id}):
         raise HTTPException(status_code=404, detail="Finca no encontrada")
+
+
+
+
+@router.get(
+    "/{documento_id}/ver",
+    summary="Redirigir a la URL firmada de Cloudinary para ver el archivo",
+)
+def ver_documento_remoto(
+    documento_id: str,
+    db: Prisma = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Busca el documento, genera su URL firmada en Cloudinary y redirige al navegador."""
+    documento = db.documento.find_first(where={"id": documento_id})
+    if not documento:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    # url_firmada utiliza la función que ya tienes importada de storage_service
+    url_segura = url_firmada(documento.url_storage)
+    if not url_segura:
+        raise HTTPException(status_code=404, detail="No se pudo generar el acceso al archivo")
+
+    return RedirectResponse(url=url_segura)
