@@ -52,10 +52,10 @@ function getCookie(name: string): string {
 // ===== Punto de entrada =====
 document.addEventListener('DOMContentLoaded', () => {
   // Datos inyectados desde el servidor vía window.*
-  let usuarioId: string = window.USUARIO_ID || '';
-  let userData: UserData | null = window.USER_DATA || null;
-  let fincaData: FincaData | null = window.FINCA_DATA || null;
-  const poligonoData = window.POLIGONO_DATA || null;
+  let usuarioId: string = (window as any).USUARIO_ID || '';
+  let userData: UserData | null = (window as any).USER_DATA || null;
+  let fincaData: FincaData | null = (window as any).FINCA_DATA || null;
+  const poligonoData = (window as any).POLIGONO_DATA || null;
 
   console.log('📦 Datos del productor:', userData);
   console.log('🏡 Datos de finca:', fincaData);
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateAuthNameDisplay();
   } else {
-    const errorMsg = window.ERROR || '';
+    const errorMsg = (window as any).ERROR || '';
     notify(errorMsg ? '❌ Error: ' + errorMsg : '⚠️ No hay sesión activa o el token es inválido', 'error');
     const el = document.getElementById('productor-auth-name-display');
     if (el) el.textContent = 'No hay sesión';
@@ -112,45 +112,45 @@ document.addEventListener('DOMContentLoaded', () => {
   cancelarProductorBtn?.addEventListener('click', () => location.reload());
 
   guardarProductorBtn?.addEventListener('click', async () => {
-  const nombreCompleto = (document.getElementById('productor-nombre') as HTMLInputElement)?.value || '';
-  const partes = nombreCompleto.trim().split(' ');
-  const firstName = partes[0] || '';
-  const lastName = partes.slice(1).join(' ') || '';
+    const nombreCompleto = (document.getElementById('productor-nombre') as HTMLInputElement)?.value || '';
+    const partes = nombreCompleto.trim().split(' ');
+    const firstName = partes[0] || '';
+    const lastName = partes.slice(1).join(' ') || '';
 
-  const payload = {
-    first_name: firstName,
-    last_name: lastName,
-    identifier: (document.getElementById('productor-cedula') as HTMLInputElement)?.value || '',
-    organizacion: (document.getElementById('productor-organizacion') as HTMLInputElement)?.value || '',
-    phone_number: (document.getElementById('productor-celular') as HTMLInputElement)?.value || '',
-    genero: (document.getElementById('productor-genero') as HTMLSelectElement)?.value || '',
-    edad: parseInt((document.getElementById('productor-edad') as HTMLInputElement)?.value) || null,
-    nivel_educativo: (document.getElementById('productor-nivel') as HTMLSelectElement)?.value || ''
-  };
+    const payload = {
+      first_name: firstName,
+      last_name: lastName,
+      identifier: (document.getElementById('productor-cedula') as HTMLInputElement)?.value || '',
+      organizacion: (document.getElementById('productor-organizacion') as HTMLInputElement)?.value || '',
+      phone_number: (document.getElementById('productor-celular') as HTMLInputElement)?.value || '',
+      genero: (document.getElementById('productor-genero') as HTMLSelectElement)?.value || '',
+      edad: parseInt((document.getElementById('productor-edad') as HTMLInputElement)?.value) || null,
+      nivel_educativo: (document.getElementById('productor-nivel') as HTMLSelectElement)?.value || ''
+    };
 
-  try {
-    notify('⏳ Guardando cambios...', 'warning');
-    const token = getCookie('token');
+    try {
+      notify('⏳ Guardando cambios...', 'warning');
+      const token = getCookie('token');
 
-    const response = await fetch(`${API_URL}/api/v1/usuarios/${usuarioId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(payload)
-    });
+      const response = await fetch(`${API_URL}/api/v1/usuarios/${usuarioId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
 
-    if (response.ok) {
-      userData = await response.json();
-      updateAuthNameDisplay();
-      notify('✅ Productor actualizado correctamente', 'success');
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      notify('❌ Error: ' + (errorData.detail || errorData.message || 'Error al actualizar'), 'error');
+      if (response.ok) {
+        userData = await response.json();
+        updateAuthNameDisplay();
+        notify('✅ Productor actualizado correctamente', 'success');
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        notify('❌ Error: ' + (errorData.detail || errorData.message || 'Error al actualizar'), 'error');
+      }
+    } catch {
+      notify('❌ Error al guardar los cambios', 'error');
     }
-  } catch {
-    notify('❌ Error al guardar los cambios', 'error');
-  }
-});
+  });
 
   editarFincaBtn?.addEventListener('click', () => {
     ['finca-nombre', 'finca-barrio', 'finca-area-cultivada', 'finca-variedad', 'finca-densidad', 'finca-origen-semilla', 'finca-anio']
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const anioEl = (document.getElementById('finca-anio') as HTMLInputElement)?.value;
     const anio_establecimiento = anioEl ? parseInt(anioEl) : null;
 
-    let poligono = window.POLIGONO_CARGADO || fincaData?.poligono || null;
+    let poligono = (window as any).POLIGONO_CARGADO || fincaData?.poligono || null;
 
     const payload: any = {
       nombre, provincia, canton,
@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  window.guardarFinca = guardarFinca;
+  (window as any).guardarFinca = guardarFinca;
   guardarFincaSubmit?.addEventListener('click', guardarFinca);
   guardarFincaBtn?.addEventListener('click', guardarFinca);
 
@@ -266,8 +266,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const defaultLat = parseFloat(String(fincaData?.latitud)) || -4.2625;
   const defaultLng = parseFloat(String(fincaData?.longitud)) || -79.2231;
 
+  // Inicializar mapa sin control de zoom para poder moverlo
   // @ts-ignore - Leaflet viene del CDN como global L
-  const map = L.map('map').setView([defaultLat, defaultLng], 13);
+  const map = L.map('map', {
+    center: [defaultLat, defaultLng],
+    zoom: 13,
+    zoomControl: false 
+  });
+
+  // Reubicar control de zoom arriba a la derecha
+  // @ts-ignore
+  L.control.zoom({ position: 'topright' }).addTo(map);
 
   // @ts-ignore
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -276,39 +285,88 @@ document.addEventListener('DOMContentLoaded', () => {
   }).addTo(map);
 
   function mostrarPoligono(poligono: any) {
-    if (!poligono || poligono.type !== 'Polygon') return;
-    const coords = poligono.coordinates[0];
-    if (!coords || coords.length === 0) return;
-
-    const latLngs = coords.map((c: number[]) => [c[1], c[0]]);
+    if (!map || !poligono) return;
+    
+    // Limpiar capas previas para que no se superpongan mapas viejos
     // @ts-ignore
-    const polygon = L.polygon(latLngs, { color: '#2563eb', weight: 3, fillColor: '#3b82f6', fillOpacity: 0.3 }).addTo(map);
+    map.eachLayer(layer => {
+      // @ts-ignore
+      if (layer instanceof L.Polygon || layer instanceof L.Marker || layer instanceof L.GeoJSON) {
+        map.removeLayer(layer);
+      }
+    });
+
+    try {
+      if (poligono.type === 'Polygon' || poligono.type === 'MultiPolygon') {
+        // @ts-ignore
+        const geoJsonLayer = L.geoJSON(poligono, {
+          style: {
+            color: '#2563eb',
+            weight: 3,
+            opacity: 0.8,
+            fillColor: '#3b82f6',
+            fillOpacity: 0.2
+          }
+        }).addTo(map);
+        
+        const bounds = geoJsonLayer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+        
+        geoJsonLayer.bindPopup(`<strong>${fincaData?.nombre || 'Finca'}</strong><br>Área: ${fincaData?.area_total_ha || 'N/A'} ha`);
+        return;
+      }
+      
+      // Soporte alternativo por si el polígono es un array simple de coordenadas
+      if (Array.isArray(poligono) && poligono.length > 0) {
+        const latLngs = poligono.map(coord => [coord[1], coord[0]]);
+        // @ts-ignore
+        const polygon = L.polygon(latLngs, {
+          color: '#2563eb',
+          weight: 3,
+          opacity: 0.8,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.2
+        }).addTo(map);
+        
+        const bounds = polygon.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+        polygon.bindPopup(`<strong>${fincaData?.nombre || 'Finca'}</strong><br>Área: ${fincaData?.area_total_ha || 'N/A'} ha`);
+      }
+    } catch (error) {
+      console.error('❌ Error dibujando polígono:', error);
+    }
+  }
+
+  function dibujarMarcador(lat: number, lng: number, nombre: string) {
+    if (!map || !lat || !lng) return;
+    
     // @ts-ignore
-    L.polyline(latLngs, { color: '#1e40af', weight: 4, opacity: 0.8 }).addTo(map);
-
-    latLngs.forEach((coord: number[], index: number) => {
+    map.eachLayer(layer => {
       // @ts-ignore
-      L.circleMarker(coord, { radius: 6, fillColor: '#ef4444', color: '#dc2626', weight: 2 })
-        .addTo(map)
-        .bindPopup(`<strong>Vértice ${index + 1}</strong><br>Lat: ${coord[0].toFixed(6)}<br>Lng: ${coord[1].toFixed(6)}`);
-
-      // @ts-ignore
-      const icon = L.divIcon({
-        className: 'vertex-label',
-        html: `<span style="background:#2563eb;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);">${index + 1}</span>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      });
-      // @ts-ignore
-      L.marker(coord, { icon }).addTo(map);
+      if (layer instanceof L.Polygon || layer instanceof L.Marker || layer instanceof L.GeoJSON) {
+        map.removeLayer(layer);
+      }
     });
 
     // @ts-ignore
-    map.fitBounds(polygon.getBounds());
-    polygon.bindPopup(`<strong>${fincaData?.nombre || 'Finca'}</strong><br>Área: ${fincaData?.area_total_ha || 'N/A'} ha`);
+    L.marker([lat, lng])
+      .addTo(map)
+      .bindPopup(`<strong>${nombre || 'Finca'}</strong><br>Lat: ${lat}<br>Lng: ${lng}`)
+      .openPopup();
+
+    map.setView([lat, lng], 14);
   }
 
-  if (poligonoData?.type) mostrarPoligono(poligonoData);
+  // Renderizar polígono o en su defecto un marcador si solo hay coordenadas
+  if (poligonoData) {
+    mostrarPoligono(poligonoData);
+  } else if (fincaData?.latitud && fincaData?.longitud) {
+    dibujarMarcador(fincaData.latitud, fincaData.longitud, fincaData.nombre || 'Finca');
+  }
 
   setTimeout(() => map.invalidateSize(), 500);
   window.addEventListener('resize', () => map.invalidateSize());
@@ -367,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (centro.longitud) (document.getElementById('finca-longitud') as HTMLInputElement).value = centro.longitud;
 
     const poligonoCargado = construirPoligono(coordenadas);
-    window.POLIGONO_CARGADO = poligonoCargado;
+    (window as any).POLIGONO_CARGADO = poligonoCargado;
 
     resultadoCarga.innerHTML = `
       <div class="bg-green-50 border border-green-500 rounded-xl p-4">
@@ -382,6 +440,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
     resultadoCarga.classList.remove('hidden');
+
+    // Auto-dibujar el polígono para previsualizar al subir el archivo
+    if (poligonoCargado) {
+      mostrarPoligono(poligonoCargado);
+    }
   }
 
   dropZone.addEventListener('click', () => fileInput.click());
@@ -414,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   eliminarBtn.addEventListener('click', () => {
     archivoSeleccionado = null;
-    window.POLIGONO_CARGADO = null;
+    (window as any).POLIGONO_CARGADO = null;
     fileInput.value = '';
     fileInfo.classList.add('hidden');
     dropZone.style.display = 'block';
@@ -495,113 +558,113 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function cargarListaDocumentos() {
-  if (!documentosLista || !fincaData?.id) return;
-  try {
-    const token = getCookie('token');
-    const documentos = await FincaService.listarDocumentos(fincaData.id, token);
-
-    if (!documentos || documentos.length === 0) {
-      documentosLista.innerHTML = `<p class="text-sm text-on-surface-variant">No hay documentos cargados aún.</p>`;
-      return;
-    }
-
-    documentosLista.innerHTML = documentos.map((doc: any) => `
-      <div class="flex items-center gap-3 p-3 bg-surface border border-outline-variant rounded-xl">
-        <span class="material-symbols-outlined text-primary">description</span>
-        <div class="flex-1 min-w-0">
-          <p class="font-medium text-sm truncate">${doc.nombre_archivo}</p>
-          <p class="text-xs text-on-surface-variant">${TIPO_DOC_LABELS[doc.tipo_documento] || doc.tipo_documento}</p>
-        </div>
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" class="doc-descargar-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition text-primary" title="Descargar documento" data-doc-id="${doc.id}">
-            <span class="material-symbols-outlined text-sm">download</span>
-          </button>
-        </div>
-      </div>
-    `).join('');
-
-    async function abrirArchivo(doc: any, modo: 'ver' | 'descargar') {
+    if (!documentosLista || !fincaData?.id) return;
     try {
-        // 1. Pedimos la URL firmada y segura a tu backend en FastAPI
-        const resUrl = await fetch(`https://geoguard-exped.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
-            headers: { 'Authorization': `Bearer ${getCookie('token')}` }
-        });
-        
-        if (!resUrl.ok) {
-            throw new Error(`El servidor respondió ${resUrl.status}. No se pudo obtener el enlace seguro.`);
-        }
-        
-        const data = await resUrl.json();
-        const urlFirmadaCloudinary = data.url;
+      const token = getCookie('token');
+      const documentos = await FincaService.listarDocumentos(fincaData.id, token);
 
-        // 2. Descargamos el contenido binario desde la URL firmada de Cloudinary
-        const pdfRes = await fetch(urlFirmadaCloudinary);
-        if (!pdfRes.ok) {
-            throw new Error("No se pudo descargar el archivo desde el storage.");
-        }
-        
-        const buffer = await pdfRes.blob();
-        
-        // 3. Forzamos el tipo MIME a application/pdf para que el visor del navegador no falle
-        const blob = new Blob([buffer], { type: 'application/pdf' });
-        const blobUrl = URL.createObjectURL(blob);
+      if (!documentos || documentos.length === 0) {
+        documentosLista.innerHTML = `<p class="text-sm text-on-surface-variant">No hay documentos cargados aún.</p>`;
+        return;
+      }
 
-        // 4. Visualizamos o descargamos según el modo
-        if (modo === 'ver') {
-            window.open(blobUrl, '_blank');
-        } else {
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = doc.nombre_archivo || 'documento.pdf';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        }
+      documentosLista.innerHTML = documentos.map((doc: any) => `
+        <div class="flex items-center gap-3 p-3 bg-surface border border-outline-variant rounded-xl">
+          <span class="material-symbols-outlined text-primary">description</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-sm truncate">${doc.nombre_archivo}</p>
+            <p class="text-xs text-on-surface-variant">${TIPO_DOC_LABELS[doc.tipo_documento] || doc.tipo_documento}</p>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" class="doc-descargar-btn w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition text-primary" title="Descargar documento" data-doc-id="${doc.id}">
+              <span class="material-symbols-outlined text-sm">download</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
 
-        // Limpieza de memoria del navegador
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      async function abrirArchivo(doc: any, modo: 'ver' | 'descargar') {
+      try {
+          // 1. Pedimos la URL firmada y segura a tu backend en FastAPI
+          const resUrl = await fetch(`https://geoguard-exped.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
+              headers: { 'Authorization': `Bearer ${getCookie('token')}` }
+          });
+          
+          if (!resUrl.ok) {
+              throw new Error(`El servidor respondió ${resUrl.status}. No se pudo obtener el enlace seguro.`);
+          }
+          
+          const data = await resUrl.json();
+          const urlFirmadaCloudinary = data.url;
 
-    } catch (err: any) {
-        notify('❌ No se pudo acceder al archivo: ' + (err.message || 'error en el servidor'), 'error');
-    }
-}
+          // 2. Descargamos el contenido binario desde la URL firmada de Cloudinary
+          const pdfRes = await fetch(urlFirmadaCloudinary);
+          if (!pdfRes.ok) {
+              throw new Error("No se pudo descargar el archivo desde el storage.");
+          }
+          
+          const buffer = await pdfRes.blob();
+          
+          // 3. Forzamos el tipo MIME a application/pdf para que el visor del navegador no falle
+          const blob = new Blob([buffer], { type: 'application/pdf' });
+          const blobUrl = URL.createObjectURL(blob);
 
-    documentosLista.querySelectorAll('.doc-ver-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = (btn as HTMLElement).dataset.docId!;
-        const doc = documentos.find((d: any) => d.id === id);
-        if (doc) abrirArchivo(doc, 'ver');
-      });
-    });
+          // 4. Visualizamos o descargamos según el modo
+          if (modo === 'ver') {
+              window.open(blobUrl, '_blank');
+          } else {
+              const a = document.createElement('a');
+              a.href = blobUrl;
+              a.download = doc.nombre_archivo || 'documento.pdf';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+          }
 
-    documentosLista.querySelectorAll('.doc-descargar-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = (btn as HTMLElement).dataset.docId!;
-        const doc = documentos.find((d: any) => d.id === id);
-        if (doc) abrirArchivo(doc, 'descargar');
-      });
-    });
+          // Limpieza de memoria del navegador
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
-    documentosLista.querySelectorAll('.doc-eliminar-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = (btn as HTMLElement).dataset.docId!;
-        const doc = documentos.find((d: any) => d.id === id);
-        if (!doc) return;
-        if (!confirm(`¿Eliminar "${doc.nombre_archivo}"? Esta acción no se puede deshacer.`)) return;
-        try {
-          const token = getCookie('token');
-          await FincaService.eliminarDocumento(id, token);
-          notify('✅ Documento eliminado correctamente', 'success');
-          await cargarListaDocumentos();
-        } catch (error: any) {
-          notify('❌ Error al eliminar documento: ' + (error.message || ''), 'error');
-        }
-      });
-    });
-  } catch {
-    documentosLista.innerHTML = `<p class="text-sm text-red-600">Error al cargar documentos.</p>`;
+      } catch (err: any) {
+          notify('❌ No se pudo acceder al archivo: ' + (err.message || 'error en el servidor'), 'error');
+      }
   }
-}
+
+      documentosLista.querySelectorAll('.doc-ver-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = (btn as HTMLElement).dataset.docId!;
+          const doc = documentos.find((d: any) => d.id === id);
+          if (doc) abrirArchivo(doc, 'ver');
+        });
+      });
+
+      documentosLista.querySelectorAll('.doc-descargar-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = (btn as HTMLElement).dataset.docId!;
+          const doc = documentos.find((d: any) => d.id === id);
+          if (doc) abrirArchivo(doc, 'descargar');
+        });
+      });
+
+      documentosLista.querySelectorAll('.doc-eliminar-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = (btn as HTMLElement).dataset.docId!;
+          const doc = documentos.find((d: any) => d.id === id);
+          if (!doc) return;
+          if (!confirm(`¿Eliminar "${doc.nombre_archivo}"? Esta acción no se puede deshacer.`)) return;
+          try {
+            const token = getCookie('token');
+            await FincaService.eliminarDocumento(id, token);
+            notify('✅ Documento eliminado correctamente', 'success');
+            await cargarListaDocumentos();
+          } catch (error: any) {
+            notify('❌ Error al eliminar documento: ' + (error.message || ''), 'error');
+          }
+        });
+      });
+    } catch {
+      documentosLista.innerHTML = `<p class="text-sm text-red-600">Error al cargar documentos.</p>`;
+    }
+  }
 
   docSubirBtn?.addEventListener('click', async () => {
     const tipo = docTipoSelect?.value || '';
