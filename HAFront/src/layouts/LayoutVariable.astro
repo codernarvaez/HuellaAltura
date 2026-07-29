@@ -4,6 +4,11 @@ import { isAdminRole } from "../services/roles";
 import { AuthService } from "../services/auth.service.ts";
 import { FincaService } from "../services/finca.service.ts";
 import { ExpedienteService } from "../services/expediente.service.ts";
+import {
+  getProductorProgress,
+  pasosPreviosCompletos,
+  type ProductorProgress,
+} from "../services/productorProgress";
 
 const user = Astro.locals.user;
 const userRole = user?.role?.name || Astro.props.userRole || "Usuario";
@@ -19,38 +24,33 @@ let fincaId = null;
 
 // Determinar si el usuario es INVESTIGADOR
 const esInvestigador = userRole === 'INVESTIGADOR' || userRole === 'AUDITOR_INTERNO';
+// El resto de usuarios no-admin se consideran PRODUCTOR (misma regla que ya usaba el sidebar)
+const esProductor = !isAdmin && !esInvestigador;
+
+// 🔥 Progreso secuencial del productor (finca -> agroambiental -> satelital -> expediente)
+let progress: ProductorProgress | null = null;
 
 if (token) {
   try {
     userData = await AuthService.getMe(token);
-    
-    if (userData?.id) {
+
+    if (userData?.id && esProductor) {
+      try {
+        progress = await getProductorProgress(userData.id, token);
+        hasFinca = progress.finca;
+        hasExpediente = progress.expediente;
+        fincaId = progress.fincaId;
+      } catch (e) {
+        console.error('❌ Error calculando progreso del productor:', e);
+      }
+    } else if (userData?.id) {
+      // Investigador / Admin: solo necesitamos la finca para armar enlaces con finca_id
       try {
         const finca = await FincaService.getByUsuarioId(userData.id, token);
-        hasFinca = finca !== null && typeof finca === 'object' && Object.keys(finca).length > 0;
-        
-        if (hasFinca && finca.id) {
-          fincaId = finca.id;
-          console.log('✅ Finca encontrada con ID:', fincaId);
-        }
-        
-        if (hasFinca) {
-          try {
-            const expedientes = await ExpedienteService.list(token, { productor_id: userData.id });
-            hasExpediente = expedientes && expedientes.length > 0;
-            if (hasExpediente) {
-              console.log('✅ Expedientes encontrados:', expedientes.length);
-            }
-          } catch (e) {
-            console.warn('⚠️ No se pudieron cargar expedientes:', e);
-            hasExpediente = false;
-          }
-        } else {
-          console.log('ℹ️ No se encontró finca para el usuario:', userData.id);
-        }
+        hasFinca = !!finca && typeof finca === 'object' && Object.keys(finca).length > 0;
+        if (hasFinca && finca.id) fincaId = finca.id;
       } catch (e) {
-        console.error('❌ Error cargando finca:', e);
-        hasFinca = false;
+        console.warn('⚠️ Error cargando finca:', e);
       }
     }
   } catch (e) {
@@ -59,6 +59,13 @@ if (token) {
 } else {
   console.warn('⚠️ No hay token de autenticación');
 }
+
+// Estado de bloqueo de cada paso del sidebar.
+// Para roles distintos a PRODUCTOR (admin/investigador) todo queda desbloqueado,
+// ya que el flujo secuencial solo aplica al productor.
+const pasoAgroDesbloqueado = !esProductor || !progress || pasosPreviosCompletos('agroambiental', progress);
+const pasoSatelitalDesbloqueado = !esProductor || !progress || pasosPreviosCompletos('satelital', progress);
+const pasoExpedienteDesbloqueado = !esProductor || !progress || pasosPreviosCompletos('expediente', progress);
 
 // Construir URLs con finca_id
 const infoAgroUrl = fincaId ? `/infoAgro?finca_id=${fincaId}` : '/infoAgro';
@@ -204,9 +211,9 @@ const isAdminStr = isAdmin ? 'true' : 'false';
                   </div>
                 </>
               ) : (
-                /* USUARIO NORMAL (PRODUCTOR) - NUEVO ORDEN */
+                /* USUARIO NORMAL (PRODUCTOR) - FLUJO SECUENCIAL */
                 <>
-                  <!-- 1. PRODUCTOR Y FINCA -->
+                  <!-- 1. PRODUCTOR Y FINCA (siempre disponible) -->
                   <a
                     href="/productorFinca"
                     id="link-productor"
@@ -216,47 +223,117 @@ const isAdminStr = isAdmin ? 'true' : 'false';
                       agriculture
                     </span>
 
-                    <span>Productor y Finca</span>
+                    <span>1. Productor y Finca</span>
+
+                    {hasFinca && (
+                      <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                    )}
                   </a>
 
                   <!-- 2. INFORMACIÓN AGROAMBIENTAL -->
-                  <a
-                    href={infoAgroUrl}
-                    id="link-infoagro"
-                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
-                  >
-                    <span class="material-symbols-outlined">
-                      eco
-                    </span>
+                  {pasoAgroDesbloqueado ? (
+                    <a
+                      href={infoAgroUrl}
+                      id="link-infoagro"
+                      class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                    >
+                      <span class="material-symbols-outlined">
+                        eco
+                      </span>
 
-                    <span>Información Agroambiental</span>
-                  </a>
+                      <span>2. Información Agroambiental</span>
+
+                      {progress?.agroambiental && (
+                        <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                      )}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      id="link-infoagro-locked"
+                      class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg opacity-45 cursor-not-allowed"
+                      data-locked-step="Productor y Finca"
+                      title="Completa primero el paso 'Productor y Finca'"
+                    >
+                      <span class="material-symbols-outlined">
+                        eco
+                      </span>
+
+                      <span>2. Información Agroambiental</span>
+
+                      <span class="material-symbols-outlined ml-auto text-sm">lock</span>
+                    </button>
+                  )}
 
                   <!-- 3. SATELITAL -->
-                  <a
-                    href={satelitalUrl}
-                    id="link-satelital"
-                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
-                  >
-                    <span class="material-symbols-outlined">
-                      satellite_alt
-                    </span>
+                  {pasoSatelitalDesbloqueado ? (
+                    <a
+                      href={satelitalUrl}
+                      id="link-satelital"
+                      class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                    >
+                      <span class="material-symbols-outlined">
+                        satellite_alt
+                      </span>
 
-                    <span>Satelital</span>
-                  </a>
+                      <span>3. Satelital</span>
+
+                      {progress?.satelital && (
+                        <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                      )}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      id="link-satelital-locked"
+                      class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg opacity-45 cursor-not-allowed"
+                      data-locked-step="Información Agroambiental"
+                      title="Completa primero el paso 'Información Agroambiental'"
+                    >
+                      <span class="material-symbols-outlined">
+                        satellite_alt
+                      </span>
+
+                      <span>3. Satelital</span>
+
+                      <span class="material-symbols-outlined ml-auto text-sm">lock</span>
+                    </button>
+                  )}
 
                   <!-- 4. EXPEDIENTE -->
-                  <a
-                    href={expedientesUrl}
-                    id="link-expediente"
-                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
-                  >
-                    <span class="material-symbols-outlined">
-                      folder_open
-                    </span>
+                  {pasoExpedienteDesbloqueado ? (
+                    <a
+                      href={expedientesUrl}
+                      id="link-expediente"
+                      class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                    >
+                      <span class="material-symbols-outlined">
+                        folder_open
+                      </span>
 
-                    <span>Expediente</span>
-                  </a>
+                      <span>4. Expediente</span>
+
+                      {progress?.expediente && (
+                        <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                      )}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      id="link-expediente-locked"
+                      class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg opacity-45 cursor-not-allowed"
+                      data-locked-step="Satelital"
+                      title="Completa primero el paso 'Satelital'"
+                    >
+                      <span class="material-symbols-outlined">
+                        folder_open
+                      </span>
+
+                      <span>4. Expediente</span>
+
+                      <span class="material-symbols-outlined ml-auto text-sm">lock</span>
+                    </button>
+                  )}
 
                   <!-- 5. CALENDARIO -->
                   <a
@@ -589,6 +666,34 @@ const isAdminStr = isAdmin ? 'true' : 'false';
         if (currentPath === '/productorFinca') {
           btnVolver.style.display = 'none';
         }
+      }
+
+      // 🔥 Botones de pasos bloqueados: al hacer click, avisamos qué falta
+      document.querySelectorAll('[data-locked-step]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const pasoFaltante = btn.getAttribute('data-locked-step');
+          showToast(`🔒 Debes completar primero: ${pasoFaltante}`);
+        });
+      });
+
+      // 🔥 Si el middleware nos redirigió por intentar saltarse un paso,
+      // avisamos con un toast al cargar la página.
+      const params = new URLSearchParams(window.location.search);
+      const bloqueado = params.get('bloqueado');
+      if (bloqueado) {
+        const NOMBRES_PASO = {
+          finca: 'Productor y Finca',
+          agroambiental: 'Información Agroambiental',
+          satelital: 'Satelital',
+          expediente: 'Expediente',
+        };
+        const nombre = NOMBRES_PASO[bloqueado] || bloqueado;
+        showToast(`🔒 Debes completar los pasos anteriores antes de acceder a "${nombre}"`);
+
+        // Limpiar el parámetro de la URL sin recargar la página
+        params.delete('bloqueado');
+        const nuevaUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+        window.history.replaceState({}, '', nuevaUrl);
       }
 
       // Recargar la página cuando se guarda algo

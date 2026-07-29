@@ -18,22 +18,23 @@ let expedienteCreado = false;
 let fincaData = null;
 let datosAgroambientales = null;
 let productoresMap = new Map();
+let agroambientalMap = new Map();
 
 if (token) {
   try {
     userData = await AuthService.getMe(token);
     userRole = userData?.role?.name || '';
     console.log("🎭 Rol del usuario:", userRole);
-    
+
     const urlParams = Astro.url.searchParams;
     const fincaIdFilter = urlParams.get("finca_id");
     console.log("🔍 Filtro por finca_id:", fincaIdFilter);
-    
+
     // Función auxiliar para obtener usuario por ID
     async function getUsuarioById(usuarioId) {
       if (!usuarioId) return null;
       if (productoresMap.has(usuarioId)) return productoresMap.get(usuarioId);
-      
+
       try {
         if (typeof AuthService.getById === 'function') {
           const user = await AuthService.getById(usuarioId, token);
@@ -53,32 +54,49 @@ if (token) {
       }
       return null;
     }
-    
+
+    // Función auxiliar para obtener datos agroambientales por finca (con caché)
+    async function getAgroambientalByFinca(fincaId) {
+      if (!fincaId) return null;
+      if (agroambientalMap.has(fincaId)) return agroambientalMap.get(fincaId);
+
+      try {
+        const datos = await AgroambientalService.getByFinca(fincaId, token);
+        agroambientalMap.set(fincaId, datos);
+        return datos;
+      } catch (e) {
+        console.warn(`⚠️ No se pudo obtener info agroambiental de la finca ${fincaId}:`, e.message);
+        agroambientalMap.set(fincaId, null);
+        return null;
+      }
+    }
+
     if (fincaIdFilter) {
       console.log(`🔄 Verificando expediente para finca: ${fincaIdFilter}`);
-      
+
       try {
         fincaData = await FincaService.getById(fincaIdFilter, token);
         console.log(`✅ Finca encontrada: ${fincaData.nombre}`);
-        
+
         if (fincaData.usuario_id && !fincaData.usuario_nombre) {
           const usuario = await getUsuarioById(fincaData.usuario_id);
           if (usuario) {
             fincaData.usuario_nombre = `${usuario.first_name || ''} ${usuario.last_name || ''}`.trim() || usuario.email;
           }
         }
-        
+
         try {
           datosAgroambientales = await AgroambientalService.getByFinca(fincaIdFilter, token);
+          agroambientalMap.set(fincaIdFilter, datosAgroambientales);
         } catch (e) {
           console.warn("⚠️ Error obteniendo datos agroambientales:", e.message);
         }
       } catch (e) {
         console.warn("⚠️ Error obteniendo finca:", e.message);
       }
-      
+
       const resultado = await ExpedienteService.getOrCreate(fincaIdFilter, token, userData);
-      
+
       if (resultado.expediente) {
         if (!resultado.expediente.finca && fincaData) {
           resultado.expediente.finca = fincaData;
@@ -86,14 +104,14 @@ if (token) {
         expedientes = [resultado.expediente];
         expedienteCreado = resultado.creado;
       }
-      
+
     } else {
       console.log(`📋 Obteniendo todos los expedientes`);
       try {
         const expedientesData = await ExpedienteService.list(token);
         expedientes = expedientesData;
         console.log(`📋 Total expedientes: ${expedientes.length}`);
-        
+
         for (const exp of expedientes) {
           if (exp.finca && exp.finca.usuario_id && !exp.finca.usuario_nombre) {
             const usuario = await getUsuarioById(exp.finca.usuario_id);
@@ -101,12 +119,15 @@ if (token) {
               exp.finca.usuario_nombre = `${usuario.first_name || ''} ${usuario.last_name || ''}`.trim() || usuario.email;
             }
           }
+          if (exp.finca?.id) {
+            await getAgroambientalByFinca(exp.finca.id);
+          }
         }
       } catch (e) {
         console.warn("⚠️ Error obteniendo expedientes:", e.message);
       }
     }
-    
+
     isLoading = false;
   } catch (e) {
     error = e.message;
@@ -160,8 +181,8 @@ const fincaIdFilter = urlParams.get("finca_id");
           Expedientes y Trazabilidad Guardada
         </h1>
         <p class="text-on-surface-variant mt-2 max-w-3xl">
-          {esProductor 
-            ? 'Visualización de tus expedientes de trazabilidad para la gestión de diligencia debida EUDR.' 
+          {esProductor
+            ? 'Visualización de tus expedientes de trazabilidad para la gestión de diligencia debida EUDR.'
             : 'Listado de expedientes de productores y fincas registrados para la gestión de diligencia debida EUDR.'}
         </p>
       </div>
@@ -174,7 +195,7 @@ const fincaIdFilter = urlParams.get("finca_id");
         <div>
           <p class="font-semibold text-emerald-800">✅ Expediente creado automáticamente</p>
           <p class="text-sm text-emerald-700">
-            Se ha creado un nuevo expediente para la finca <strong>{fincaData?.nombre || 'desconocida'}</strong> 
+            Se ha creado un nuevo expediente para la finca <strong>{fincaData?.nombre || 'desconocida'}</strong>
             con estado <strong>PENDIENTE</strong>.
           </p>
           <p class="text-xs text-emerald-600 mt-1">
@@ -202,8 +223,8 @@ const fincaIdFilter = urlParams.get("finca_id");
           <span class="material-symbols-outlined text-3xl">folder_open</span>
           <p class="mt-2 font-semibold">No hay expedientes registrados</p>
           <p class="text-sm mt-1">
-            {esProductor 
-              ? 'Aún no tienes expedientes. Contacta a un investigador para generar tu expediente.' 
+            {esProductor
+              ? 'Aún no tienes expedientes. Contacta a un investigador para generar tu expediente.'
               : 'Los expedientes se generarán cuando se complete la auditoría satelital.'}
           </p>
         </div>
@@ -225,10 +246,10 @@ const fincaIdFilter = urlParams.get("finca_id");
               <tbody class="divide-y divide-outline-variant">
                 {expedientes.map((expediente, index) => {
                   const finca = expediente.finca || fincaData;
-                  
+
                   let nombreProductor = 'Productor no especificado';
                   let idProductor = finca?.usuario_id || 'N/A';
-                  
+
                   if (esProductor && userData && idProductor === userData.id) {
                     nombreProductor = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email || 'Productor';
                   }
@@ -249,20 +270,71 @@ const fincaIdFilter = urlParams.get("finca_id");
                       nombreProductor = `Productor ${idProductor.substring(0, 8)}`;
                     }
                   }
-                  
+
                   const nombreFinca = finca?.nombre || 'Finca no especificada';
                   const provincia = finca?.provincia || '';
                   const canton = finca?.canton || '';
                   const area = finca?.area_total_ha || 0;
-                  
+
                   const estado = expediente.estado || 'PENDIENTE';
                   const status = getStatusBadge(estado);
                   const initials = getInitials(nombreProductor);
                   const idExpediente = expediente.id?.substring(0, 8) || 'N/A';
-                  const fechaCreacion = expediente.creado_en 
-                    ? new Date(expediente.creado_en).toLocaleDateString('es-ES') 
+                  const fechaCreacion = expediente.creado_en
+                    ? new Date(expediente.creado_en).toLocaleDateString('es-ES')
                     : 'N/A';
                   const organizacion = expediente.organizacion_inquilino || 'No especificado';
+
+                  // 🔥 DATOS AGROAMBIENTALES DE LA FINCA (cacheados arriba)
+                  // AgroambientalService.getByFinca devuelve un ARREGLO de registros;
+                  // tomamos el más reciente según creado_en.
+                  const agroRegistros = finca?.id
+                    ? agroambientalMap.get(finca.id)
+                    : datosAgroambientales;
+
+                  const agroData = Array.isArray(agroRegistros) && agroRegistros.length > 0
+                    ? [...agroRegistros].sort(
+                        (a, b) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
+                      )[0]
+                    : null;
+
+                  const agroInfo = agroData ? {
+                    indiceShannon: agroData.indice_shannon ?? null,
+                    indiceSimpson: agroData.indice_simpson ?? null,
+                    usoSuelo: agroData.uso_suelo || 'N/A',
+                    coberturaForestal: agroData.cobertura_forestal || 'N/A',
+                    sistemaProduccion: agroData.sistema_produccion || 'N/A',
+                    biomasaArboles: agroData.biomasa_arboles ?? null,
+                    biomasaCafe: agroData.biomasa_cafe ?? null,
+                    hojarascaMantillo: agroData.hojarasca_mantillo ?? null,
+                    carbonoOrganicoSuelo: agroData.carbono_organico_suelo ?? null,
+                    totalStockCarbono: agroData.total_stock_carbono ?? null,
+                    fechaAnalisis: agroData.creado_en || null,
+                    variables: Array.isArray(agroData.variables)
+                      ? agroData.variables.map(v => ({ nombre: v.nombre, valor: v.valor, tipo_dato: v.tipo_dato }))
+                      : [],
+                  } : null;
+
+                  // 🔥 DATOS PARA EL CERTIFICADO PDF (misma info que la vista de detalle)
+                  const certData = {
+                    idExpediente: expediente.id || idExpediente,
+                    idDeclaracion: `EUDR-EC-${(provincia || 'LOJ').substring(0, 3).toUpperCase()}-${new Date().getFullYear()}-${idExpediente.toUpperCase()}`,
+                    organizacion,
+                    paisProduccion: `Ecuador${provincia ? ` (${provincia})` : ''}`,
+                    productor: nombreProductor,
+                    // ⚠️ Ajusta estos nombres de campo a los reales de tu modelo si difieren
+                    cedula: finca?.usuario_cedula || finca?.cedula || 'N/A',
+                    fincaOrigen: nombreFinca,
+                    ubicacionFinca: `${canton ? canton + ', ' : ''}${provincia || 'N/A'}`,
+                    areaHa: area,
+                    // ⚠️ Ajusta según tus campos reales de geolocalización
+                    lat: finca?.latitud ?? finca?.lat ?? null,
+                    lon: finca?.longitud ?? finca?.lon ?? null,
+                    fechaValidacion: fechaCreacion,
+                    estado,
+                    agroambiental: agroInfo,
+                  };
+                  const certDataJson = JSON.stringify(certData);
 
                   return (
                     <>
@@ -310,10 +382,12 @@ const fincaIdFilter = urlParams.get("finca_id");
                         <td class="p-4 text-right">
                           <div class="flex justify-end gap-2">
                             {/* 🔥 BOTÓN DESCARGAR EXPEDIENTE - Habilitado solo si está APROBADO o VALIDADO */}
+
                             {estado === 'APROBADO' || estado === 'VALIDADO' ? (
                               <button
                                 class="bg-secondary-container px-3 py-2 rounded-lg text-sm hover:bg-secondary-container/80 transition flex items-center gap-1"
-                                onclick="event.stopPropagation(); alert('📄 Descarga del expediente en construcción');"
+                                data-cert={certDataJson}
+                                onclick="event.stopPropagation(); descargarCertificadoPDF(this);"
                               >
                                 <span class="material-symbols-outlined text-sm">file_download</span>
                                 Descargar Expediente
@@ -399,11 +473,47 @@ const fincaIdFilter = urlParams.get("finca_id");
                               </div>
                             )}
 
+                            {agroInfo && (
+                              <div class="mt-4 pt-4 border-t border-outline-variant">
+                                <h4 class="font-semibold text-on-surface flex items-center gap-2">
+                                  <span class="material-symbols-outlined text-sm text-primary">eco</span>
+                                  Información Agroambiental
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2 text-sm">
+                                  <div><span class="text-on-surface-variant">Uso de Suelo:</span> {agroInfo.usoSuelo}</div>
+                                  <div><span class="text-on-surface-variant">Cobertura Forestal:</span> {agroInfo.coberturaForestal}</div>
+                                  <div><span class="text-on-surface-variant">Sistema Producción:</span> {agroInfo.sistemaProduccion}</div>
+                                  <div><span class="text-on-surface-variant">Índice Shannon:</span> {agroInfo.indiceShannon ?? 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Índice Simpson:</span> {agroInfo.indiceSimpson ?? 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Biomasa Árboles:</span> {agroInfo.biomasaArboles != null ? `${agroInfo.biomasaArboles} t/ha` : 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Biomasa Café:</span> {agroInfo.biomasaCafe != null ? `${agroInfo.biomasaCafe} t/ha` : 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Hojarasca/Mantillo:</span> {agroInfo.hojarascaMantillo != null ? `${agroInfo.hojarascaMantillo} t/ha` : 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Carbono Orgánico Suelo:</span> {agroInfo.carbonoOrganicoSuelo != null ? `${agroInfo.carbonoOrganicoSuelo} tC/ha` : 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Stock Total de Carbono:</span> {agroInfo.totalStockCarbono != null ? `${agroInfo.totalStockCarbono} tC/ha` : 'N/A'}</div>
+                                  <div><span class="text-on-surface-variant">Fecha Análisis:</span> {agroInfo.fechaAnalisis ? new Date(agroInfo.fechaAnalisis).toLocaleDateString('es-ES') : 'N/A'}</div>
+                                </div>
+
+                                {agroInfo.variables.length > 0 && (
+                                  <div class="mt-3">
+                                    <p class="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Variables Adicionales</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                                      {agroInfo.variables.map((v) => (
+                                        <div>
+                                          <span class="text-on-surface-variant">{v.nombre}:</span> {v.valor}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <div class="mt-4 pt-4 border-t border-outline-variant flex gap-3">
                               {estado === 'APROBADO' || estado === 'VALIDADO' ? (
                                 <button
                                   class="px-4 py-2 bg-primary text-white rounded-xl hover:opacity-90 transition flex items-center gap-2"
-                                  onclick="alert('📄 Descarga del expediente en construcción'); event.stopPropagation();"
+                                  data-cert={certDataJson}
+                                  onclick="event.stopPropagation(); descargarCertificadoPDF(this);"
                                 >
                                   <span class="material-symbols-outlined text-sm">file_download</span>
                                   Descargar Expediente
@@ -434,7 +544,7 @@ const fincaIdFilter = urlParams.get("finca_id");
               </tbody>
             </table>
           </div>
-          
+
           <div class="p-4 border-t border-outline-variant flex justify-between items-center text-xs text-on-surface-variant">
             <span>Total: {expedientes.length} expedientes</span>
             {fincaIdFilter && (
@@ -447,8 +557,10 @@ const fincaIdFilter = urlParams.get("finca_id");
   </div>
 </Layout>
 
-<!-- 🔥 SCRIPT CON LA FUNCIÓN toggleDetalle -->
+<!-- 🔥 SCRIPT: toggleDetalle + generación de certificado PDF -->
 <script>
+  import { jsPDF } from "jspdf";
+
   function toggleDetalle(id) {
     console.log('🔍 toggleDetalle llamado para:', id);
     const detalleRow = document.getElementById(`detalle-${id}`);
@@ -459,7 +571,256 @@ const fincaIdFilter = urlParams.get("finca_id");
       console.error('❌ No se encontró la fila de detalle para:', id);
     }
   }
-
   window.toggleDetalle = toggleDetalle;
-  console.log('✅ toggleDetalle registrada globalmente');
+
+  function descargarCertificadoPDF(btn) {
+    try {
+      const data = JSON.parse(btn.dataset.cert);
+      generarCertificadoPDF(data);
+    } catch (e) {
+      console.error('❌ Error generando certificado PDF:', e);
+      alert('No se pudo generar el certificado. Revisa la consola para más detalles.');
+    }
+  }
+  window.descargarCertificadoPDF = descargarCertificadoPDF;
+
+  function generarCertificadoPDF(d) {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const green = [11, 110, 79];       // verde principal
+    const greenLight = [230, 245, 238];
+    const gray = [90, 90, 90];
+    const pageW = 210;
+    const marginX = 15;
+    let y = 15;
+
+    // ---- Encabezado ----
+    doc.setFillColor(...green);
+    doc.circle(marginX + 4, y + 3, 4, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.text('✓', marginX + 4, y + 4.5, { align: 'center' });
+
+    doc.setTextColor(...green);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('CERTIFICADO DE DILIGENCIA', marginX + 10, y + 3);
+    doc.text('DEBIDA', marginX + 10, y + 8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gray);
+    doc.text('REGLAMENTO DE DEFORESTACIÓN UE 2023/1115 (EUDR)', marginX + 10, y + 12);
+
+    doc.setFontSize(7);
+    doc.text('ID DECLARACIÓN (DDS-ID)', pageW - marginX, y, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...green);
+    doc.text(d.idDeclaracion, pageW - marginX, y + 4, { align: 'right' });
+
+    y += 20;
+    doc.setDrawColor(...green);
+    doc.setLineWidth(0.6);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 4;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...gray);
+    doc.text('SE CERTIFICA FORMALMENTE QUE EL LOTE AGRÍCOLA QUE SE DETALLA A', pageW / 2, y, { align: 'center' });
+    doc.text('CONTINUACIÓN ES:', pageW / 2, y + 4, { align: 'center' });
+    y += 12;
+
+    // ---- Titular ----
+    const libreDeforestacion = d.estado === 'APROBADO' || d.estado === 'VALIDADO';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(19);
+    doc.setTextColor(...green);
+    const titulo = libreDeforestacion
+      ? '100% LIBRE DE DEFORESTACIÓN'
+      : `ESTADO: ${d.estado}`;
+    doc.text(titulo, pageW / 2, y, { align: 'center' });
+    y += 7;
+    if (libreDeforestacion) {
+      doc.text('Y LEGALMENTE PRODUCIDO', pageW / 2, y, { align: 'center' });
+      y += 6;
+    }
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(...gray);
+    doc.text('emitido en conformidad con los requisitos del Reglamento (UE) 2023/1115 sobre productos libres de', pageW / 2, y, { align: 'center' });
+    y += 3.5;
+    doc.text('deforestación aplicable a partir del 30 de diciembre de 2025.', pageW / 2, y, { align: 'center' });
+    y += 10;
+
+    // ---- Dos columnas ----
+    const col1X = marginX;
+    const col2X = pageW / 2 + 5;
+    const colW = pageW / 2 - marginX - 5;
+
+    doc.setFillColor(...greenLight);
+    doc.rect(col1X, y, colW, 6, 'F');
+    doc.rect(col2X, y, colW, 6, 'F');
+    doc.setTextColor(...green);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('1. IDENTIFICACIÓN DEL OPERADOR', col1X + 2, y + 4);
+    doc.text('2. DETALLES DE PRODUCCIÓN Y FINCA', col2X + 2, y + 4);
+    y += 12;
+
+    const campo = (x, yy, label, valor) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...gray);
+      doc.text(label, x, yy);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(30, 30, 30);
+      doc.text(String(valor || 'N/A'), x, yy + 4.5);
+    };
+
+    campo(col1X, y, 'ORGANIZACIÓN / TENANT', d.organizacion);
+    campo(col2X, y, 'PRODUCTOR', d.productor);
+    y += 12;
+    campo(col1X, y, 'PAÍS DE PRODUCCIÓN', d.paisProduccion);
+    campo(col2X, y, 'CÉDULA IDENTIDAD', d.cedula);
+    y += 12;
+    campo(col2X, y, 'FINCA DE ORIGEN', d.fincaOrigen);
+    y += 8;
+    campo(col2X, y, 'UBICACIÓN FINCA', d.ubicacionFinca);
+    y += 14;
+
+    // ---- Franja inferior: área / geo / validación ----
+    doc.setDrawColor(210, 210, 210);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 6;
+
+    const boxW = (pageW - 2 * marginX) / 3;
+    const infoBox = (x, label, valor) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...gray);
+      doc.text(label, x, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(30, 30, 30);
+      doc.text(String(valor), x, y + 5);
+    };
+
+    infoBox(marginX, 'ÁREA REGISTRADA', `${Number(d.areaHa || 0).toFixed(2)} Hectáreas`);
+    infoBox(marginX + boxW, 'GEOLOCALIZACIÓN (WGS84)', d.lat && d.lon ? `Lat: ${d.lat}  Lon: ${d.lon}` : 'N/A');
+
+    doc.setFillColor(...greenLight);
+    doc.roundedRect(marginX + boxW * 2, y - 4, boxW - 2, 12, 2, 2, 'F');
+    doc.setTextColor(...green);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('✓ VALIDACIÓN SATELITAL', marginX + boxW * 2 + 2, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`Analizado el: ${d.fechaValidacion}`, marginX + boxW * 2 + 2, y + 4.5);
+    y += 16;
+
+    // ---- Sección Información Agroambiental ----
+    if (d.agroambiental) {
+      const a = d.agroambiental;
+
+      // Salto de página si no hay espacio suficiente
+      if (y > 230) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFillColor(...greenLight);
+      doc.rect(marginX, y, pageW - marginX * 2, 6, 'F');
+      doc.setTextColor(...green);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('3. INFORMACIÓN AGROAMBIENTAL', marginX + 2, y + 4);
+      y += 12;
+
+      const agroColW = (pageW - 2 * marginX - 10) / 2;
+      const agroCol1X = marginX;
+      const agroCol2X = marginX + agroColW + 10;
+
+      campo(agroCol1X, y, 'USO DE SUELO', a.usoSuelo);
+      campo(agroCol2X, y, 'COBERTURA FORESTAL', a.coberturaForestal);
+      y += 12;
+      campo(agroCol1X, y, 'SISTEMA DE PRODUCCIÓN', a.sistemaProduccion);
+      campo(agroCol2X, y, 'FECHA DE ANÁLISIS', a.fechaAnalisis ? new Date(a.fechaAnalisis).toLocaleDateString('es-ES') : 'N/A');
+      y += 12;
+      campo(agroCol1X, y, 'ÍNDICE DE SHANNON', a.indiceShannon ?? 'N/A');
+      campo(agroCol2X, y, 'ÍNDICE DE SIMPSON', a.indiceSimpson ?? 'N/A');
+      y += 12;
+      campo(agroCol1X, y, 'BIOMASA ÁRBOLES', a.biomasaArboles != null ? `${a.biomasaArboles} t/ha` : 'N/A');
+      campo(agroCol2X, y, 'BIOMASA CAFÉ', a.biomasaCafe != null ? `${a.biomasaCafe} t/ha` : 'N/A');
+      y += 12;
+      campo(agroCol1X, y, 'HOJARASCA / MANTILLO', a.hojarascaMantillo != null ? `${a.hojarascaMantillo} t/ha` : 'N/A');
+      campo(agroCol2X, y, 'CARBONO ORGÁNICO SUELO', a.carbonoOrganicoSuelo != null ? `${a.carbonoOrganicoSuelo} tC/ha` : 'N/A');
+      y += 12;
+
+      // Stock total de carbono destacado
+      doc.setFillColor(...greenLight);
+      doc.roundedRect(agroCol1X, y - 4, pageW - marginX * 2, 12, 2, 2, 'F');
+      doc.setTextColor(...green);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('✓ STOCK TOTAL DE CARBONO', agroCol1X + 2, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(
+        a.totalStockCarbono != null ? `${a.totalStockCarbono} tC/ha` : 'N/A',
+        agroCol1X + 2, y + 4.5
+      );
+      y += 16;
+
+      // Variables adicionales dinámicas (si existen)
+      if (Array.isArray(a.variables) && a.variables.length > 0) {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...gray);
+        doc.text('VARIABLES ADICIONALES', agroCol1X, y);
+        y += 5;
+
+        a.variables.forEach((v) => {
+          if (y > 275) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(30, 30, 30);
+          doc.text(`• ${v.nombre}: ${v.valor}`, agroCol1X + 2, y);
+          y += 5;
+        });
+        y += 4;
+      }
+    }
+
+    if (y > 250) {
+      doc.addPage();
+      y = 20;
+    }
+
+    // ---- Firma ----
+    doc.setDrawColor(150, 150, 150);
+    doc.line(marginX, y, marginX + 55, y);
+    doc.setFontSize(7);
+    doc.setTextColor(...gray);
+    doc.text('FIRMA DEL OPERADOR AUTORIZADO', marginX, y + 4);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 30, 30);
+    doc.text(d.productor, marginX, y - 2);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...gray);
+    doc.text('Verificado por GeoGuard EUDR Platform', pageW - marginX, y + 4, { align: 'right' });
+    doc.text(`Verificación integridad SHA-256: ${d.idExpediente}`, pageW - marginX, y, { align: 'right' });
+
+    doc.save(`Certificado_EUDR_${d.idExpediente}.pdf`);
+  }
 </script>

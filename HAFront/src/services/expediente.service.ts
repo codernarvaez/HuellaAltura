@@ -43,8 +43,15 @@ export class ExpedienteService {
   /**
    * Lista todos los expedientes
    */
-  static async list(token?: string): Promise<ExpedienteOut[]> {
-    const res = await fetch(EXPEDIENTES_BASE, {
+  static async list(token?: string, params?: Record<string, string>): Promise<ExpedienteOut[]> {
+    let url = EXPEDIENTES_BASE;
+    if (params) {
+      const qs = new URLSearchParams(params).toString();
+      if (qs) {
+        url = `${url}?${qs}`;
+      }
+    }
+    const res = await fetch(url, {
       method: "GET",
       headers: authHeaders(token),
     });
