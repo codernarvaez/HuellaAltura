@@ -258,3 +258,24 @@ class DespachoCreate(BaseModel):
     inventarioId: str
     peso_salida_kg: float = Field(..., gt=0, description="Peso exacto en KG a despachar")
     destino: str = Field(..., description="Puerto, cliente o destino final")
+
+
+#--------------------------------------------------------
+class ProductoAcopioPublico(BaseModel):
+    # Datos de Bodega / Inventario
+    id: str
+    codigoLote: str
+    pesoDisponibleKg: Optional[float] = None
+    pesoTotalKg: Optional[float] = None
+    # Datos que vienen de la Relación con Compras
+    tipoCafe: Optional[str] = None # Ej. Pergamino, Oro
+    
+    # Datos que vienen de la Relación con Muestras
+    puntajeSca: Optional[float] = None
+    proceso: Optional[str] = None
+    esEspecialidad: bool = False
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+        populate_by_name = True # Permite poblar el modelo usando el alias o el nombre del campo

@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import log_user_action, require_roles, get_current_user
+from app.dependencies import log_user_action, require_roles
 from app.routers.acopio.roles import BODEGA
 from app.schemas.acopio import BodegaIngresoCreate, InventarioAcopioOut
+from app.schemas.acopio import ProductoAcopioPublico
 
 router = APIRouter(prefix="/acopio/bodega", tags=["Acopio - Bodega"])
 
@@ -116,3 +117,52 @@ def obtener_inventario(
     if not inventario:
         raise HTTPException(status_code=404, detail="Registro de inventario no encontrado")
     return inventario
+
+
+
+public_router = APIRouter(
+    prefix="/public/catalogo",
+    tags=["Catálogo Público"]
+)
+
+@public_router.get("/", response_model=list[ProductoAcopioPublico])
+def obtener_catalogo_publico(db: Annotated[Prisma, Depends(get_db)]):
+    try:
+        # Usamos inventarioacopio que es tu tabla real
+        lotes_inventario = db.inventarioacopio.find_many(
+            where={
+                "estado": "EN_BODEGA" # Filtra por el estado comercial correcto
+            },
+            include={
+                "ordenCompra": {
+                    "include": {
+                        "muestra": True # Relación anidada real
+                    }
+                }
+            }
+        )
+        
+        productos_formateados = []
+        for lote in lotes_inventario:
+            orden = lote.ordenCompra
+            muestra = orden.muestra if orden else None
+            
+            producto = {
+                "id": lote.id,
+                "codigoLote": getattr(muestra, 'codigoQR', "N/A") if muestra else "N/A", 
+                "pesoDisponibleKg": lote.pesoIngresoKg - lote.pesoSalidaKg,
+                "pesoTotalKg": lote.pesoIngresoKg, # <-- Nuevo campo agregado
+                "tipoCafe": getattr(muestra, 'tipoProceso', None) if muestra else None,
+                "puntajeSca": getattr(muestra, 'puntajeTotal', None) if muestra else None, 
+                "proceso": getattr(muestra, 'tipoProceso', None) if muestra else None,
+                "esEspecialidad": True if getattr(muestra, 'clasificacion', '') == 'Café de Especialidad' else False
+            }
+            productos_formateados.append(producto)
+            
+        return productos_formateados
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al consolidar el catálogo de acopio: {str(e)}"
+        )
