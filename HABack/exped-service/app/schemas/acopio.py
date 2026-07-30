@@ -269,6 +269,7 @@ class ProductoAcopioPublico(BaseModel):
     pesoTotalKg: Optional[float] = None
     # Datos que vienen de la Relación con Compras
     tipoCafe: Optional[str] = None # Ej. Pergamino, Oro
+    precioReferencial: Optional[float] = None
     
     # Datos que vienen de la Relación con Muestras
     puntajeSca: Optional[float] = None

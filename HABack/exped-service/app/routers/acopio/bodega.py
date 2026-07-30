@@ -147,12 +147,18 @@ def obtener_catalogo_publico(db: Annotated[Prisma, Depends(get_db)]):
             orden = lote.ordenCompra
             muestra = orden.muestra if orden else None
             
+            # Sumamos el precio base más las primas si existen, o solo mandamos el precio base
+            precio_base = getattr(orden, 'precioAcordado', 0.0) if orden else 0.0
+            primas = getattr(orden, 'primas', 0.0) if (orden and orden.primas) else 0.0
+            precio_total = precio_base + primas
+            
             producto = {
                 "id": lote.id,
                 "codigoLote": getattr(muestra, 'codigoQR', "N/A") if muestra else "N/A", 
                 "pesoDisponibleKg": lote.pesoIngresoKg - lote.pesoSalidaKg,
-                "pesoTotalKg": lote.pesoIngresoKg, # <-- Nuevo campo agregado
+                "pesoTotalKg": lote.pesoIngresoKg,
                 "tipoCafe": getattr(muestra, 'tipoProceso', None) if muestra else None,
+                "precioReferencial": precio_total if precio_total > 0 else None, # <-- EXTRAEMOS EL PRECIO
                 "puntajeSca": getattr(muestra, 'puntajeTotal', None) if muestra else None, 
                 "proceso": getattr(muestra, 'tipoProceso', None) if muestra else None,
                 "esEspecialidad": True if getattr(muestra, 'clasificacion', '') == 'Café de Especialidad' else False
