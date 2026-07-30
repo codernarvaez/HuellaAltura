@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: huellaatura-front
+    env: node
+    region: singapore  # Cambiar según región
+
+    # Construcción
+    buildCommand: cd HAFront && npm install && npm run check && npm run build
+
+    # Inicio
+    startCommand: cd HAFront && npm start
+
+    # Puerto
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_API_URL
+        # Cambiar según tu backend en Render
+        value: https://tu-backend.onrender.com
+      - key: PUBLIC_SUPABASE_URL
+        sync: false
+      - key: PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+
+    # Salud
+    healthCheckPath: /
+
+    # Recursos
+    plan: free  # O paid según necesidad
+
+    # Logs
+    numInstances: 1
+
+    # Conexión a GitHub
+    repo: https://github.com/tu-usuario/huellaatura
+    branch: main
+    autoDeploy: true
