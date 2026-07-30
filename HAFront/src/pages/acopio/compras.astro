@@ -15,6 +15,9 @@ let fincas = [];
 let error = null;
 let isLoading = true;
 
+// 🔥 Mapa de muestraId -> orden de compra existente (para marcar como "Ya procesada")
+let ordenPorMuestra = {};
+
 if (token) {
   try {
     userData = await AuthService.getMe(token);
@@ -51,6 +54,30 @@ if (token) {
     muestras = todasLasMuestras;
     console.log("📋 Total muestras:", muestras.length);
     
+    // 🔥 Obtener las órdenes de compra ya existentes, para marcar muestras "Ya procesadas"
+    try {
+      const ordenesExistentes = await AcopioService.getOrdenesCompra(token);
+      console.log("📋 Órdenes de compra existentes:", ordenesExistentes.length);
+      
+      ordenesExistentes.forEach((orden) => {
+        // 🔧 FIX #1: soporta distintos nombres de campo que pueda devolver el backend
+        // (muestraId, muestra_id, o un objeto anidado muestra.id) para que el mapeo
+        // no se quede vacío por un mismatch de naming y las muestras procesadas
+        // no se detecten.
+        const muestraKey =
+          orden.muestraId ||
+          orden.muestra_id ||
+          orden?.muestra?.id ||
+          orden?.muestra?._id;
+
+        if (muestraKey) {
+          ordenPorMuestra[muestraKey] = orden;
+        }
+      });
+    } catch (e) {
+      console.warn("⚠️ Error obteniendo órdenes de compra existentes:", e.message);
+    }
+    
     isLoading = false;
   } catch (e) {
     error = e.message;
@@ -71,6 +98,9 @@ const fincasStr = JSON.stringify(fincas);
 const muestrasStr = JSON.stringify(muestras);
 const userRoleStr = userRole;
 const puedeAprobarComprasStr = puedeAprobarCompras ? 'true' : 'false';
+// 🔧 Se escapa "<" para poder incrustar este JSON dentro de un <script> sin
+// riesgo de que una secuencia como "</script" corte la etiqueta antes de tiempo.
+const ordenPorMuestraStr = JSON.stringify(ordenPorMuestra).replace(/</g, '\\u003c');
 const API_URL = "https://geoguard-exped.onrender.com";
 ---
 
@@ -179,6 +209,7 @@ const API_URL = "https://geoguard-exped.onrender.com";
                     <option value="todas">Todos los estados</option>
                     <option value="pendiente">Pendiente</option>
                     <option value="analizada">Con análisis completo</option>
+                    <option value="procesada">Ya procesada</option>
                 </select>
                 <button
                     id="btn-filtrar"
@@ -190,12 +221,17 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
             <!-- Grid de muestras -->
             <div id="muestras-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {muestras.map((muestra) => (
+                {muestras.map((muestra) => {
+                    const ordenExistente = ordenPorMuestra[muestra.id];
+                    const yaProcesada = !!ordenExistente;
+                    return (
                     <div 
                         key={muestra.id} 
-                        class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow muestra-item"
+                        class={`bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow muestra-item ${yaProcesada ? 'border-slate-200 opacity-75' : 'border-slate-200'}`}
                         data-muestra-id={muestra.id}
                         data-muestra-data={JSON.stringify(muestra)}
+                        data-tiene-orden={yaProcesada ? 'true' : 'false'}
+                        data-orden-id={ordenExistente?.id || ''}
                     >
                         <div class="p-4">
                             <div class="flex justify-between items-start">
@@ -219,37 +255,64 @@ const API_URL = "https://geoguard-exped.onrender.com";
                                 <span class="text-xs font-mono text-slate-600">{muestra.codigoQR || 'N/A'}</span>
                             </div>
 
-                            <!-- Estado de análisis -->
-                            <div class="mt-3 border-t border-slate-100 pt-3">
-                                <div class="flex items-center gap-2 text-xs">
-                                    <span class="text-slate-500">🔬 Físico:</span>
-                                    <span class="estado-fisico font-medium text-yellow-600" data-muestra-id={muestra.id}>
-                                        <i data-lucide="loader-circle" class="w-3 h-3 inline animate-spin"></i>
-                                        Cargando...
-                                    </span>
+                            {yaProcesada ? (
+                                <!-- ✅ YA TIENE ORDEN DE COMPRA -->
+                                <div class="estado-analisis-wrap mt-3 border-t border-slate-100 pt-3">
+                                    <div class="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-2 py-1.5">
+                                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-slate-500"></i>
+                                        <span class="font-medium text-slate-500">
+                                            Ya procesada — Orden #{ordenExistente.id?.substring(0, 8)}
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400 mt-1">
+                                        Estado: {ordenExistente.estado || 'N/A'}
+                                    </p>
                                 </div>
-                                <div class="flex items-center gap-2 text-xs mt-1">
-                                    <span class="text-slate-500">☕ Sensorial:</span>
-                                    <span class="estado-sensorial font-medium text-yellow-600" data-muestra-id={muestra.id}>
-                                        <i data-lucide="loader-circle" class="w-3 h-3 inline animate-spin"></i>
-                                        Cargando...
-                                    </span>
+                            ) : (
+                                <!-- Estado de análisis (solo si aún no tiene orden) -->
+                                <div class="estado-analisis-wrap mt-3 border-t border-slate-100 pt-3">
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <span class="text-slate-500">🔬 Físico:</span>
+                                        <span class="estado-fisico font-medium text-yellow-600" data-muestra-id={muestra.id}>
+                                            <i data-lucide="loader-circle" class="w-3 h-3 inline animate-spin"></i>
+                                            Cargando...
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-xs mt-1">
+                                        <span class="text-slate-500">☕ Sensorial:</span>
+                                        <span class="estado-sensorial font-medium text-yellow-600" data-muestra-id={muestra.id}>
+                                            <i data-lucide="loader-circle" class="w-3 h-3 inline animate-spin"></i>
+                                            Cargando...
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         <div class="border-t border-slate-100 px-4 py-3 bg-slate-50/50 flex justify-end">
-                            <button 
-                                class="btn-seleccionar-muestra text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg transition font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                data-muestra-id={muestra.id}
-                                disabled
-                            >
-                                <i data-lucide="shopping-cart" class="w-4 h-4"></i>
-                                Seleccionar
-                            </button>
+                            {yaProcesada ? (
+                                <button 
+                                    class="text-sm bg-slate-200 text-slate-500 px-4 py-2 rounded-lg font-medium flex items-center gap-1 cursor-not-allowed"
+                                    disabled
+                                    title="Esta muestra ya tiene una orden de compra"
+                                >
+                                    <i data-lucide="check" class="w-4 h-4"></i>
+                                    Ya procesada
+                                </button>
+                            ) : (
+                                <button 
+                                    class="btn-seleccionar-muestra text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg transition font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    data-muestra-id={muestra.id}
+                                    disabled
+                                >
+                                    <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                                    Seleccionar
+                                </button>
+                            )}
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     )}
@@ -373,7 +436,7 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 </div>
             </div>
 
-            <!-- Mensaje de error/éxito -->
+            <!-- Mensaje de error/éxito/info -->
             <div id="orden-error" class="hidden text-sm flex items-center gap-2 p-3 rounded-xl">
                 <i data-lucide="alert-circle" class="w-4 h-4"></i>
                 <span id="orden-error-text">Error al crear la orden</span>
@@ -436,6 +499,15 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
 <script is:inline src="https://unpkg.com/lucide@latest"></script>
 
+<!-- 🔧 FIX: los datos del servidor van en un script aparte con define:vars
+     (que Astro renderiza como script clásico inline). El script de abajo,
+     que usa "import", necesita ser un módulo, y define:vars + import no
+     son compatibles en el mismo <script> (por eso salía
+     "Cannot use import statement outside a module"). -->
+<script define:vars={{ ordenPorMuestraStr }} is:inline>
+    window.__ORDEN_POR_MUESTRA__ = JSON.parse(ordenPorMuestraStr || '{}');
+</script>
+
 <script>
     import { AuthService } from "/src/services/auth.service.ts";
     import { AcopioService } from "/src/services/acopio.service.ts";
@@ -446,6 +518,15 @@ const API_URL = "https://geoguard-exped.onrender.com";
     const API_URL = "https://geoguard-exped.onrender.com";
     let muestraSeleccionada = null;
 
+    // 🔧 FIX #2: guard para evitar doble envío del formulario (doble click,
+    // doble submit por Enter, etc.) que provocaba que el backend respondiera
+    // "ya existe una orden" en la segunda llamada aunque la primera ya
+    // hubiera creado la orden correctamente.
+    let procesandoOrden = false;
+
+    // 🔥 Mapa de muestraId -> orden existente, inyectado desde el servidor
+    const ORDEN_POR_MUESTRA = window.__ORDEN_POR_MUESTRA__ || {};
+
     function getCookie(name) {
         const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
         return match ? decodeURIComponent(match[1]) : "";
@@ -453,6 +534,81 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
     function getToken() {
         return getCookie('token');
+    }
+
+    // 🔥 Interpreta el error del backend y decide si es un caso "informativo"
+    // (ej. orden duplicada) en vez de un error real.
+    function clasificarError(mensaje) {
+        const mensajeLower = (mensaje || '').toLowerCase();
+        
+        if (mensajeLower.includes('ya existe una orden')) {
+            return {
+                tipo: 'info',
+                titulo: 'ℹ️ Esta muestra ya fue procesada',
+                detalle: 'Ya existe una orden de compra registrada para esta muestra. No es necesario crear otra.'
+            };
+        }
+        
+        if (mensajeLower.includes('eudr') || 
+            mensajeLower.includes('deforestación') || 
+            mensajeLower.includes('auditoría')) {
+            return {
+                tipo: 'error-eudr',
+                titulo: '❌ Validación EUDR fallida',
+                detalle: mensaje
+            };
+        }
+        
+        return {
+            tipo: 'error',
+            titulo: '❌ Error al crear la orden',
+            detalle: mensaje
+        };
+    }
+
+    // ============================================================
+    // 🔧 FIX #1: MARCAR UNA MUESTRA COMO PROCESADA EN EL DOM
+    // (actualización optimista, sin recargar la página)
+    // ============================================================
+
+    function marcarMuestraComoProcesada(muestraId, ordenId, estadoOrden) {
+        const item = document.querySelector(`.muestra-item[data-muestra-id="${muestraId}"]`);
+        if (!item) return;
+
+        item.dataset.tieneOrden = 'true';
+        item.dataset.ordenId = ordenId || '';
+        item.classList.add('opacity-75');
+
+        const idCorto = (ordenId || '').toString().substring(0, 8);
+
+        // Reemplaza el bloque de estado de análisis (🔬/☕) por el bloque "Ya procesada"
+        const bloqueAnalisis = item.querySelector('.estado-analisis-wrap');
+        if (bloqueAnalisis) {
+            bloqueAnalisis.innerHTML = `
+                <div class="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-2 py-1.5">
+                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-slate-500"></i>
+                    <span class="font-medium text-slate-500">
+                        Ya procesada — Orden #${idCorto}
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">
+                    Estado: ${estadoOrden || 'N/A'}
+                </p>
+            `;
+        }
+
+        // Reemplaza el botón "Seleccionar" por el botón deshabilitado "Ya procesada"
+        const btn = item.querySelector('.btn-seleccionar-muestra');
+        if (btn) {
+            const nuevoBtn = document.createElement('button');
+            nuevoBtn.className = 'text-sm bg-slate-200 text-slate-500 px-4 py-2 rounded-lg font-medium flex items-center gap-1 cursor-not-allowed';
+            nuevoBtn.disabled = true;
+            nuevoBtn.title = 'Esta muestra ya tiene una orden de compra';
+            nuevoBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Ya procesada';
+            btn.replaceWith(nuevoBtn);
+        }
+
+        if (window.lucide) window.lucide.createIcons();
     }
 
     // ============================================================
@@ -479,10 +635,17 @@ const API_URL = "https://geoguard-exped.onrender.com";
     async function cargarTodosLosAnalisis() {
         const items = document.querySelectorAll('.muestra-item');
         for (const item of items) {
+            // 🔥 Si ya tiene orden, no hace falta cargar análisis ni tocar el botón
+            if (item.dataset.tieneOrden === 'true') {
+                continue;
+            }
+
             const muestraId = item.dataset.muestraId;
             const estadoFisico = item.querySelector('.estado-fisico');
             const estadoSensorial = item.querySelector('.estado-sensorial');
             const btnSeleccionar = item.querySelector('.btn-seleccionar-muestra');
+
+            if (!estadoFisico || !estadoSensorial || !btnSeleccionar) continue;
 
             const analisis = await cargarAnalisisMuestra(muestraId);
             
@@ -613,6 +776,13 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 containerEl.className = 'bg-red-50 border border-red-200 rounded-xl p-4';
                 break;
                 
+            case 'info':
+                statusEl.textContent = 'ℹ️ Ya procesada anteriormente';
+                statusEl.className = 'text-xs font-medium text-blue-600';
+                iconEl.innerHTML = '<i data-lucide="info" class="w-5 h-5 text-blue-600"></i>';
+                containerEl.className = 'bg-blue-50 border border-blue-200 rounded-xl p-4';
+                break;
+                
             default:
                 resetearEstadoEUDR();
                 return;
@@ -636,6 +806,12 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
     async function crearOrdenCompra(event) {
         event.preventDefault();
+
+        // 🔧 FIX #2: si ya hay una petición en curso, ignorar este submit
+        // (evita el doble envío que generaba el falso "ya existe una orden")
+        if (procesandoOrden) {
+            return;
+        }
 
         const muestraId = document.getElementById('orden-muestra-id').value;
         const volumenKg = parseFloat(document.getElementById('orden-volumen').value);
@@ -662,18 +838,19 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
         console.log('📦 Payload orden de compra:', JSON.stringify(payload, null, 2));
 
+        const token = getToken();
+        if (!token) {
+            errorDiv.classList.remove('hidden');
+            errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
+            errorText.textContent = 'No hay sesión activa';
+            return;
+        }
+
+        procesandoOrden = true;
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Validando...';
+
         try {
-            const token = getToken();
-            if (!token) {
-                errorDiv.classList.remove('hidden');
-                errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
-                errorText.textContent = 'No hay sesión activa';
-                return;
-            }
-
-            btnGuardar.disabled = true;
-            btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Validando...';
-
             // Actualizar estado EUDR a "Validando"
             actualizarEstadoEUDR('validando', 'Verificando auditoría EUDR de la finca...');
 
@@ -687,11 +864,16 @@ const API_URL = "https://geoguard-exped.onrender.com";
                 'La finca cuenta con auditoría EUDR aprobada y sin deforestación'
             );
 
+            // 🔧 FIX #1: marcar la muestra como "Ya procesada" al instante,
+            // sin esperar a que el usuario recargue la página
+            marcarMuestraComoProcesada(muestraId, resultado.orden_id, resultado.estado);
+
             // ============================================================
             // ✅ MODAL DE ÉXITO CON BOTÓN "IR A BODEGA"
             // ============================================================
             errorDiv.classList.remove('hidden');
             errorDiv.className = 'text-sm flex flex-col items-center gap-2 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700';
+            errorDiv.innerHTML = '';
             
             // Mensaje de éxito
             const mensajeExito = document.createElement('div');
@@ -708,6 +890,7 @@ const API_URL = "https://geoguard-exped.onrender.com";
             
             // Botón "Ir a Bodega" (principal)
             const btnBodega = document.createElement('button');
+            btnBodega.type = 'button';
             btnBodega.className = 'flex-1 h-10 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition flex items-center justify-center gap-2 btn-accion-success text-sm';
             btnBodega.innerHTML = '<i data-lucide="package" class="w-4 h-4"></i> 📦 Ir a Bodega';
             btnBodega.onclick = () => {
@@ -717,12 +900,14 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
             // Botón "Crear otra orden"
             const btnOtraOrden = document.createElement('button');
+            btnOtraOrden.type = 'button';
             btnOtraOrden.className = 'flex-1 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm';
             btnOtraOrden.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i> Crear otra orden';
             btnOtraOrden.onclick = () => {
+                // 🔧 Ya no hace falta recargar la página: la tarjeta se
+                // actualizó en el DOM con marcarMuestraComoProcesada().
                 toggleModalOrden(false);
-                // Recargar para mostrar muestras actualizadas
-                window.location.reload();
+                filtrarMuestras();
             };
             accionesDiv.appendChild(btnOtraOrden);
 
@@ -738,39 +923,72 @@ const API_URL = "https://geoguard-exped.onrender.com";
         } catch (error) {
             console.error('❌ Error al crear orden de compra:', error);
             
-            let mensaje = error.message || 'Error al crear la orden';
-            let esErrorEUDR = false;
+            const mensajeOriginal = error.message || 'Error al crear la orden';
+            const clasificado = clasificarError(mensajeOriginal);
             
-            // Detectar si es error de EUDR
-            if (mensaje.includes('EUDR') || 
-                mensaje.includes('deforestación') || 
-                mensaje.includes('auditoría') ||
-                mensaje.includes('403')) {
-                esErrorEUDR = true;
+            if (clasificado.tipo === 'info') {
+                // 🔥 Caso "Ya existe una orden": la muestra YA fue procesada
+                // (por esta u otra petición previa). No es un error real:
+                // se trata como éxito y se marca la muestra como procesada,
+                // sin mostrar una advertencia roja.
+                marcarMuestraComoProcesada(muestraId, null, null);
+
+                actualizarEstadoEUDR('info', clasificado.detalle);
                 
+                errorDiv.classList.remove('hidden');
+                errorDiv.className = 'text-sm flex flex-col items-center gap-2 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700';
+                errorDiv.innerHTML = `
+                    <div class="flex items-center gap-2 w-full">
+                        <i data-lucide="info" class="w-5 h-5 text-blue-600 flex-shrink-0"></i>
+                        <span>${clasificado.titulo}</span>
+                    </div>
+                    <p class="text-xs text-blue-600 w-full text-left">${clasificado.detalle}</p>
+                `;
+                
+                const accionesDiv = document.createElement('div');
+                accionesDiv.className = 'flex flex-col sm:flex-row gap-3 w-full mt-2';
+                
+                const btnCerrar = document.createElement('button');
+                btnCerrar.type = 'button';
+                btnCerrar.className = 'flex-1 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm';
+                btnCerrar.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i> Cerrar';
+                btnCerrar.onclick = () => {
+                    toggleModalOrden(false);
+                    filtrarMuestras();
+                };
+                accionesDiv.appendChild(btnCerrar);
+                errorDiv.appendChild(accionesDiv);
+                
+                if (window.lucide) window.lucide.createIcons();
+            } else if (clasificado.tipo === 'error-eudr') {
                 actualizarEstadoEUDR(
                     'rechazado',
-                    '❌ Validación EUDR fallida',
+                    clasificado.detalle,
                     'La finca no cumple con los requisitos de cero deforestación'
                 );
                 
-                mensaje = '❌ Validación EUDR fallida: ' + mensaje;
+                errorDiv.classList.remove('hidden');
+                errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
+                errorDiv.innerHTML = `
+                    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+                    <span id="orden-error-text">${clasificado.titulo}: ${clasificado.detalle}</span>
+                `;
             } else {
                 resetearEstadoEUDR();
+                
+                errorDiv.classList.remove('hidden');
+                errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-orange-50 border border-orange-200 text-orange-600';
+                errorDiv.innerHTML = `
+                    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+                    <span id="orden-error-text">${clasificado.detalle}</span>
+                `;
             }
-            
-            errorDiv.classList.remove('hidden');
-            errorDiv.className = `text-sm flex items-center gap-2 p-3 rounded-xl ${esErrorEUDR ? 'bg-red-50 border border-red-200 text-red-600' : 'bg-orange-50 border border-orange-200 text-orange-600'}`;
-            
-            // Limpiar contenido anterior
-            errorDiv.innerHTML = `
-                <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
-                <span id="orden-error-text">${mensaje}</span>
-            `;
             
             btnGuardar.disabled = false;
             btnGuardar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Aprobar Orden';
             if (window.lucide) window.lucide.createIcons();
+        } finally {
+            procesandoOrden = false;
         }
     }
 
@@ -785,6 +1003,7 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
         items.forEach(item => {
             const data = JSON.parse(item.dataset.muestraData);
+            const tieneOrden = item.dataset.tieneOrden === 'true';
             let mostrar = true;
 
             if (fincaFilter !== 'todas' && data.fincaId !== fincaFilter) {
@@ -792,13 +1011,20 @@ const API_URL = "https://geoguard-exped.onrender.com";
             }
 
             if (estadoFilter !== 'todas') {
-                const btn = item.querySelector('.btn-seleccionar-muestra');
-                const tieneAnalisis = !btn.disabled;
-                if (estadoFilter === 'analizada' && !tieneAnalisis) {
+                if (estadoFilter === 'procesada') {
+                    mostrar = mostrar && tieneOrden;
+                } else if (tieneOrden) {
+                    // Si ya está procesada, no aplica a "pendiente" ni "analizada"
                     mostrar = false;
-                }
-                if (estadoFilter === 'pendiente' && tieneAnalisis) {
-                    mostrar = false;
+                } else {
+                    const btn = item.querySelector('.btn-seleccionar-muestra');
+                    const tieneAnalisis = btn ? !btn.disabled : false;
+                    if (estadoFilter === 'analizada' && !tieneAnalisis) {
+                        mostrar = false;
+                    }
+                    if (estadoFilter === 'pendiente' && tieneAnalisis) {
+                        mostrar = false;
+                    }
                 }
             }
 
@@ -815,23 +1041,27 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
         cargarTodosLosAnalisis();
 
-        document.querySelectorAll('.btn-seleccionar-muestra').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const muestraId = this.dataset.muestraId;
-                const item = this.closest('.muestra-item');
-                const data = JSON.parse(item.dataset.muestraData);
-                const analisis = {
-                    fisico: JSON.parse(item.dataset.analisisFisico || 'null'),
-                    sensorial: JSON.parse(item.dataset.analisisSensorial || 'null')
-                };
-                
-                if (!analisis.fisico || !analisis.sensorial) {
-                    alert('Esta muestra no tiene análisis completos');
-                    return;
-                }
-                
-                toggleModalOrden(true, data, analisis);
-            });
+        // 🔧 Delegación de eventos en el contenedor: como marcarMuestraComoProcesada()
+        // reemplaza el botón "Seleccionar" por uno nuevo, un listener puesto
+        // directamente sobre el botón original se perdería para futuras muestras
+        // seleccionadas en la misma sesión. Con delegación no hay ese problema.
+        document.getElementById('muestras-container')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-seleccionar-muestra');
+            if (!btn || btn.disabled) return;
+
+            const item = btn.closest('.muestra-item');
+            const data = JSON.parse(item.dataset.muestraData);
+            const analisis = {
+                fisico: JSON.parse(item.dataset.analisisFisico || 'null'),
+                sensorial: JSON.parse(item.dataset.analisisSensorial || 'null')
+            };
+
+            if (!analisis.fisico || !analisis.sensorial) {
+                alert('Esta muestra no tiene análisis completos');
+                return;
+            }
+
+            toggleModalOrden(true, data, analisis);
         });
 
         document.getElementById('btn-cerrar-modal')?.addEventListener('click', () => toggleModalOrden(false));
