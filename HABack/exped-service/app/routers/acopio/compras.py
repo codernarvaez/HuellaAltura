@@ -76,6 +76,21 @@ def registrar_orden_compra(
     if not muestra_db:
         raise HTTPException(status_code=404, detail="Muestra no encontrada")
 
+    # 🛡️ VALIDACIÓN 1: Evitar Error 500 si la orden ya existe
+    orden_existente = db.ordencompra.find_unique(where={"muestraId": orden.muestraId})
+    if orden_existente:
+        raise HTTPException(
+            status_code=400, 
+            detail="Ya existe una orden de compra para esta muestra."
+        )
+
+    # 🛡️ VALIDACIÓN 2: Evitar Error 500 si la muestra no tiene finca
+    if not muestra_db.fincaId:
+        raise HTTPException(
+            status_code=400, 
+            detail="La muestra no tiene una finca asociada para validar el EUDR."
+        )
+
     # Semáforo EUDR: se exige la auditoría satelital más reciente en APROBADO
     auditoria_db = db.auditoria.find_first(
         where={"expediente": {"dato": {"finca_id": muestra_db.fincaId}}},
@@ -97,6 +112,7 @@ def registrar_orden_compra(
             ),
         )
 
+    # Si todo está bien, creamos la orden
     orden_db = db.ordencompra.create(
         data={
             "muestraId": orden.muestraId,
