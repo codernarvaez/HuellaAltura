@@ -28,20 +28,12 @@ if (token) {
     const expedientes = await ExpedienteService.list(token);
     console.log('📋 Expedientes encontrados:', expedientes.length);
     
-    // Crear un mapa de finca_id -> estado del expediente
-    const estadoPorFinca = {};
-    expedientes.forEach(exp => {
-      if (exp.finca_id) {
-        estadoPorFinca[exp.finca_id] = exp.estado;
-      }
-    });
-    console.log('📊 Estado por finca:', estadoPorFinca);
-    
-    // Filtrar fincas que NO tienen expediente o su expediente está PENDIENTE
-    fincasPendientes = todasFincas.filter(f => {
-      const estado = estadoPorFinca[f.id];
-      return !estado || estado === 'PENDIENTE';
-    });
+    // NOTA: Los expedientes se vinculan a la finca a través de "dato_id"
+    // (el id del registro de datos agroambientales), NO por finca_id directo.
+    // El filtrado inicial en el servidor se deja simple (basado en si hay o no
+    // datos), y el detalle fino de estado se resuelve en el cliente con el
+    // endpoint /api/v1/agroambiental/{finca_id}.
+    fincasPendientes = todasFincas;
     
     console.log('📋 Fincas pendientes:', fincasPendientes.length);
     
@@ -90,7 +82,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
         </div>
       </div>
       
-      <!-- SELECTOR DE FINCAS PENDIENTES -->
+      <!-- SELECTOR DE FINCAS -->
       <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
         <select id="finca-select" class="w-full sm:w-64 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
           <option value="">-- Selecciona una finca --</option>
@@ -240,34 +232,80 @@ const esAdminStr = esAdmin ? 'true' : 'false';
     return await response.json();
   }
 
+  // ✅ NUEVO: obtener el dato agroambiental de una finca (contiene el finca_id real)
+  async function getDatoAgroambientalByFinca(fincaId) {
+  const url = `${API_URL}/api/v1/agroambiental/${fincaId}`;
+  console.log('🔍 getDatoAgroambiental URL:', url);
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (response.status === 404) {
+    console.log('ℹ️ No hay datos agroambientales para esta finca');
+    return null;
+  }
+  
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || 'Error al obtener datos agroambientales');
+  }
+  
+  const data = await response.json();
+  console.log('🌱 Respuesta cruda de agroambiental:', data);
+  
+  // ✅ Manejar tanto array como objeto único
+  if (Array.isArray(data)) {
+    if (data.length === 0) return null;
+    // Si hay varios, tomar el que coincida exactamente con la finca (por seguridad)
+    return data.find(d => d.finca_id === fincaId) || data[0];
+  }
+  
+  return data;
+}
+
+  // ✅ Buscar el expediente vinculado a una finca, vía dato_id
+  async function getExpedienteByFinca(fincaId) {
+    const datoAgro = await getDatoAgroambientalByFinca(fincaId);
+    console.log('🌱 Dato agroambiental:', datoAgro);
+    
+    if (!datoAgro) {
+      return { datoAgro: null, expediente: null };
+    }
+    
+    const expedientes = await listarExpedientes();
+    const expediente = expedientes.find(e => e.dato_id === datoAgro.id);
+    console.log('📋 Expediente vinculado:', expediente);
+    
+    return { datoAgro, expediente: expediente || null };
+  }
+
   // ✅ ACTUALIZAR EL ESTADO DEL EXPEDIENTE (NO DE LA FINCA)
+  // Ahora usa dato_id (vía datos agroambientales) en vez de finca_id directo
   async function actualizarEstadoExpediente(fincaId, estado) {
     console.log('🔍 Buscando expediente para finca:', fincaId);
     
     try {
-      // Primero buscar el expediente asociado a esta finca
-      const urlExpedientes = `${API_URL}/api/v1/expedientes?finca_id=${fincaId}`;
-      console.log('🔍 URL expedientes:', urlExpedientes);
+      // 1. Obtener el dato agroambiental de esta finca
+      const datoAgro = await getDatoAgroambientalByFinca(fincaId);
       
-      const responseExpedientes = await fetch(urlExpedientes, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      if (!datoAgro) {
+        throw new Error('Esta finca no tiene datos agroambientales registrados. Debes crearlos antes de auditar.');
+      }
       
-      const expedientes = await responseExpedientes.json();
-      console.log('📋 Expedientes encontrados:', expedientes);
+      // 2. Buscar el expediente vinculado a ese dato_id
+      const expedientes = await listarExpedientes();
+      const expedienteExistente = expedientes.find(e => e.dato_id === datoAgro.id);
+      console.log('📋 Expediente existente:', expedienteExistente);
       
       // Si no hay expediente, crear uno
-      if (!expedientes || expedientes.length === 0) {
+      if (!expedienteExistente) {
         console.log('📝 Creando nuevo expediente...');
         const urlCreate = `${API_URL}/api/v1/expedientes`;
-        
-        // Primero necesitamos obtener el dato_id (datos agroambientales)
-        // Si no hay, usamos un valor temporal o null
-        const datoId = fincaId; // Temporal, ajustar según la lógica de negocio
         
         const responseCreate = await fetch(urlCreate, {
           method: 'POST',
@@ -276,15 +314,27 @@ const esAdminStr = esAdmin ? 'true' : 'false';
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            dato_id: datoId,
+            dato_id: datoAgro.id, // 👈 el id real del dato agroambiental
             organizacion_inquilino: 'Asociación APECAEL'
           })
         });
         
-        if (!responseCreate.ok) {
-          const errorData = await responseCreate.json().catch(() => ({}));
-          throw new Error(errorData.detail || 'Error al crear expediente');
-        }
+        function formatearError(errorData, fallback) {
+  if (!errorData || !errorData.detail) return fallback;
+  
+  if (Array.isArray(errorData.detail)) {
+    // Formato típico de FastAPI para 422: [{loc, msg, type}, ...]
+    return errorData.detail
+      .map(d => `${(d.loc || []).join('.')}: ${d.msg}`)
+      .join(' | ');
+  }
+  
+  if (typeof errorData.detail === 'object') {
+    return JSON.stringify(errorData.detail);
+  }
+  
+  return errorData.detail;
+}
         
         const newExpediente = await responseCreate.json();
         console.log('✅ Expediente creado:', newExpediente);
@@ -306,7 +356,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
         
         if (!responseUpdate.ok) {
           const errorData = await responseUpdate.json().catch(() => ({}));
-          throw new Error(errorData.detail || 'Error al actualizar expediente');
+          throw new Error(formatearError(errorData, 'Error al crear expediente'));
         }
         
         const data = await responseUpdate.json();
@@ -315,8 +365,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
       }
       
       // Si existe expediente, actualizarlo
-      const expediente = expedientes[0];
-      const expedienteId = expediente.id;
+      const expedienteId = expedienteExistente.id;
       const url = `${API_URL}/api/v1/expedientes/${expedienteId}`;
       console.log('🔍 update expediente URL:', url);
       console.log('📤 Nuevo estado:', estado);
@@ -487,17 +536,23 @@ const esAdminStr = esAdmin ? 'true' : 'false';
       fincaIdDisplay.textContent = `ID: ${finca.id?.substring(0, 8)}...`;
       fincaEudrDisplay.textContent = `EUDR: ${finca.eudr_id || 'No asignado'}`;
       
-      // ✅ Buscar el expediente para obtener el estado
+      // ✅ Buscar dato agroambiental -> expediente vinculado, ANTES de construir activeRecord
+      let estadoActual = 'PENDIENTE';
+      let expedienteId = null;
+      let datoAgroId = null;
+
       try {
-        const expedientes = await listarExpedientes();
-        const expediente = expedientes.find(e => e.finca_id === fincaId);
-        const estadoActual = expediente?.estado || 'PENDIENTE';
-        actualizarDisplayEstado(estadoActual);
+        const { datoAgro, expediente } = await getExpedienteByFinca(fincaId);
         
-        // Guardar el expediente en activeRecord
-        if (activeRecord) {
-          activeRecord.expediente_id = expediente?.id || null;
+        if (datoAgro) {
+          datoAgroId = datoAgro.id;
+        } else {
+          console.warn('⚠️ Esta finca no tiene datos agroambientales registrados');
         }
+        
+        estadoActual = expediente?.estado || 'PENDIENTE';
+        expedienteId = expediente?.id || null;
+        actualizarDisplayEstado(estadoActual);
       } catch (e) {
         console.warn('⚠️ Error obteniendo expediente:', e);
         actualizarDisplayEstado('PENDIENTE');
@@ -521,7 +576,9 @@ const esAdminStr = esAdmin ? 'true' : 'false';
           latitud: finca.latitud || null,
           longitud: finca.longitud || null
         },
-        status_cumplimiento_eudr: 'PENDIENTE',
+        status_cumplimiento_eudr: estadoActual,  // 👈 estado real
+        dato_agroambiental_id: datoAgroId,        // 👈 referencia al dato agroambiental
+        expediente_id: expedienteId,
         verificacion_satelital: {
           fecha_ultimo_analisis: new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' }),
           porcentaje_deforestacion_detectado: 0,
@@ -545,47 +602,34 @@ const esAdminStr = esAdmin ? 'true' : 'false';
   async function recargarFincasPendientes() {
     try {
       const todas = await listarFincas();
-      const expedientes = await listarExpedientes();
       
-      // Crear mapa de estado por finca
-      const estadoPorFinca = {};
-      expedientes.forEach(exp => {
-        if (exp.finca_id) {
-          estadoPorFinca[exp.finca_id] = exp.estado;
-        }
-      });
-      
-      // Filtrar fincas pendientes
-      const pendientes = todas.filter(f => {
-        const estado = estadoPorFinca[f.id];
-        return !estado || estado === 'PENDIENTE';
-      });
-      
+      // Nota: ya no filtramos aquí por estado en base a finca_id directo
+      // (el expediente no tiene ese campo). Simplemente recargamos la lista completa
+      // y dejamos que cargarFinca() resuelva el estado real vía dato_id.
       const currentValue = fincaSelect.value;
       fincaSelect.innerHTML = '<option value="">-- Selecciona una finca --</option>';
-      pendientes.forEach(f => {
+      todas.forEach(f => {
         const option = document.createElement('option');
         option.value = f.id;
         option.textContent = `${f.nombre || 'Sin nombre'} ${f.provincia ? `- ${f.provincia}` : ''}`;
         fincaSelect.appendChild(option);
       });
       
-      if (currentValue && pendientes.some(f => f.id === currentValue)) {
+      if (currentValue && todas.some(f => f.id === currentValue)) {
         fincaSelect.value = currentValue;
-      } else if (pendientes.length > 0) {
-        fincaSelect.value = pendientes[0].id;
+      } else if (todas.length > 0) {
+        fincaSelect.value = todas[0].id;
         await cargarFinca();
       } else {
         fincaSelect.value = '';
-        fincaNombreDisplay.textContent = 'No hay fincas pendientes';
+        fincaNombreDisplay.textContent = 'No hay fincas disponibles';
         fincaIdDisplay.textContent = '--';
         fincaEudrDisplay.textContent = 'EUDR: --';
         fincaEstadoDisplay.textContent = 'Estado: --';
         btnTriggerScan.disabled = true;
       }
       
-      // Actualizar la lista de fincas pendientes
-      fincasPendientes = pendientes;
+      fincasPendientes = todas;
       
     } catch (error) {
       console.error('❌ Error recargando fincas:', error);
@@ -633,7 +677,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
 
       timerDisplay.textContent = `Fecha Análisis: ${fecha}`;
 
-      // ✅ ACTUALIZAR EL ESTADO DEL EXPEDIENTE
+      // ✅ ACTUALIZAR EL ESTADO DEL EXPEDIENTE (vía dato_id)
       console.log('📤 Actualizando expediente...');
       console.log('📤 fincaId:', fincaId);
       console.log('📤 deforestacion:', deforestacion);
@@ -643,6 +687,9 @@ const esAdminStr = esAdmin ? 'true' : 'false';
         console.log('📤 Estado a asignar al expediente: RECHAZADO');
         await actualizarEstadoExpediente(fincaId, 'RECHAZADO');
         actualizarDisplayEstado('RECHAZADO');
+        if (activeRecord) {
+          activeRecord.status_cumplimiento_eudr = 'RECHAZADO';
+        }
       } else {
         applyGEEResultsUI('success');
         console.log('📤 Estado a asignar al expediente: APROBADO');
@@ -653,6 +700,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
           activeRecord.status_cumplimiento_eudr = 'APROBADO';
         }
       }
+      updateJSONViewer();
       
       const notification = document.createElement("div");
       notification.className = "fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-xl z-50 text-sm font-semibold";
