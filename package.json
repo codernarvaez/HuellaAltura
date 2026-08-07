@@ -33,7 +33,7 @@
     "preview:hafront": "turbo run preview --filter=hafront"
   },
   "devDependencies": {
-    "turbo": "^2.9.0"
+    "turbo": "^2.10.8"
   },
   "dependencies": {
     "ofetch": "^1.5.1"
