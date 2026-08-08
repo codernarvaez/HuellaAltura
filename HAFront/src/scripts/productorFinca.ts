@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
       notify('⏳ Guardando cambios...', 'warning');
       const token = getCookie('token');
 
-      const response = await fetch(`${API_URL}/api/v1/usuarios/${usuarioId}`, {
+      const response = await fetch(`${API_URL}/api/v1/productores/${usuarioId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)

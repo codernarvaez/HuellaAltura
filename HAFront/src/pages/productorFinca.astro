@@ -735,7 +735,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
       notify('⏳ Guardando cambios...', 'warning');
       const { API_URL } = await import('../services/Api_Base.ts');
       const token = getToken();
-      const response = await fetch(`${API_URL}/api/v1/usuarios/${USUARIO_ID}`, {
+      const response = await fetch(`${API_URL}/api/v1/productores/${USUARIO_ID}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
