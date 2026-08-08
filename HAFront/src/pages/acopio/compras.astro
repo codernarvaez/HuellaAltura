@@ -101,7 +101,7 @@ const puedeAprobarComprasStr = puedeAprobarCompras ? 'true' : 'false';
 // 🔧 Se escapa "<" para poder incrustar este JSON dentro de un <script> sin
 // riesgo de que una secuencia como "</script" corte la etiqueta antes de tiempo.
 const ordenPorMuestraStr = JSON.stringify(ordenPorMuestra).replace(/</g, '\\u003c');
-const API_URL = "https://geoguard-exped.onrender.com";
+const API_URL = "https://geoguard-exped1.onrender.com";
 ---
 
 <DashboardLayout title="Órdenes de Compra - Acopio">
@@ -515,7 +515,7 @@ const API_URL = "https://geoguard-exped.onrender.com";
 
     console.log("🛒 Página de Órdenes de Compra cargada");
 
-    const API_URL = "https://geoguard-exped.onrender.com";
+    const API_URL = "https://geoguard-exped1.onrender.com";
     let muestraSeleccionada = null;
 
     // 🔧 FIX #2: guard para evitar doble envío del formulario (doble click,

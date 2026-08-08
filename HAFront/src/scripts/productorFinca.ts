@@ -586,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
       async function abrirArchivo(doc: any, modo: 'ver' | 'descargar') {
       try {
           // 1. Pedimos la URL firmada y segura a tu backend en FastAPI
-          const resUrl = await fetch(`https://geoguard-exped.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
+          const resUrl = await fetch(`https://geoguard-exped1.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
               headers: { 'Authorization': `Bearer ${getCookie('token')}` }
           });
           

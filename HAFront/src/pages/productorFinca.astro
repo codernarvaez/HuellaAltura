@@ -1192,7 +1192,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
   async function abrirArchivo(doc, modo) {
     try {
-      const resUrl = await fetch(`https://geoguard-exped.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
+      const resUrl = await fetch(`https://geoguard-exped1.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       if (!resUrl.ok) throw new Error(`El servidor respondió ${resUrl.status}. No se pudo obtener el enlace seguro.`);
