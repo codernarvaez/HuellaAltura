@@ -40,7 +40,7 @@ jobs:
         working-directory: HABack/auth-service
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v5
         with:
@@ -82,7 +82,7 @@ jobs:
         working-directory: HABack/exped-service
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v5
         with:
@@ -128,7 +128,7 @@ jobs:
     needs: [auth-service, exped-service]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
