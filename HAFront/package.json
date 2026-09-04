@@ -17,14 +17,14 @@
   },
   "dependencies": {
     "@astrojs/node": "^10.1.4",
-    "@supabase/ssr": "^0.12.0",
+    "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.108.2",
-    "@tailwindcss/vite": "^4.3.1",
+    "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.0",
-    "viem": "^2.52.2"
+    "viem": "^2.56.1"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.9",
+    "@astrojs/check": "^0.9.10",
     "@types/node": "^25.9.2",
     "astro": "^6.4.7",
     "typescript": "^6.0.3"
