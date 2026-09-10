@@ -2,10 +2,10 @@
 
 Son pruebas puras de Pydantic: no requieren base de datos.
 """
-import pytest
-from pydantic import ValidationError
 
+import pytest
 from app.schemas.schemas import EjecucionLaborCreate, InsumoLaborCreate
+from pydantic import ValidationError
 
 
 def _base(**overrides):
@@ -25,9 +25,7 @@ def test_titular_no_requiere_datos_de_jornalero():
 
 def test_jornalero_sin_edad_es_rechazado():
     with pytest.raises(ValidationError, match="edad del jornalero"):
-        EjecucionLaborCreate(
-            **_base(persona_desarrollo="JORNALERO", nombre_jornalero="Juan Pérez")
-        )
+        EjecucionLaborCreate(**_base(persona_desarrollo="JORNALERO", nombre_jornalero="Juan Pérez"))
 
 
 def test_jornalero_menor_de_edad_es_rechazado():
@@ -43,9 +41,7 @@ def test_jornalero_menor_de_edad_es_rechazado():
 
 def test_jornalero_sin_nombre_es_rechazado():
     with pytest.raises(ValidationError, match="nombre del jornalero"):
-        EjecucionLaborCreate(
-            **_base(persona_desarrollo="JORNALERO", edad_jornalero=25)
-        )
+        EjecucionLaborCreate(**_base(persona_desarrollo="JORNALERO", edad_jornalero=25))
 
 
 def test_jornalero_mayor_de_edad_es_aceptado():
@@ -74,7 +70,5 @@ def test_insumo_con_cantidad_cero_es_rechazado():
 
 
 def test_herramientas_se_limpian_de_vacios_y_espacios():
-    ejecucion = EjecucionLaborCreate(
-        **_base(herramientas=[" Machete ", "", "  ", "Tijeras"])
-    )
+    ejecucion = EjecucionLaborCreate(**_base(herramientas=[" Machete ", "", "  ", "Tijeras"]))
     assert ejecucion.herramientas == ["Machete", "Tijeras"]

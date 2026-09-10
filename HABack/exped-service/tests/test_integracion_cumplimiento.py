@@ -6,24 +6,21 @@ Cubre RF-11 (firma), RF-14 (consulta OFAC/ONU), RF-15 (reporte) y RF-16
 
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-TEST_DB_URL = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://postgres@localhost:5432/geoguard_test"
-)
+TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://postgres@localhost:5432/geoguard_test")
 os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ["SESSION_VALIDATION_ENABLED"] = "false"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-ci")
 
 import jwt  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-
 from app.config import settings  # noqa: E402
 from app.database import db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services import screening_service  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 ORG = "APECAEL_SCREENING"
 
@@ -41,9 +38,7 @@ def _hay_bd() -> bool:
             db.disconnect()
 
 
-pytestmark = pytest.mark.skipif(
-    not _hay_bd(), reason="Base de datos de pruebas no disponible"
-)
+pytestmark = pytest.mark.skipif(not _hay_bd(), reason="Base de datos de pruebas no disponible")
 
 
 def auth(rol: str) -> dict:
@@ -113,6 +108,7 @@ def _crear_productor(client, **kwargs) -> dict:
 
 # ===== Normalización =====
 
+
 def test_normalizar_quita_tildes_y_mayusculiza():
     """Las listas oficiales están en ASCII; los nombres locales llevan tildes."""
     assert screening_service.normalizar("José Muñoz  Pérez") == "JOSE MUNOZ PEREZ"
@@ -120,6 +116,7 @@ def test_normalizar_quita_tildes_y_mayusculiza():
 
 
 # ===== RF-14 / RF-16: screening y bloqueo =====
+
 
 def test_productor_limpio_no_se_bloquea(client):
     productor = _crear_productor(client, nombres="Ana", apellidos="Pérez")
@@ -214,6 +211,7 @@ def test_screening_automatico_al_registrar(client):
 
 # ===== RF-15: reporte =====
 
+
 def test_historico_de_screening(client):
     """El histórico acumula el screening automático del alta más los manuales."""
     productor = _crear_productor(client)
@@ -244,6 +242,7 @@ def test_estado_de_listas(client):
 
 # ===== Desbloqueo =====
 
+
 def test_desbloqueo_requiere_admin_y_motivo(client):
     productor = _crear_productor(client, nombres="Carlos Alberto", apellidos="Rodriguez Martinez")
     client.post(
@@ -253,18 +252,24 @@ def test_desbloqueo_requiere_admin_y_motivo(client):
     )
 
     # El técnico no puede levantar el bloqueo
-    assert client.post(
-        f"/api/v1/cumplimiento/productores/{productor['id']}/desbloquear",
-        headers=auth("TECNICO_CAMPO"),
-        json={"motivo": "Revisado manualmente, es un homónimo"},
-    ).status_code == 403
+    assert (
+        client.post(
+            f"/api/v1/cumplimiento/productores/{productor['id']}/desbloquear",
+            headers=auth("TECNICO_CAMPO"),
+            json={"motivo": "Revisado manualmente, es un homónimo"},
+        ).status_code
+        == 403
+    )
 
     # El motivo es obligatorio y con longitud mínima
-    assert client.post(
-        f"/api/v1/cumplimiento/productores/{productor['id']}/desbloquear",
-        headers=auth("TENANT_ADMIN"),
-        json={"motivo": "ok"},
-    ).status_code == 422
+    assert (
+        client.post(
+            f"/api/v1/cumplimiento/productores/{productor['id']}/desbloquear",
+            headers=auth("TENANT_ADMIN"),
+            json={"motivo": "ok"},
+        ).status_code
+        == 422
+    )
 
     r = client.post(
         f"/api/v1/cumplimiento/productores/{productor['id']}/desbloquear",
@@ -277,6 +282,7 @@ def test_desbloqueo_requiere_admin_y_motivo(client):
 
 # ===== RF-11: firma digital =====
 
+
 def test_firma_sella_el_expediente(client):
     productor = _crear_productor(client)
 
@@ -286,7 +292,7 @@ def test_firma_sella_el_expediente(client):
         json={
             "latitud": -4.2625,
             "longitud": -79.2231,
-            "firmado_en": datetime.now(timezone.utc).isoformat(),
+            "firmado_en": datetime.now(UTC).isoformat(),
         },
     )
     assert r.status_code == 201, r.text
@@ -305,7 +311,7 @@ def test_modificar_datos_invalida_la_firma(client):
     client.post(
         f"/api/v1/cumplimiento/productores/{productor['id']}/firma",
         headers=auth("TECNICO_CAMPO"),
-        json={"firmado_en": datetime.now(timezone.utc).isoformat()},
+        json={"firmado_en": datetime.now(UTC).isoformat()},
     )
 
     client.patch(
@@ -334,7 +340,7 @@ def test_no_se_puede_firmar_expediente_bloqueado(client):
     r = client.post(
         f"/api/v1/cumplimiento/productores/{productor['id']}/firma",
         headers=auth("TECNICO_CAMPO"),
-        json={"firmado_en": datetime.now(timezone.utc).isoformat()},
+        json={"firmado_en": datetime.now(UTC).isoformat()},
     )
     assert r.status_code == 409
     assert "BLOQUEADO" in r.json()["detail"]
@@ -344,6 +350,6 @@ def test_firma_sin_productor(client):
     r = client.post(
         "/api/v1/cumplimiento/productores/no-existe/firma",
         headers=auth("TECNICO_CAMPO"),
-        json={"firmado_en": datetime.now(timezone.utc).isoformat()},
+        json={"firmado_en": datetime.now(UTC).isoformat()},
     )
     assert r.status_code == 404

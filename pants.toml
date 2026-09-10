@@ -1,0 +1,24 @@
+# HuellaAltura monorepo — Pants orquesta todo el árbol de paquetes.
+# HABack   → pants_ci.sh (Python / Prisma)
+# HAFront  → npm workspace (Astro)
+# HAMobile → npm workspace (Expo)
+
+[GLOBAL]
+pants_version = "2.23.0"
+backend_packages = [
+  "pants.backend.shell",
+]
+
+pants_ignore = [
+  "HAContract/**",
+  "HARules/**",
+  "chroma/**",
+  "node_modules/**",
+  "**/node_modules/**",
+  "**/dist/**",
+  "**/.astro/**",
+  "**/.turbo/**",
+  "**/.pytest_cache/**",
+  "**/__pycache__/**",
+  "fincas_remote.json",
+]

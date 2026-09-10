@@ -1,43 +1,58 @@
-from datetime import timedelta
-from typing import Annotated, Optional
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
-from prisma import Prisma, errors
+from datetime import timedelta
+from typing import Annotated
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from prisma import Prisma
 from prisma.models import User
 
+from app.config import settings
+from app.core import endpoints, roles
 from app.database import get_db
-from app.dependencies import log_user_action, require_manage_users, get_current_user, get_optional_current_user
-from app.schemas.user import UserCreate, UserOut, Token, UserLogin, PasswordResetRequest, PasswordResetConfirm
+from app.dependencies import (
+    get_current_user,
+    get_optional_current_user,
+)
+from app.limiter import limiter
+from app.schemas.user import (
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    Token,
+    UserCreate,
+    UserLogin,
+    UserOut,
+)
 from app.security import (
+    create_access_token,
+    create_password_reset_token,
+    generate_session_token,
+    get_email_from_token_unverified,
     get_password_hash,
     verify_password,
-    create_access_token,
-    generate_session_token,
-    create_password_reset_token,
     verify_password_reset_token,
-    get_email_from_token_unverified,
 )
 from app.utils.email import send_password_reset_email
-from app.config import settings
-from app.limiter import limiter
-from app.core import endpoints, roles
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=endpoints.AUTH_PREFIX, tags=["Autenticación"])
 
+
 @router.post(
-    endpoints.AUTH_REGISTER, 
-    response_model=UserOut, 
-    status_code=status.HTTP_201_CREATED, 
+    endpoints.AUTH_REGISTER,
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
     summary="Registrar Usuario",
-    description="Crea una nueva cuenta de usuario. Registro público limitado a rol PRODUCTOR. Otros roles requieren SUPER_ADMIN."
+    description=(
+        "Crea una nueva cuenta de usuario. Registro público limitado a rol PRODUCTOR. "
+        "Otros roles requieren SUPER_ADMIN."
+    ),
 )
 @limiter.limit("5/minute")
 async def register(
-    request: Request, 
-    user_in: UserCreate, 
+    request: Request,
+    user_in: UserCreate,
     db: Annotated[Prisma, Depends(get_db)],
-    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None
+    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
 ):
     try:
         # 1. Validaciones básicas de seguridad
@@ -46,12 +61,12 @@ async def register(
 
         # Normalizar email
         email_lower = user_in.email.lower()
-        
+
         # 2. Verificar duplicados
         user_exists = await db.user.find_unique(where={"email": email_lower})
         if user_exists:
             raise HTTPException(status_code=400, detail="El email ya está registrado")
-        
+
         if user_in.identifier:
             id_exists = await db.user.find_unique(where={"identifier": user_in.identifier})
             if id_exists:
@@ -61,24 +76,26 @@ async def register(
             phone_exists = await db.user.find_unique(where={"phone_number": user_in.phone_number})
             if phone_exists:
                 raise HTTPException(status_code=400, detail="El número de teléfono ya está registrado")
-        
+
         # 3. Gestión de Roles (Seguridad)
         # Por defecto, registros públicos son PRODUCTOR.
         target_role_name = user_in.role_name or roles.PRODUCTOR
-        
+
         # Si el rol solicitado no es PRODUCTOR, se requiere ser SUPER_ADMIN
         if target_role_name != roles.PRODUCTOR:
             if not current_user or current_user.role.name != roles.SUPER_ADMIN:
-                logger.warning(f"Intento de registro no autorizado para rol {target_role_name} desde {request.client.host}")
+                logger.warning(
+                    f"Intento de registro no autorizado para rol {target_role_name} desde {request.client.host}"
+                )
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, 
-                    detail="Solo un SUPER_ADMIN puede registrar usuarios con roles distintos a PRODUCTOR"
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo un SUPER_ADMIN puede registrar usuarios con roles distintos a PRODUCTOR",
                 )
 
         role = await db.role.find_unique(where={"name": target_role_name})
         if not role:
             raise HTTPException(status_code=400, detail=f"El rol '{target_role_name}' no existe en el sistema")
-        
+
         return await db.user.create(
             data={
                 "email": email_lower,
@@ -91,31 +108,30 @@ async def register(
                 "nivel_educativo": user_in.nivel_educativo.name if user_in.nivel_educativo else None,
                 "password_hash": get_password_hash(user_in.password),
                 "role_id": role.id,
-                "status": "ACTIVO"
+                "status": "ACTIVO",
             },
-            include={"role": True}
+            include={"role": True},
         )
-    except HTTPException: raise
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Registration error: {e}")
-        raise HTTPException(status_code=500, detail="Error interno en servidor")
+        raise HTTPException(status_code=500, detail="Error interno en servidor") from None
+
 
 @router.post(
-    endpoints.AUTH_LOGIN, 
+    endpoints.AUTH_LOGIN,
     response_model=Token,
     summary="Iniciar Sesión",
-    description="Autentica al usuario y devuelve un token JWT. Soporta formato JSON."
+    description="Autentica al usuario y devuelve un token JWT. Soporta formato JSON.",
 )
 @limiter.limit("10/minute")
 async def login(request: Request, login_data: UserLogin, db: Annotated[Prisma, Depends(get_db)]):
     email_lower = login_data.email.lower()
-    user = await db.user.find_unique(
-        where={"email": email_lower},
-        include={"role": True}
-    )
+    user = await db.user.find_unique(where={"email": email_lower}, include={"role": True})
     if not user or not verify_password(login_data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-    
+
     if user.status != "ACTIVO":
         raise HTTPException(status_code=403, detail=f"Cuenta {user.status}")
 
@@ -123,35 +139,33 @@ async def login(request: Request, login_data: UserLogin, db: Annotated[Prisma, D
     await db.user.update(where={"id": user.id}, data={"session_token": new_session_token})
 
     access_token = create_access_token(
-        data={
-            "sub": user.id, 
-            "role": user.role.name,
-            "session_token": new_session_token
-        },
-        expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
+        data={"sub": user.id, "role": user.role.name, "session_token": new_session_token},
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @router.get(
-    endpoints.AUTH_ME, 
+    endpoints.AUTH_ME,
     response_model=UserOut,
     summary="Obtener Perfil Actual",
-    description="Devuelve la información del usuario autenticado basado en el token JWT."
+    description="Devuelve la información del usuario autenticado basado en el token JWT.",
 )
 async def get_me(current_user: Annotated[UserOut, Depends(get_current_user)]):
     return current_user
 
+
 @router.post(
     endpoints.AUTH_RECOVERY,
     summary="Recuperar Contraseña",
-    description="Envía un correo electrónico con un enlace de recuperación si el usuario existe."
+    description="Envía un correo electrónico con un enlace de recuperación si el usuario existe.",
 )
 @limiter.limit("3/minute")
 async def recover_password(
-    request: Request, 
-    data: PasswordResetRequest, 
+    request: Request,
+    data: PasswordResetRequest,
     db: Annotated[Prisma, Depends(get_db)],
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
 ):
     email_lower = data.email.lower()
     user = await db.user.find_unique(where={"email": email_lower})
@@ -160,10 +174,11 @@ async def recover_password(
         background_tasks.add_task(send_password_reset_email, email_lower, token)
     return {"message": "En caso de que el email exista, se ha enviado un enlace de recuperación"}
 
+
 @router.post(
     endpoints.AUTH_RESET,
     summary="Restablecer Contraseña",
-    description="Cambia la contraseña utilizando un token de recuperación válido."
+    description="Cambia la contraseña utilizando un token de recuperación válido.",
 )
 async def reset_password(data: PasswordResetConfirm, db: Annotated[Prisma, Depends(get_db)]):
     email = get_email_from_token_unverified(data.token)
@@ -181,9 +196,8 @@ async def reset_password(data: PasswordResetConfirm, db: Annotated[Prisma, Depen
     await db.user.update(
         where={"email": email},
         data={
-            "password_hash": get_password_hash(data.new_password), 
-            "session_token": generate_session_token()
-        }
+            "password_hash": get_password_hash(data.new_password),
+            "session_token": generate_session_token(),
+        },
     )
     return {"message": "Contraseña actualizada exitosamente"}
-

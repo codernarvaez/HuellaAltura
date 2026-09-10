@@ -18,19 +18,16 @@ import uuid
 
 import pytest
 
-TEST_DB_URL = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://postgres@localhost:5432/geoguard_test"
-)
+TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://postgres@localhost:5432/geoguard_test")
 os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ["SESSION_VALIDATION_ENABLED"] = "false"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-ci")
 
 import jwt  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-
 from app.config import settings  # noqa: E402
 from app.database import db  # noqa: E402
 from app.main import app  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 ORG = "APECAEL_TEST"
 
@@ -54,9 +51,7 @@ def _hay_bd() -> bool:
             db.disconnect()
 
 
-pytestmark = pytest.mark.skipif(
-    not _hay_bd(), reason="Base de datos de pruebas no disponible"
-)
+pytestmark = pytest.mark.skipif(not _hay_bd(), reason="Base de datos de pruebas no disponible")
 
 
 def auth(rol: str) -> dict:
@@ -95,6 +90,7 @@ def limpiar():
 
 
 # ===== A2: Productor =====
+
 
 def test_crear_productor_natural(client):
     """RF-01/RF-03: registrar una persona natural con sus datos personales."""
@@ -179,6 +175,7 @@ def test_productor_bloqueado_no_admite_edicion(client):
 
 # ===== A3: Formularios dinámicos =====
 
+
 def test_ciclo_campo_dinamico(client):
     """RF-08/RF-09: definir campo, capturar valor y desactivarlo sin perder datos."""
     productor = client.post(
@@ -209,9 +206,7 @@ def test_ciclo_campo_dinamico(client):
     assert campo.status_code == 201, campo.text
 
     # El esquema ya lo expone a las apps
-    esquema = client.get(
-        f"/api/v1/formularios/PRODUCTOR?organizacion={ORG}", headers=auth("TECNICO_CAMPO")
-    ).json()
+    esquema = client.get(f"/api/v1/formularios/PRODUCTOR?organizacion={ORG}", headers=auth("TECNICO_CAMPO")).json()
     assert "biomasa_aerea" in [c["clave"] for c in esquema["campos"]]
 
     # El técnico captura el valor
@@ -230,15 +225,16 @@ def test_ciclo_campo_dinamico(client):
 
     # Desactivar el campo lo retira del esquema pero conserva el valor (RF-09)
     campo_id = campo.json()["id"]
-    assert client.patch(
-        f"/api/v1/formularios/campos/{campo_id}",
-        headers=auth("TENANT_ADMIN"),
-        json={"activo": False},
-    ).status_code == 200
+    assert (
+        client.patch(
+            f"/api/v1/formularios/campos/{campo_id}",
+            headers=auth("TENANT_ADMIN"),
+            json={"activo": False},
+        ).status_code
+        == 200
+    )
 
-    esquema = client.get(
-        f"/api/v1/formularios/PRODUCTOR?organizacion={ORG}", headers=auth("TECNICO_CAMPO")
-    ).json()
+    esquema = client.get(f"/api/v1/formularios/PRODUCTOR?organizacion={ORG}", headers=auth("TECNICO_CAMPO")).json()
     assert "biomasa_aerea" not in [c["clave"] for c in esquema["campos"]]
     assert db.valorcampo.find_first(where={"campo_id": campo_id}) is not None
 
@@ -296,6 +292,7 @@ def test_campo_condicionado_por_tipo_persona(client):
 
 # ===== A4: Expediente documental =====
 
+
 def test_completitud_documental(client):
     """RF-07/08/09: el expediente no está completo hasta cargar lo obligatorio."""
     productor = client.post(
@@ -324,9 +321,7 @@ def test_completitud_documental(client):
         )
         assert r.status_code == 201, r.text
 
-    estado = client.get(
-        f"/api/v1/productores/{productor['id']}/completitud", headers=auth("TECNICO_CAMPO")
-    ).json()
+    estado = client.get(f"/api/v1/productores/{productor['id']}/completitud", headers=auth("TECNICO_CAMPO")).json()
     assert estado["expediente_completo"] is False
     assert set(estado["documentos"]["faltantes"]) == {"CEDULA_IDENTIDAD", "ESCRITURA_PREDIO"}
 
@@ -345,9 +340,7 @@ def test_completitud_documental(client):
         )
         assert r.status_code == 201, r.text
 
-    estado = client.get(
-        f"/api/v1/productores/{productor['id']}/completitud", headers=auth("TECNICO_CAMPO")
-    ).json()
+    estado = client.get(f"/api/v1/productores/{productor['id']}/completitud", headers=auth("TECNICO_CAMPO")).json()
     assert estado["documentos"]["faltantes"] == []
     assert estado["expediente_completo"] is True
 
@@ -383,9 +376,7 @@ def test_documento_rechazado_no_cuenta_como_cargado(client):
         json={"estado_validacion": "RECHAZADO", "observaciones": "Ilegible"},
     )
 
-    estado = client.get(
-        f"/api/v1/productores/{productor['id']}/completitud", headers=auth("TECNICO_CAMPO")
-    ).json()
+    estado = client.get(f"/api/v1/productores/{productor['id']}/completitud", headers=auth("TECNICO_CAMPO")).json()
     assert "CEDULA_IDENTIDAD" in estado["documentos"]["faltantes"]
 
 
@@ -404,6 +395,7 @@ def test_documento_con_productor_inexistente(client):
 
 
 # ===== RF-04: fincas del productor =====
+
 
 def test_fincas_asociadas_al_productor(client):
     """RF-04: un productor puede tener varias fincas asociadas."""
@@ -432,8 +424,6 @@ def test_fincas_asociadas_al_productor(client):
         )
         assert r.status_code == 201, r.text
 
-    fincas = client.get(
-        f"/api/v1/productores/{productor['id']}/fincas", headers=auth("TECNICO_CAMPO")
-    ).json()
+    fincas = client.get(f"/api/v1/productores/{productor['id']}/fincas", headers=auth("TECNICO_CAMPO")).json()
     assert {f["nombre"] for f in fincas} == {"El Ahuacate", "La Esperanza"}
     assert all(f["eudr_id"] for f in fincas)

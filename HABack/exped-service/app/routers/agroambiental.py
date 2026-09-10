@@ -1,9 +1,8 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, log_user_action, require_roles
+from app.dependencies import log_user_action, require_roles
 from app.schemas.schemas import DatoAgroambientalCreate, DatoAgroambientalOut
 
 router = APIRouter()
@@ -17,7 +16,9 @@ router = APIRouter()
 def obtener_datos(
     finca_id: str,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO", "PRODUCTOR")),
+    current_user: dict = Depends(
+        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO", "PRODUCTOR")
+    ),
 ):
     """
     Obtiene todos los registros técnicos agroambientales asociados a una finca.
@@ -85,9 +86,7 @@ def actualizar_datos(
     dato_id: str,
     data: DatoAgroambientalCreate,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(
-        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
-    ),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ):
     """
     Actualiza un registro agroambiental existente.
@@ -111,9 +110,7 @@ def actualizar_datos(
 )
 def resumen_carbono(
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(
-        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
-    ),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ):
     """
     Obtiene un resumen comparativo del stock de carbono de todas las fincas con datos registrados.

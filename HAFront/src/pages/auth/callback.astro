@@ -10,7 +10,7 @@ export const prerender = false;
   </head>
   <body class="min-h-screen flex items-center justify-center bg-[#f9f9ff] text-[#141b2b] font-sans">
     <p id="status">Completando autenticación…</p>
-    <script>
+    <script is:inline>
       import { createClient } from "../../lib/supabase/client";
 
       const supabase = createClient();

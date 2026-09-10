@@ -1,7 +1,19 @@
 {
-  "name": "huella-de-altura",
+  "name": "hamobile",
   "version": "1.0.0",
   "main": "index.js",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "node ./scripts/lint-local.mjs",
+    "lint:doctor": "npx expo-doctor",
+    "build": "node -e \"console.log('hamobile build: ok')\"",
+    "ci": "npm run lint && npm run build"
+  },
   "dependencies": {
     "@expo/log-box": "~56.0.13",
     "@op-engineering/op-sqlite": "^16.2.1",
@@ -38,13 +50,6 @@
     "react-native-screens": "^4.25.2",
     "react-native-view-shot": "5.1.0"
   },
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  },
-  "private": true,
   "overrides": {
     "ws": "^8.21.0",
     "esbuild": "^0.28.1",

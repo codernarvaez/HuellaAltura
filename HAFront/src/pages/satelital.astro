@@ -34,7 +34,7 @@ if (token && fincaId) {
       fincaData = await FincaService.getById(fincaId, token);
       console.log("✅ Finca cargada:", fincaData);
       console.log("📊 Estado EUDR de la finca:", fincaData?.estado_eudr);
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("❌ Error cargando finca:", e);
       error = "No se pudo cargar la información de la finca.";
       isLoading = false;
@@ -50,7 +50,7 @@ if (token && fincaId) {
           console.log("✅ Expediente existente:", expedienteExistente);
           console.log("📊 Estado del expediente:", expedienteExistente.estado);
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.warn("⚠️ Error verificando expediente:", e);
       }
       
@@ -58,15 +58,15 @@ if (token && fincaId) {
       try {
         validacionEudr = await GeoespacialService.validarEudr(fincaId, token);
         console.log("✅ Validación EUDR:", validacionEudr);
-      } catch (e) {
+      } catch (e: unknown) {
         console.warn("⚠️ Error en validación EUDR:", e);
         validacionEudr = null;
       }
     }
     
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error cargando datos:", e);
     isLoading = false;
   }
@@ -155,7 +155,7 @@ const validacionRealizada = estadoEudr !== "PENDIENTE";
 
 // Roles permitidos para ejecutar auditoría
 const rolesPermitidos = ['SUPER_ADMIN', 'TENANT_ADMIN', 'TECNICO_CAMPO', 'AUDITOR_INTERNO'];
-const tienePermisoAuditoria = rolesPermitidos.includes(userRole);
+const tienePermisoAuditoria = !!userRole && rolesPermitidos.includes(userRole);
 
 // El productor solo puede ver el resultado si ya fue validado por un admin
 const puedeVerResultado = !esProductor || (esProductor && validacionRealizada);
@@ -196,7 +196,7 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
   estadoEudrStr,
   existeExpediente: !!expedienteExistente,
   expedienteEstadoStr
-}}>
+}} is:inline>
   window.ES_PRODUCTOR = esProductor;
   window.PUEDE_VER_RESULTADO = puedeVerResultado;
   window.VALIDACION_REALIZADA = validacionRealizada;
@@ -508,16 +508,15 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
     <!-- Botones de acción según rol -->
     <div class="mt-auto space-y-3">
       {!esProductor && !error && (
-        <!-- Admin: Botón Ejecutar Auditoría -->
         <button
           id="btn-audit"
           class={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm group ${
             tienePermisoAuditoria && !error
-              ? 'bg-primary text-white hover:opacity-90 active:scale-[0.98]' 
+              ? 'bg-primary text-white hover:opacity-90 active:scale-[0.98]'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
           data-finca-id={fincaId}
-          {!(tienePermisoAuditoria && !error) && 'disabled'}
+          disabled={!(tienePermisoAuditoria && !error)}
         >
           <span class="material-symbols-outlined transition-transform group-hover:rotate-180">
             {tienePermisoAuditoria && !error ? 'refresh' : 'lock'}
@@ -588,7 +587,7 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
   }
 </style>
 
-<script>
+<script is:inline>
   import { GeoespacialService } from "/src/services/geoespacial.service.ts"
   import { ExpedienteService } from "/src/services/expediente.service.ts";
 

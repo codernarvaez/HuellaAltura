@@ -66,6 +66,8 @@ export interface FincaOut {
   densidad_siembra?: string;
   origen_semilla?: string;
   anio_establecimiento?: number;
+  usuario_nombre?: string;
+  estado_eudr?: string;
   creado_en?: string;
   actualizado_en?: string;
 }

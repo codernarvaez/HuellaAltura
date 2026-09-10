@@ -1,6 +1,6 @@
-from enum import StrEnum
-from typing import ClassVar, Optional
 from datetime import datetime
+from enum import StrEnum
+from typing import ClassVar
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -36,12 +36,8 @@ class MuestraCreate(BaseModel):
     productorId: str = Field(..., description="ID del Productor asociado")
     codigoQR: str = Field(..., description="Código QR único de trazabilidad")
     tipoProceso: TipoProceso = Field(..., description="Lavado, Honey o Natural")
-    peso_lb: float = Field(
-        ..., gt=0, description="Peso capturado en finca en libras (ej. 1.10 o 2.20)"
-    )
-    evidenciaFoto: Optional[str] = Field(
-        None, description="URL de la evidencia fotográfica de la toma de muestra"
-    )
+    peso_lb: float = Field(..., gt=0, description="Peso capturado en finca en libras (ej. 1.10 o 2.20)")
+    evidenciaFoto: str | None = Field(None, description="URL de la evidencia fotográfica de la toma de muestra")
 
     @model_validator(mode="after")
     def validar_peso_por_proceso(self) -> "MuestraCreate":
@@ -69,6 +65,7 @@ class MuestraOut(MuestraCreate):
 
     class Config:
         from_attributes = True
+
 
 # ─── Laboratorio: Análisis Físico ────────────────────────────
 
@@ -100,10 +97,7 @@ class AnalisisFisicoCreate(BaseModel):
         hallazgos: list[str] = []
 
         if not HUMEDAD_MINIMA <= self.humedad <= HUMEDAD_MAXIMA:
-            hallazgos.append(
-                f"Humedad {self.humedad} % fuera del umbral "
-                f"{HUMEDAD_MINIMA}-{HUMEDAD_MAXIMA} %"
-            )
+            hallazgos.append(f"Humedad {self.humedad} % fuera del umbral {HUMEDAD_MINIMA}-{HUMEDAD_MAXIMA} %")
 
         if self.criba.strip() not in CRIBAS_ADMITIDAS:
             hallazgos.append(f"Criba {self.criba} fuera del rango admitido 14-18")
@@ -111,8 +105,7 @@ class AnalisisFisicoCreate(BaseModel):
         # Un defecto primario descalifica el lote como especialidad (protocolo SCA).
         if self.defectosPrim > 0:
             hallazgos.append(
-                f"{self.defectosPrim} defecto(s) primario(s) sobre 350 g: "
-                "el lote no califica como especialidad"
+                f"{self.defectosPrim} defecto(s) primario(s) sobre 350 g: el lote no califica como especialidad"
             )
 
         return hallazgos
@@ -127,7 +120,9 @@ class AnalisisFisicoOut(AnalisisFisicoCreate):
     class Config:
         from_attributes = True
 
+
 # ─── Laboratorio: Análisis Sensorial (SCA) ───────────────────
+
 
 class AnalisisSensorialCreate(BaseModel):
     """Formato de catación SCA: 10 atributos positivos, defectos y tueste.
@@ -189,15 +184,16 @@ class AnalisisSensorialOut(AnalisisSensorialCreate):
     class Config:
         from_attributes = True
 
+
 # ─── Gerencia: Orden de Compra ───────────────────────────────
+
 
 class OrdenCompraCreate(BaseModel):
     muestraId: str
     precioAcordado: float = Field(..., gt=0, description="Precio acordado por quintal/kg")
     volumenKg: float = Field(..., gt=0, description="Volumen negociado en kilogramos")
-    primas: Optional[float] = Field(
-        None, ge=0, description="Primas por calidad o certificación"
-    )
+    primas: float | None = Field(None, ge=0, description="Primas por calidad o certificación")
+
 
 class OrdenCompraOut(OrdenCompraCreate):
     id: str
@@ -207,17 +203,16 @@ class OrdenCompraOut(OrdenCompraCreate):
     class Config:
         from_attributes = True
 
+
 # ─── Bodega: Inventario y Acopio ─────────────────────────────
+
 
 class BodegaIngresoCreate(BaseModel):
     ordenCompraId: str
     codigoQR: str = Field(..., description="Lectura del código QR del productor")
-    pesoIngresado_lb: float = Field(
-        ..., gt=0, description="Peso ingresado en la báscula (libras)"
-    )
-    tipoProceso: TipoProceso = Field(
-        ..., description="Lavado, Honey o Natural para validación de saco"
-    )
+    pesoIngresado_lb: float = Field(..., gt=0, description="Peso ingresado en la báscula (libras)")
+    tipoProceso: TipoProceso = Field(..., description="Lavado, Honey o Natural para validación de saco")
+
 
 class InventarioAcopioOut(BaseModel):
     id: str
@@ -232,14 +227,16 @@ class InventarioAcopioOut(BaseModel):
 
 # --- Procesamiento: Trilla ---
 
+
 class TrillaCreate(BaseModel):
     inventarioId: str
     factorRendimiento: float = Field(
         ...,
         ge=0.78,
         le=0.82,
-        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82"
+        description="El factor dinámico debe mantenerse en el rango configurado de 0.78 a 0.82",
     )
+
 
 class TrillaOut(BaseModel):
     id: str
@@ -252,7 +249,9 @@ class TrillaOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 # ─── Exportación y Despacho ──────────────────────────────────
+
 
 class DespachoCreate(BaseModel):
     inventarioId: str
@@ -260,23 +259,23 @@ class DespachoCreate(BaseModel):
     destino: str = Field(..., description="Puerto, cliente o destino final")
 
 
-#--------------------------------------------------------
+# --------------------------------------------------------
 class ProductoAcopioPublico(BaseModel):
     # Datos de Bodega / Inventario
     id: str
     codigoLote: str
-    pesoDisponibleKg: Optional[float] = None
-    pesoTotalKg: Optional[float] = None
+    pesoDisponibleKg: float | None = None
+    pesoTotalKg: float | None = None
     # Datos que vienen de la Relación con Compras
-    tipoCafe: Optional[str] = None # Ej. Pergamino, Oro
-    precioReferencial: Optional[float] = None
-    
+    tipoCafe: str | None = None  # Ej. Pergamino, Oro
+    precioReferencial: float | None = None
+
     # Datos que vienen de la Relación con Muestras
-    puntajeSca: Optional[float] = None
-    proceso: Optional[str] = None
+    puntajeSca: float | None = None
+    proceso: str | None = None
     esEspecialidad: bool = False
 
     class Config:
         orm_mode = True
         from_attributes = True
-        populate_by_name = True # Permite poblar el modelo usando el alias o el nombre del campo
+        populate_by_name = True  # Permite poblar el modelo usando el alias o el nombre del campo

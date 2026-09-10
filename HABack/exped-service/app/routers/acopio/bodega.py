@@ -6,8 +6,7 @@ from prisma import Prisma
 from app.database import get_db
 from app.dependencies import log_user_action, require_roles
 from app.routers.acopio.roles import BODEGA
-from app.schemas.acopio import BodegaIngresoCreate, InventarioAcopioOut
-from app.schemas.acopio import ProductoAcopioPublico
+from app.schemas.acopio import BodegaIngresoCreate, InventarioAcopioOut, ProductoAcopioPublico
 
 router = APIRouter(prefix="/acopio/bodega", tags=["Acopio - Bodega"])
 
@@ -66,10 +65,7 @@ def registrar_ingreso(
     if orden.muestra and ingreso.codigoQR != orden.muestra.codigoQR:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El código QR leído no corresponde a la muestra asociada a esta "
-                "orden de compra."
-            ),
+            detail=("El código QR leído no corresponde a la muestra asociada a esta orden de compra."),
         )
 
     if orden.muestra and ingreso.tipoProceso != orden.muestra.tipoProceso:
@@ -119,11 +115,8 @@ def obtener_inventario(
     return inventario
 
 
+public_router = APIRouter(prefix="/public/catalogo", tags=["Catálogo Público"])
 
-public_router = APIRouter(
-    prefix="/public/catalogo",
-    tags=["Catálogo Público"]
-)
 
 @public_router.get("/", response_model=list[ProductoAcopioPublico])
 def obtener_catalogo_publico(db: Annotated[Prisma, Depends(get_db)]):
@@ -131,44 +124,41 @@ def obtener_catalogo_publico(db: Annotated[Prisma, Depends(get_db)]):
         # Usamos inventarioacopio que es tu tabla real
         lotes_inventario = db.inventarioacopio.find_many(
             where={
-                "estado": "EN_BODEGA" # Filtra por el estado comercial correcto
+                "estado": "EN_BODEGA"  # Filtra por el estado comercial correcto
             },
             include={
                 "ordenCompra": {
                     "include": {
-                        "muestra": True # Relación anidada real
+                        "muestra": True  # Relación anidada real
                     }
                 }
-            }
+            },
         )
-        
+
         productos_formateados = []
         for lote in lotes_inventario:
             orden = lote.ordenCompra
             muestra = orden.muestra if orden else None
-            
+
             # Sumamos el precio base más las primas si existen, o solo mandamos el precio base
-            precio_base = getattr(orden, 'precioAcordado', 0.0) if orden else 0.0
-            primas = getattr(orden, 'primas', 0.0) if (orden and orden.primas) else 0.0
+            precio_base = getattr(orden, "precioAcordado", 0.0) if orden else 0.0
+            primas = getattr(orden, "primas", 0.0) if (orden and orden.primas) else 0.0
             precio_total = precio_base + primas
-            
+
             producto = {
                 "id": lote.id,
-                "codigoLote": getattr(muestra, 'codigoQR', "N/A") if muestra else "N/A", 
+                "codigoLote": getattr(muestra, "codigoQR", "N/A") if muestra else "N/A",
                 "pesoDisponibleKg": lote.pesoIngresoKg - lote.pesoSalidaKg,
                 "pesoTotalKg": lote.pesoIngresoKg,
-                "tipoCafe": getattr(muestra, 'tipoProceso', None) if muestra else None,
-                "precioReferencial": precio_total if precio_total > 0 else None, # <-- EXTRAEMOS EL PRECIO
-                "puntajeSca": getattr(muestra, 'puntajeTotal', None) if muestra else None, 
-                "proceso": getattr(muestra, 'tipoProceso', None) if muestra else None,
-                "esEspecialidad": True if getattr(muestra, 'clasificacion', '') == 'Café de Especialidad' else False
+                "tipoCafe": getattr(muestra, "tipoProceso", None) if muestra else None,
+                "precioReferencial": precio_total if precio_total > 0 else None,  # <-- EXTRAEMOS EL PRECIO
+                "puntajeSca": getattr(muestra, "puntajeTotal", None) if muestra else None,
+                "proceso": getattr(muestra, "tipoProceso", None) if muestra else None,
+                "esEspecialidad": True if getattr(muestra, "clasificacion", "") == "Café de Especialidad" else False,
             }
             productos_formateados.append(producto)
-            
+
         return productos_formateados
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al consolidar el catálogo de acopio: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error al consolidar el catálogo de acopio: {str(e)}") from None

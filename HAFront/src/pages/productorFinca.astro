@@ -7,7 +7,7 @@ import { FincaService } from "../services/finca.service.ts";
 const token = Astro.cookies.get("token")?.value;
 
 let userData = null;
-let fincas = [];
+let fincas: any[] = [];
 let fincaSeleccionada = null;
 let error = null;
 let isLoading = true;
@@ -25,14 +25,14 @@ if (token) {
           fincaSeleccionada = fincas[0];
           console.log('📍 Finca seleccionada por defecto:', fincaSeleccionada?.nombre);
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.error('❌ Error obteniendo fincas:', e);
         fincas = [];
       }
     }
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     isLoading = false;
   }
 } else {
@@ -215,7 +215,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
   fincaSeleccionadaEscaped,
   poligonoDataEscaped,
   error
-}}>
+}} is:inline>
   window.USUARIO_ID = usuarioId;
   window.FINCA_SELECCIONADA_ID = fincaSeleccionadaId;
   window.USER_DATA = JSON.parse(userDataEscaped);
@@ -341,7 +341,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
         <select id="finca-selector">
           <option value="">-- Selecciona una finca --</option>
           {fincas.map((finca) => (
-            <option key={finca.id} value={finca.id} selected={finca.id === fincaSeleccionada?.id}>
+            <option value={finca.id} selected={finca.id === fincaSeleccionada?.id}>
               {finca.nombre || 'Sin nombre'} {finca.provincia ? `- ${finca.provincia}` : ''}
             </option>
           ))}
@@ -634,7 +634,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <!-- Script único, inline, con el mapa dinámico adaptado del segundo código -->
-<script>
+<script is:inline>
 (function () {
   'use strict';
 

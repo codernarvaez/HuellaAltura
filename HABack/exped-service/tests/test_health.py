@@ -1,5 +1,4 @@
 import jwt
-
 from app.config import settings
 
 
@@ -16,6 +15,7 @@ def test_health_check(client) -> None:
 
 
 # ===== ErrorMessageMiddleware =====
+
 
 def test_404_de_ruta_inexistente_es_descriptivo(client) -> None:
     response = client.get("/ruta/que/no/existe")
@@ -36,9 +36,7 @@ def test_403_por_rol_conserva_su_mensaje(client) -> None:
     llegar intacto al cliente.
     """
     token = jwt.encode({"sub": "u1", "role": "PRODUCTOR"}, settings.secret_key, algorithm="HS256")
-    response = client.post(
-        "/api/v1/labores/abc/aprobar", headers={"Authorization": f"Bearer {token}"}
-    )
+    response = client.post("/api/v1/labores/abc/aprobar", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 403
     assert response.content, "El cuerpo de la respuesta no puede llegar vacío"

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from prisma import Prisma
 
 from app.database import get_db
-from app.dependencies import log_user_action, require_roles, get_current_user
+from app.dependencies import get_current_user, log_user_action, require_roles
 from app.routers.acopio.roles import GERENCIA
 from app.schemas.acopio import OrdenCompraCreate, OrdenCompraOut
 
@@ -79,17 +79,11 @@ def registrar_orden_compra(
     # 🛡️ VALIDACIÓN 1: Evitar Error 500 si la orden ya existe
     orden_existente = db.ordencompra.find_unique(where={"muestraId": orden.muestraId})
     if orden_existente:
-        raise HTTPException(
-            status_code=400, 
-            detail="Ya existe una orden de compra para esta muestra."
-        )
+        raise HTTPException(status_code=400, detail="Ya existe una orden de compra para esta muestra.")
 
     # 🛡️ VALIDACIÓN 2: Evitar Error 500 si la muestra no tiene finca
     if not muestra_db.fincaId:
-        raise HTTPException(
-            status_code=400, 
-            detail="La muestra no tiene una finca asociada para validar el EUDR."
-        )
+        raise HTTPException(status_code=400, detail="La muestra no tiene una finca asociada para validar el EUDR.")
 
     # Semáforo EUDR: se exige la auditoría satelital más reciente en APROBADO
     auditoria_db = db.auditoria.find_first(
@@ -98,9 +92,7 @@ def registrar_orden_compra(
     )
 
     finca_cumple_eudr = bool(
-        auditoria_db
-        and auditoria_db.resultado == "APROBADO"
-        and not auditoria_db.deforestacion_detectada
+        auditoria_db and auditoria_db.resultado == "APROBADO" and not auditoria_db.deforestacion_detectada
     )
 
     if not finca_cumple_eudr:

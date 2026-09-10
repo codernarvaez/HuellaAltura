@@ -3,9 +3,9 @@ import os
 import secrets
 import sys
 
-from prisma import Prisma
-from app.security import get_password_hash
 from app.core.roles import EUDR_ROLES, SUPER_ADMIN
+from app.security import get_password_hash
+from prisma import Prisma
 
 # Credenciales del administrador inicial. Nunca deben versionarse: se leen del
 # entorno y, si falta la contraseña, se genera una aleatoria de un solo uso.
@@ -15,11 +15,11 @@ ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD")
 ROLES_DATA = [
     {
         "name": SUPER_ADMIN,
-        "description": "Administrador global responsable de gestionar la infraestructura multi-inquilino del sistema completo.",
+        "description": "Administrador global de la infraestructura multi-inquilino del sistema.",
     },
     {
         "name": "TENANT_ADMIN",
-        "description": "Administrador del inquilino encargado de configurar variables dinámicas y gestionar a los usuarios.",
+        "description": "Administrador del inquilino: variables dinámicas y gestión de usuarios.",
     },
     {
         "name": "TECNICO_CAMPO",
@@ -27,7 +27,7 @@ ROLES_DATA = [
     },
     {
         "name": "AUDITOR_INTERNO",
-        "description": "Analista que revisa expedientes, evalúa la auditoría satelital Copernicus y emite certificados.",
+        "description": "Analista de expedientes, auditoría satelital Copernicus y certificados.",
     },
     {
         "name": "PRODUCTOR",
@@ -76,8 +76,7 @@ async def main():
 
     if not ADMIN_EMAIL:
         print(
-            "SEED_ADMIN_EMAIL no está definido: se omite la creación del "
-            "administrador y solo se sincronizan los roles."
+            "SEED_ADMIN_EMAIL no está definido: se omite la creación del administrador y solo se sincronizan los roles."
         )
     else:
         print("Sincronizando usuario administrador...")

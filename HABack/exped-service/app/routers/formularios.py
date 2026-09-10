@@ -39,6 +39,7 @@ def _serializar_campo(campo) -> dict:
 
 # ===== Definición de campos (administrativo) =====
 
+
 @router.get(
     "/campos",
     response_model=list[CampoFormularioOut],
@@ -169,6 +170,7 @@ def eliminar_campo(
 
 # ===== Esquema y valores (consumido por móvil y web) =====
 
+
 @router.get(
     "/{entidad}",
     summary="Esquema de formulario para una entidad",
@@ -197,11 +199,7 @@ def obtener_esquema(
     )
 
     if tipo_persona:
-        campos = [
-            c
-            for c in campos
-            if c.visible_si_tipo_persona in (None, tipo_persona.value)
-        ]
+        campos = [c for c in campos if c.visible_si_tipo_persona in (None, tipo_persona.value)]
 
     return {
         "entidad": entidad.value,
@@ -273,18 +271,13 @@ def guardar_valores(
     if desconocidas:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Campos no definidos o inactivos para {entidad.value}: "
-                f"{', '.join(desconocidas)}."
-            ),
+            detail=(f"Campos no definidos o inactivos para {entidad.value}: {', '.join(desconocidas)}."),
         )
 
     guardados = 0
     for entrada in valores:
         campo = definidos[entrada.clave]
-        existente = db.valorcampo.find_first(
-            where={"campo_id": campo.id, "entidad_id": entidad_id}
-        )
+        existente = db.valorcampo.find_first(where={"campo_id": campo.id, "entidad_id": entidad_id})
         if existente:
             db.valorcampo.update(where={"id": existente.id}, data={"valor": entrada.valor})
         else:
@@ -301,8 +294,7 @@ def guardar_valores(
     faltantes = [
         c.clave
         for c in definidos.values()
-        if c.requerido
-        and not db.valorcampo.find_first(where={"campo_id": c.id, "entidad_id": entidad_id})
+        if c.requerido and not db.valorcampo.find_first(where={"campo_id": c.id, "entidad_id": entidad_id})
     ]
 
     return {

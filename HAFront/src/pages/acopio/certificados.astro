@@ -9,7 +9,7 @@ const token = Astro.cookies.get("token")?.value;
 
 let userData = null;
 let userRole = '';
-let lotesDespachados = [];
+let lotesDespachados: any[] = [];
 let error = null;
 let isLoading = true;
 let certificadoGenerado = null;
@@ -27,14 +27,14 @@ if (token) {
       // Filtrar solo los que están despachados
       lotesDespachados = allInventario.filter(i => i.estado === 'DESPACHADO');
       console.log("📦 Lotes despachados:", lotesDespachados.length);
-    } catch (e) {
-      console.warn("⚠️ Error obteniendo lotes despachados:", e.message);
+    } catch (e: unknown) {
+      console.warn("⚠️ Error obteniendo lotes despachados:", (e instanceof Error ? e.message : String(e)));
       lotesDespachados = [];
     }
     
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error:", e);
     isLoading = false;
   }
@@ -150,8 +150,7 @@ const API_URL = "https://geoguard-exped1.onrender.com";
                     ) : (
                         <div class="space-y-2 max-h-[600px] overflow-y-auto pr-1">
                             {lotesDespachados.map((lote) => (
-                                <div 
-                                    key={lote.id}
+                                <div
                                     class="lote-item border border-slate-200 rounded-lg p-3 hover:bg-slate-50 transition cursor-pointer"
                                     data-inventario-id={lote.id}
                                     data-orden-id={lote.ordenCompraId}
@@ -377,7 +376,7 @@ const API_URL = "https://geoguard-exped1.onrender.com";
 
 <script is:inline src="https://unpkg.com/lucide@latest"></script>
 
-<script>
+<script is:inline>
     import { AuthService } from "/src/services/auth.service.ts";
     import { AcopioService } from "/src/services/acopio.service.ts";
 

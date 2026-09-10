@@ -10,7 +10,7 @@ import { AgroambientalService } from "../services/InfoAgroambiental.ts";
 const token = Astro.cookies.get("token")?.value;
 
 let userData = null;
-let expedientes = [];
+let expedientes: any[] = [];
 let error = null;
 let isLoading = true;
 let userRole = null;
@@ -31,32 +31,22 @@ if (token) {
     console.log("🔍 Filtro por finca_id:", fincaIdFilter);
 
     // Función auxiliar para obtener usuario por ID
-    async function getUsuarioById(usuarioId) {
+    async function getUsuarioById(usuarioId: string) {
       if (!usuarioId) return null;
       if (productoresMap.has(usuarioId)) return productoresMap.get(usuarioId);
 
       try {
-        if (typeof AuthService.getById === 'function') {
-          const user = await AuthService.getById(usuarioId, token);
-          productoresMap.set(usuarioId, user);
-          return user;
-        }
-        const response = await fetch(`/api/usuarios/${usuarioId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const user = await response.json();
-          productoresMap.set(usuarioId, user);
-          return user;
-        }
-      } catch (e) {
-        console.warn(`⚠️ No se pudo obtener usuario ${usuarioId}:`, e.message);
+        const user = await AuthService.getById(usuarioId, token!);
+        productoresMap.set(usuarioId, user);
+        return user;
+      } catch (e: unknown) {
+        console.warn(`⚠️ No se pudo obtener usuario ${usuarioId}:`, (e instanceof Error ? e.message : String(e)));
       }
       return null;
     }
 
     // Función auxiliar para obtener datos agroambientales por finca (con caché)
-    async function getAgroambientalByFinca(fincaId) {
+    async function getAgroambientalByFinca(fincaId: string) {
       if (!fincaId) return null;
       if (agroambientalMap.has(fincaId)) return agroambientalMap.get(fincaId);
 
@@ -64,8 +54,8 @@ if (token) {
         const datos = await AgroambientalService.getByFinca(fincaId, token);
         agroambientalMap.set(fincaId, datos);
         return datos;
-      } catch (e) {
-        console.warn(`⚠️ No se pudo obtener info agroambiental de la finca ${fincaId}:`, e.message);
+      } catch (e: unknown) {
+        console.warn(`⚠️ No se pudo obtener info agroambiental de la finca ${fincaId}:`, (e instanceof Error ? e.message : String(e)));
         agroambientalMap.set(fincaId, null);
         return null;
       }
@@ -88,14 +78,14 @@ if (token) {
         try {
           datosAgroambientales = await AgroambientalService.getByFinca(fincaIdFilter, token);
           agroambientalMap.set(fincaIdFilter, datosAgroambientales);
-        } catch (e) {
-          console.warn("⚠️ Error obteniendo datos agroambientales:", e.message);
+        } catch (e: unknown) {
+          console.warn("⚠️ Error obteniendo datos agroambientales:", (e instanceof Error ? e.message : String(e)));
         }
-      } catch (e) {
-        console.warn("⚠️ Error obteniendo finca:", e.message);
+      } catch (e: unknown) {
+        console.warn("⚠️ Error obteniendo finca:", (e instanceof Error ? e.message : String(e)));
       }
 
-      const resultado = await ExpedienteService.getOrCreate(fincaIdFilter, token, userData);
+      const resultado = await ExpedienteService.getOrCreate(fincaIdFilter, token);
 
       if (resultado.expediente) {
         if (!resultado.expediente.finca && fincaData) {
@@ -123,14 +113,14 @@ if (token) {
             await getAgroambientalByFinca(exp.finca.id);
           }
         }
-      } catch (e) {
-        console.warn("⚠️ Error obteniendo expedientes:", e.message);
+      } catch (e: unknown) {
+        console.warn("⚠️ Error obteniendo expedientes:", (e instanceof Error ? e.message : String(e)));
       }
     }
 
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error cargando expedientes:", e);
     isLoading = false;
   }
@@ -141,20 +131,20 @@ if (token) {
 
 const esProductor = userRole === 'PRODUCTOR';
 
-function getInitials(nombre) {
+function getInitials(nombre: string | null | undefined) {
   if (!nombre) return "U";
   const partes = nombre.trim().split(' ');
   if (partes.length === 1) return partes[0].charAt(0).toUpperCase();
   return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
 }
 
-function formatArea(area) {
+function formatArea(area: number | string | null | undefined) {
   if (!area) return "0.00 Hectáreas";
   return `${Number(area).toFixed(2)} Hectáreas`;
 }
 
-function getStatusBadge(estado) {
-  const estados = {
+function getStatusBadge(estado: string | null | undefined) {
+  const estados: Record<string, { label: string; color: string; icon: string }> = {
     'APROBADO': { label: 'Aprobado', color: 'bg-green-100 text-green-700', icon: 'check_circle' },
     'VALIDADO': { label: 'Validado', color: 'bg-green-100 text-green-700', icon: 'check_circle' },
     'PRE_VALIDADO': { label: 'Pre-validado', color: 'bg-yellow-100 text-yellow-700', icon: 'pending' },
@@ -164,7 +154,7 @@ function getStatusBadge(estado) {
     'DEFORESTACION': { label: 'Deforestación', color: 'bg-red-100 text-red-700', icon: 'warning' },
     'RECHAZADO': { label: 'Rechazado', color: 'bg-red-100 text-red-700', icon: 'cancel' },
   };
-  return estados[estado] || { label: estado || 'Desconocido', color: 'bg-gray-100 text-gray-700', icon: 'help' };
+  return (estado && estados[estado]) || { label: estado || 'Desconocido', color: 'bg-gray-100 text-gray-700', icon: 'help' };
 }
 
 const urlParams = Astro.url.searchParams;
@@ -311,7 +301,7 @@ const fincaIdFilter = urlParams.get("finca_id");
                     totalStockCarbono: agroData.total_stock_carbono ?? null,
                     fechaAnalisis: agroData.creado_en || null,
                     variables: Array.isArray(agroData.variables)
-                      ? agroData.variables.map(v => ({ nombre: v.nombre, valor: v.valor, tipo_dato: v.tipo_dato }))
+                      ? agroData.variables.map((v: any) => ({ nombre: v.nombre, valor: v.valor, tipo_dato: v.tipo_dato }))
                       : [],
                   } : null;
 
@@ -338,7 +328,7 @@ const fincaIdFilter = urlParams.get("finca_id");
 
                   return (
                     <>
-                      <tr class="hover:bg-surface-container transition cursor-pointer" key={expediente.id}>
+                      <tr class="hover:bg-surface-container transition cursor-pointer">
                         <td class="p-4">
                           <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
@@ -497,7 +487,7 @@ const fincaIdFilter = urlParams.get("finca_id");
                                   <div class="mt-3">
                                     <p class="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Variables Adicionales</p>
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                                      {agroInfo.variables.map((v) => (
+                                      {agroInfo.variables.map((v: any) => (
                                         <div>
                                           <span class="text-on-surface-variant">{v.nombre}:</span> {v.valor}
                                         </div>
@@ -558,7 +548,7 @@ const fincaIdFilter = urlParams.get("finca_id");
 </Layout>
 
 <!-- 🔥 SCRIPT: toggleDetalle + generación de certificado PDF -->
-<script>
+<script is:inline>
   import { jsPDF } from "jspdf";
 
   function toggleDetalle(id) {

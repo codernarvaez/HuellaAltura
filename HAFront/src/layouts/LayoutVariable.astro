@@ -1,26 +1,30 @@
 ---
 import "../styles/global.css";
 import { isAdminRole } from "../services/roles";
-import { AuthService } from "../services/auth.service.ts";
-import { FincaService } from "../services/finca.service.ts";
-import { ExpedienteService } from "../services/expediente.service.ts";
+import { AuthService, type UserOut } from "../services/auth.service";
+import { FincaService } from "../services/finca.service";
 import {
   getProductorProgress,
   pasosPreviosCompletos,
   type ProductorProgress,
 } from "../services/productorProgress";
 
+interface Props {
+  title?: string;
+  userRole?: string;
+}
+
+const { title = "Huella de Altura", userRole: propRole } = Astro.props as Props;
 const user = Astro.locals.user;
-const userRole = user?.role?.name || Astro.props.userRole || "Usuario";
+const userRole = user?.role?.name || propRole || "Usuario";
 const isAdmin = isAdminRole(user?.role?.name);
-const title = Astro.props.title || "Huella de Altura";
 
 // Obtener token de las cookies
 const token = Astro.cookies.get("token")?.value;
-let userData = null;
+let userData: UserOut | null = null;
 let hasFinca = false;
 let hasExpediente = false;
-let fincaId = null;
+let fincaId: string | null = null;
 
 // Determinar si el usuario es INVESTIGADOR
 const esInvestigador = userRole === 'INVESTIGADOR' || userRole === 'AUDITOR_INTERNO';
@@ -40,20 +44,21 @@ if (token) {
         hasFinca = progress.finca;
         hasExpediente = progress.expediente;
         fincaId = progress.fincaId;
-      } catch (e) {
+      } catch (e: unknown) {
         console.error('❌ Error calculando progreso del productor:', e);
       }
     } else if (userData?.id) {
       // Investigador / Admin: solo necesitamos la finca para armar enlaces con finca_id
       try {
-        const finca = await FincaService.getByUsuarioId(userData.id, token);
-        hasFinca = !!finca && typeof finca === 'object' && Object.keys(finca).length > 0;
-        if (hasFinca && finca.id) fincaId = finca.id;
-      } catch (e) {
+        const fincas = await FincaService.getByUsuarioId(userData.id, token);
+        const finca = Array.isArray(fincas) ? fincas[0] : fincas;
+        hasFinca = !!finca;
+        if (finca?.id) fincaId = finca.id;
+      } catch (e: unknown) {
         console.warn('⚠️ Error cargando finca:', e);
       }
     }
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("❌ Error cargando usuario en layout:", e);
   }
 } else {
@@ -150,7 +155,7 @@ const isAdminStr = isAdmin ? 'true' : 'false';
 
         <div class="hidden md:block">
           <p class="text-sm font-semibold">
-            {user?.user_metadata?.full_name || user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() || "Usuario" : "Usuario"}
+            {[user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Usuario"}
           </p>
           <p class="text-xs text-on-surface-variant">
             {userRole}

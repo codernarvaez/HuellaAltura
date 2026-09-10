@@ -1,38 +1,44 @@
 import json
-import pytest
-from io import BytesIO
-from fastapi.testclient import TestClient
 
+import pytest
 from app.main import app
 from app.routers.geoespacial import (
-    parse_geojson, parse_kml, parse_gpx,
-    calculate_center, calculate_polygon_area
+    calculate_center,
+    calculate_polygon_area,
+    parse_geojson,
+    parse_gpx,
+    parse_kml,
 )
-
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
 
 # ===== PRUEBAS DE PARSEO =====
 
+
 class TestGeoJSON:
     """Pruebas de parseo de archivos GeoJSON."""
 
     def test_parse_geojson_feature_polygon(self):
         """Parsea GeoJSON Feature con Polygon."""
-        geojson_content = json.dumps({
-            "type": "Feature",
-            "properties": {"name": "El Ahuacate"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [-79.2231, -4.2625],
-                    [-79.2230, -4.2620],
-                    [-79.2235, -4.2630],
-                    [-79.2231, -4.2625]
-                ]]
+        geojson_content = json.dumps(
+            {
+                "type": "Feature",
+                "properties": {"name": "El Ahuacate"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-79.2231, -4.2625],
+                            [-79.2230, -4.2620],
+                            [-79.2235, -4.2630],
+                            [-79.2231, -4.2625],
+                        ]
+                    ],
+                },
             }
-        })
+        )
 
         result = parse_geojson(geojson_content)
 
@@ -43,19 +49,18 @@ class TestGeoJSON:
 
     def test_parse_geojson_feature_collection(self):
         """Parsea GeoJSON FeatureCollection."""
-        geojson_content = json.dumps({
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"name": "Finca 1"},
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [-79.2231, -4.2625]
+        geojson_content = json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "Finca 1"},
+                        "geometry": {"type": "Point", "coordinates": [-79.2231, -4.2625]},
                     }
-                }
-            ]
-        })
+                ],
+            }
+        )
 
         result = parse_geojson(geojson_content)
 
@@ -74,7 +79,7 @@ class TestKML:
 
     def test_parse_kml_polygon(self):
         """Parsea KML con Polygon."""
-        kml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        kml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>El Ahuacate</name>
@@ -94,7 +99,7 @@ class TestKML:
       </Polygon>
     </Placemark>
   </Document>
-</kml>'''
+</kml>"""
 
         result = parse_kml(kml_content)
 
@@ -105,7 +110,7 @@ class TestKML:
 
     def test_parse_kml_point(self):
         """Parsea KML con Point."""
-        kml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        kml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <Placemark>
@@ -114,7 +119,7 @@ class TestKML:
       </Point>
     </Placemark>
   </Document>
-</kml>'''
+</kml>"""
 
         result = parse_kml(kml_content)
 
@@ -133,7 +138,7 @@ class TestGPX:
 
     def test_parse_gpx_track(self):
         """Parsea GPX con Track."""
-        gpx_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        gpx_content = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
     <name>Mi Finca</name>
@@ -147,7 +152,7 @@ class TestGPX:
       <trkpt lat="-4.2630" lon="-79.2235"><ele>2095</ele></trkpt>
     </trkseg>
   </trk>
-</gpx>'''
+</gpx>"""
 
         result = parse_gpx(gpx_content)
 
@@ -158,11 +163,11 @@ class TestGPX:
 
     def test_parse_gpx_waypoints(self):
         """Parsea GPX con Waypoints."""
-        gpx_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        gpx_content = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <wpt lat="-4.2625" lon="-79.2231"><name>Punto 1</name></wpt>
   <wpt lat="-4.2620" lon="-79.2230"><name>Punto 2</name></wpt>
-</gpx>'''
+</gpx>"""
 
         result = parse_gpx(gpx_content)
 
@@ -178,16 +183,13 @@ class TestGPX:
 
 # ===== PRUEBAS DE CÁLCULOS =====
 
+
 class TestCalculations:
     """Pruebas de funciones de cálculo."""
 
     def test_calculate_center_polygon(self):
         """Calcula centro de polígono."""
-        coordinates = [
-            [-4.2625, -79.2231],
-            [-4.2620, -79.2230],
-            [-4.2630, -79.2235]
-        ]
+        coordinates = [[-4.2625, -79.2231], [-4.2620, -79.2230], [-4.2630, -79.2235]]
 
         center_lat, center_lon = calculate_center(coordinates)
 
@@ -222,7 +224,7 @@ class TestAreaCalculation:
             [-4.2608, -79.2231],
             [-4.2608, -79.2214],
             [-4.2625, -79.2214],
-            [-4.2625, -79.2231]
+            [-4.2625, -79.2231],
         ]
 
         area = calculate_polygon_area(coordinates)
@@ -237,7 +239,7 @@ class TestAreaCalculation:
             [-4.2625, -79.2231],
             [-4.2620, -79.2231],
             [-4.2622, -79.2225],
-            [-4.2625, -79.2231]
+            [-4.2625, -79.2231],
         ]
 
         area = calculate_polygon_area(coordinates)
@@ -258,24 +260,29 @@ class TestAreaCalculation:
 
 # ===== PRUEBAS DE ENDPOINTS =====
 
+
 class TestEndpointsPublic:
     """Pruebas de endpoints públicos (sin autenticación)."""
 
     def test_upload_geojson_publico(self):
         """Carga y procesa archivo GeoJSON público."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "properties": {"name": "Finca Prueba"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [-79.2231, -4.2625],
-                    [-79.2230, -4.2620],
-                    [-79.2235, -4.2630],
-                    [-79.2231, -4.2625]
-                ]]
+        geojson_data = json.dumps(
+            {
+                "type": "Feature",
+                "properties": {"name": "Finca Prueba"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-79.2231, -4.2625],
+                            [-79.2230, -4.2620],
+                            [-79.2235, -4.2630],
+                            [-79.2231, -4.2625],
+                        ]
+                    ],
+                },
             }
-        })
+        )
 
         files = {"archivo": ("test.geojson", geojson_data, "application/json")}
 
@@ -305,7 +312,7 @@ class TestEndpointsPublic:
 
     def test_upload_kml_publico(self):
         """Carga y procesa archivo KML público."""
-        kml_data = '''<?xml version="1.0" encoding="UTF-8"?>
+        kml_data = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Test Finca</name>
@@ -324,7 +331,7 @@ class TestEndpointsPublic:
       </Polygon>
     </Placemark>
   </Document>
-</kml>'''
+</kml>"""
 
         files = {"archivo": ("test.kml", kml_data, "application/vnd.google-earth.kml+xml")}
 
@@ -337,7 +344,7 @@ class TestEndpointsPublic:
 
     def test_upload_gpx_publico(self):
         """Carga y procesa archivo GPX público."""
-        gpx_data = '''<?xml version="1.0" encoding="UTF-8"?>
+        gpx_data = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk>
     <name>Finca Prueba</name>
@@ -346,7 +353,7 @@ class TestEndpointsPublic:
       <trkpt lat="-4.2620" lon="-79.2230"><ele>2105</ele></trkpt>
     </trkseg>
   </trk>
-</gpx>'''
+</gpx>"""
 
         files = {"archivo": ("test.gpx", gpx_data, "application/gpx+xml")}
 
@@ -368,14 +375,13 @@ class TestEndpointsPublic:
 
     def test_upload_empty_coordinates_publico(self):
         """Valida rechazo de archivo sin coordenadas."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "properties": {"name": "Finca Vacía"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": []
+        geojson_data = json.dumps(
+            {
+                "type": "Feature",
+                "properties": {"name": "Finca Vacía"},
+                "geometry": {"type": "Polygon", "coordinates": []},
             }
-        })
+        )
 
         files = {"archivo": ("test.geojson", geojson_data, "application/json")}
 
@@ -387,24 +393,29 @@ class TestEndpointsPublic:
 
 # ===== PRUEBAS DE ESTRUCTURA JSON =====
 
+
 class TestJSONStructure:
     """Pruebas de estructura de respuesta JSON."""
 
     def test_response_structure_public(self):
         """Valida estructura completa de respuesta pública."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "properties": {"name": "El Ahuacate", "area": "3.0 ha"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [-79.2231, -4.2625],
-                    [-79.2230, -4.2620],
-                    [-79.2235, -4.2630],
-                    [-79.2231, -4.2625]
-                ]]
+        geojson_data = json.dumps(
+            {
+                "type": "Feature",
+                "properties": {"name": "El Ahuacate", "area": "3.0 ha"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-79.2231, -4.2625],
+                            [-79.2230, -4.2620],
+                            [-79.2235, -4.2630],
+                            [-79.2231, -4.2625],
+                        ]
+                    ],
+                },
             }
-        })
+        )
 
         files = {"archivo": ("test.geojson", geojson_data, "application/json")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
@@ -442,13 +453,9 @@ class TestJSONStructure:
 
     def test_eudr_validation_structure(self):
         """Valida estructura de validación EUDR."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "geometry": {
-                "type": "Point",
-                "coordinates": [-79.2231, -4.2625]
-            }
-        })
+        geojson_data = json.dumps(
+            {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.2231, -4.2625]}}
+        )
 
         files = {"archivo": ("test.geojson", geojson_data, "application/json")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
@@ -464,19 +471,19 @@ class TestJSONStructure:
 
 # ===== PRUEBAS DE INTEGRACIÓN CON FRONTEND =====
 
+
 class TestFrontendIntegration:
     """Pruebas de integración con frontend (formato esperado)."""
 
     def test_frontend_autocomplete_fields(self):
         """Valida que respuesta permite auto-completar campos del frontend."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "properties": {"name": "La Esperanza"},
-            "geometry": {
-                "type": "Point",
-                "coordinates": [-79.2231, -4.2625]
+        geojson_data = json.dumps(
+            {
+                "type": "Feature",
+                "properties": {"name": "La Esperanza"},
+                "geometry": {"type": "Point", "coordinates": [-79.2231, -4.2625]},
             }
-        })
+        )
 
         files = {"archivo": ("test.geojson", geojson_data, "application/json")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
@@ -493,18 +500,22 @@ class TestFrontendIntegration:
 
     def test_frontend_map_rendering(self):
         """Valida que coordenadas son válidas para renderizar en Leaflet."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [-79.2231, -4.2625],
-                    [-79.2230, -4.2620],
-                    [-79.2235, -4.2630],
-                    [-79.2231, -4.2625]
-                ]]
+        geojson_data = json.dumps(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-79.2231, -4.2625],
+                            [-79.2230, -4.2620],
+                            [-79.2235, -4.2630],
+                            [-79.2231, -4.2625],
+                        ]
+                    ],
+                },
             }
-        })
+        )
 
         files = {"archivo": ("test.geojson", geojson_data, "application/json")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
@@ -519,10 +530,9 @@ class TestFrontendIntegration:
 
     def test_frontend_eudr_status_display(self):
         """Valida que status EUDR es legible para frontend."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [-79.2231, -4.2625]}
-        })
+        geojson_data = json.dumps(
+            {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.2231, -4.2625]}}
+        )
 
         files = {"archivo": ("test.geojson", geojson_data, "application/json")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
@@ -539,25 +549,30 @@ class TestFrontendIntegration:
 
 # ===== PRUEBAS DE EXTRACCIÓN COMPLETA DE DATOS =====
 
+
 class TestDataExtraction:
     """Pruebas de extracción automática de datos: polígono, ubicación, cantón, área."""
 
     def test_extract_poligono_ubicacion_canton_area(self):
         """Valida extracción completa: polígono + ubicación + cantón + área."""
-        geojson_data = json.dumps({
-            "type": "Feature",
-            "properties": {"name": "El Ahuacate"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [-79.2231, -4.2625],
-                    [-79.2230, -4.2620],
-                    [-79.2235, -4.2630],
-                    [-79.2233, -4.2635],
-                    [-79.2231, -4.2625]
-                ]]
+        geojson_data = json.dumps(
+            {
+                "type": "Feature",
+                "properties": {"name": "El Ahuacate"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-79.2231, -4.2625],
+                            [-79.2230, -4.2620],
+                            [-79.2235, -4.2630],
+                            [-79.2233, -4.2635],
+                            [-79.2231, -4.2625],
+                        ]
+                    ],
+                },
             }
-        })
+        )
 
         files = {"archivo": ("finca.geojson", geojson_data, "application/json")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
@@ -588,7 +603,7 @@ class TestDataExtraction:
 
     def test_extract_from_kml_polygon(self):
         """Valida extracción desde archivo KML."""
-        kml_data = '''<?xml version="1.0" encoding="UTF-8"?>
+        kml_data = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Mi Finca KML</name>
@@ -607,7 +622,7 @@ class TestDataExtraction:
       </Polygon>
     </Placemark>
   </Document>
-</kml>'''
+</kml>"""
 
         files = {"archivo": ("finca.kml", kml_data, "application/vnd.google-earth.kml+xml")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)
@@ -621,7 +636,7 @@ class TestDataExtraction:
 
     def test_extract_from_gpx_track(self):
         """Valida extracción desde archivo GPX."""
-        gpx_data = '''<?xml version="1.0" encoding="UTF-8"?>
+        gpx_data = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk>
     <name>Ruta Finca El Ahuacate</name>
@@ -632,7 +647,7 @@ class TestDataExtraction:
       <trkpt lat="-4.2625" lon="-79.2235"><ele>2100</ele></trkpt>
     </trkseg>
   </trk>
-</gpx>'''
+</gpx>"""
 
         files = {"archivo": ("ruta_finca.gpx", gpx_data, "application/gpx+xml")}
         response = client.post("/api/v1/geoespacial/publico/cargar-poligono", files=files)

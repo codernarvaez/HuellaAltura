@@ -5,20 +5,16 @@ on:
     branches: [main, master, develop, landingPage]
     paths:
       - "HAMobile/**"
-      - "mobile/**"
-      - "turbo.json"
-      - "HAMobile/turbo.json"
       - "package.json"
       - "package-lock.json"
+      - "pants.toml"
       - ".github/workflows/hamobile-ci.yml"
   pull_request:
     paths:
       - "HAMobile/**"
-      - "mobile/**"
-      - "turbo.json"
-      - "HAMobile/turbo.json"
       - "package.json"
       - "package-lock.json"
+      - "pants.toml"
       - ".github/workflows/hamobile-ci.yml"
 
 concurrency:
@@ -27,11 +23,8 @@ concurrency:
 
 jobs:
   ci:
-    name: HAMobile (Expo)
+    name: HAMobile CI
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: HAMobile
 
     steps:
       - uses: actions/checkout@v4
@@ -43,15 +36,12 @@ jobs:
 
       - name: Install monorepo dependencies
         run: npm ci
-        working-directory: .
 
-      - name: Install HAMobile dependencies
-        run: npm install
-        working-directory: HAMobile
+      - name: Setup Pants
+        uses: pantsbuild/actions/init-pants@v10
+        with:
+          gha-cache-key: hamobile-pants-v1
+          named-caches-hash: ${{ hashFiles('HAMobile/package.json', 'pants.toml', 'HAMobile/BUILD') }}
 
-      - name: Expo doctor
-        run: npx expo-doctor
-
-      - name: Turbo CI (HAMobile)
-        run: npm run ci:hamobile
-        working-directory: .
+      - name: Run HAMobile CI via Pants
+        run: pants run HAMobile:ci

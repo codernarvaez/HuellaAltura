@@ -1,7 +1,7 @@
 // src/services/expediente.service.ts
 import { API_URL } from "./Api_Base";
-import { FincaService } from "./finca.service.ts";
-import { AgroambientalService } from "./InfoAgroambiental.ts";
+import { FincaService } from "./finca.service";
+import { AgroambientalService } from "./InfoAgroambiental";
 
 const EXPEDIENTES_BASE = `${API_URL}/api/v1/expedientes`;
 
@@ -121,8 +121,9 @@ export class ExpedienteService {
       
       return { expediente: enriquecido[0] || nuevoExpediente, creado: true };
       
-    } catch (e) {
-      console.error(`❌ Error en getOrCreate para finca ${fincaId}:`, e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`❌ Error en getOrCreate para finca ${fincaId}:`, msg);
       return { expediente: null, creado: false };
     }
   }
@@ -147,7 +148,7 @@ export class ExpedienteService {
     expedientes: ExpedienteOut[],
     token?: string
   ): Promise<ExpedienteOut[]> {
-    const enriched = [];
+    const enriched: ExpedienteOut[] = [];
     
     for (const exp of expedientes) {
       try {
@@ -166,13 +167,15 @@ export class ExpedienteService {
             try {
               const finca = await FincaService.getById(dato.finca_id, token);
               exp.finca = finca;
-            } catch (e) {
-              console.warn(`⚠️ Error obteniendo finca para expediente ${exp.id}:`, e.message);
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : String(e);
+              console.warn(`⚠️ Error obteniendo finca para expediente ${exp.id}:`, msg);
             }
           }
         }
-      } catch (e) {
-        console.warn(`⚠️ Error enriqueciendo expediente ${exp.id}:`, e.message);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`⚠️ Error enriqueciendo expediente ${exp.id}:`, msg);
       }
       
       enriched.push(exp);

@@ -9,7 +9,7 @@
 import hashlib
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from prisma import Json, Prisma
 
 from app.database import get_db
@@ -57,6 +57,7 @@ def _obtener_productor(db: Prisma, productor_id: str):
 
 
 # ===== Listas de sanciones (administración) =====
+
 
 @router.post(
     "/listas",
@@ -123,15 +124,12 @@ def estado_listas(
             for fuente in (screening_service.FUENTE_OFAC, screening_service.FUENTE_ONU)
         },
         "operativo": total > 0,
-        "advertencia": (
-            None
-            if total
-            else "Las listas están vacías: ningún screening puede considerarse concluyente."
-        ),
+        "advertencia": (None if total else "Las listas están vacías: ningún screening puede considerarse concluyente."),
     }
 
 
 # ===== Screening del productor =====
+
 
 @router.post(
     "/productores/{productor_id}/screening",
@@ -188,9 +186,7 @@ def ejecutar_screening(
         "expediente_bloqueado": bloqueado,
         "listas_cargadas": resultado["listas_cargadas"],
         "advertencia": (
-            None
-            if resultado["listas_cargadas"]
-            else "Listas de sanciones vacías: resultado no concluyente."
+            None if resultado["listas_cargadas"] else "Listas de sanciones vacías: resultado no concluyente."
         ),
     }
 
@@ -207,9 +203,7 @@ def historico_screening(
 ):
     """Reporte del proceso de verificación en listas de sanciones (RF-15)."""
     _obtener_productor(db, productor_id)
-    return db.screeningproductor.find_many(
-        where={"productor_id": productor_id}, order={"creado_en": "desc"}
-    )
+    return db.screeningproductor.find_many(where={"productor_id": productor_id}, order={"creado_en": "desc"})
 
 
 @router.post(
@@ -242,6 +236,7 @@ def desbloquear_productor(
 
 
 # ===== Firma digital (RF-11) =====
+
 
 @router.post(
     "/productores/{productor_id}/firma",
@@ -276,9 +271,7 @@ def firmar_expediente(
         if not documento:
             raise HTTPException(status_code=404, detail="Documento de firma no encontrado")
         if db.firmaproductor.find_first(where={"documento_id": data.documento_id}):
-            raise HTTPException(
-                status_code=409, detail="Ese documento ya está asociado a otra firma."
-            )
+            raise HTTPException(status_code=409, detail="Ese documento ya está asociado a otra firma.")
 
     snapshot = {campo: getattr(productor, campo, None) for campo in _CAMPOS_SNAPSHOT}
     snapshot["productor_id"] = productor_id
@@ -318,9 +311,7 @@ def verificar_firma(
     """
     productor = _obtener_productor(db, productor_id)
 
-    firma = db.firmaproductor.find_first(
-        where={"productor_id": productor_id}, order={"creado_en": "desc"}
-    )
+    firma = db.firmaproductor.find_first(where={"productor_id": productor_id}, order={"creado_en": "desc"})
     if not firma:
         raise HTTPException(status_code=404, detail="El productor no tiene firma registrada")
 

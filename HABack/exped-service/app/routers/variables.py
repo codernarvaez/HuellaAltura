@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
 
@@ -37,9 +36,7 @@ def buscar_por_nombre(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
 ):
-    return db.variabledinamica.find_many(
-        where={"nombre": {"contains": nombre, "mode": "insensitive"}}
-    )
+    return db.variabledinamica.find_many(where={"nombre": {"contains": nombre, "mode": "insensitive"}})
 
 
 @router.get(
@@ -65,9 +62,7 @@ def buscar_por_seccion(
     db: Prisma = Depends(get_db),
     current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN")),
 ):
-    return db.variabledinamica.find_many(
-        where={"seccion": {"contains": seccion, "mode": "insensitive"}}
-    )
+    return db.variabledinamica.find_many(where={"seccion": {"contains": seccion, "mode": "insensitive"}})
 
 
 @router.get(

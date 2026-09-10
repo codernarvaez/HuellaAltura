@@ -9,8 +9,8 @@ const token = Astro.cookies.get("token")?.value;
 
 let userData = null;
 let userRole = '';
-let ordenes = [];
-let inventario = [];
+let ordenes: any[] = [];
+let inventario: any[] = [];
 let error = null;
 let isLoading = true;
 
@@ -56,15 +56,15 @@ if (token) {
       console.log("📋 Órdenes disponibles para ingreso:", ordenes.length);
       console.log("📦 Inventario en bodega:", inventario.filter(i => i.estado === 'EN_BODEGA').length);
       
-    } catch (e) {
-      console.warn("⚠️ Error obteniendo datos:", e.message);
+    } catch (e: unknown) {
+      console.warn("⚠️ Error obteniendo datos:", (e instanceof Error ? e.message : String(e)));
       ordenes = [];
       inventario = [];
     }
     
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error:", e);
     isLoading = false;
   }
@@ -210,7 +210,6 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {ordenes.map((orden) => (
                                 <div 
-                                    key={orden.id} 
                                     class="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow orden-item"
                                     data-orden-id={orden.id}
                                 >
@@ -314,7 +313,7 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                                 </thead>
                                 <tbody>
                                     {inventario.map((item) => (
-                                        <tr key={item.id} class="border-b border-slate-100 hover:bg-slate-50/50 transition">
+                                        <tr class="border-b border-slate-100 hover:bg-slate-50/50 transition">
                                             <td class="py-3 px-4 font-mono text-xs text-slate-600">
                                                 {item.id.substring(0, 8)}
                                             </td>
@@ -386,7 +385,7 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
                             {inventario.filter(i => i.estado === 'EN_BODEGA').map((item) => {
                                 const inputId = `factor-${item.id}`;
                                 return (
-                                    <div key={item.id} class="border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:shadow-md transition-shadow">
+                                    <div class="border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:shadow-md transition-shadow">
                                         <div class="flex-1">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
@@ -663,7 +662,7 @@ const puedeGestionarBodegaStr = puedeGestionarBodega ? 'true' : 'false';
 
 <script is:inline src="https://unpkg.com/lucide@latest"></script>
 
-<script>
+<script is:inline>
     // Importar el servicio para uso en cliente
     import { AcopioService } from "../../services/acopio.service.ts";
 

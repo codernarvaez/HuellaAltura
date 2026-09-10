@@ -3,9 +3,9 @@ from collections.abc import Callable
 from typing import Annotated
 
 import httpx
+import jwt
 from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import jwt
 from jwt.exceptions import PyJWTError as JWTError
 from prisma import Prisma
 
@@ -141,6 +141,7 @@ def log_user_action(action: str) -> Callable:
 
 
 # ===== Dependencias de Validación (Reutilizables) =====
+
 
 def get_expediente_or_404(
     expediente_id: str,

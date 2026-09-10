@@ -52,26 +52,27 @@ def generar_certificado(
     if not db.auditoria.find_first(where=audit_query):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "El expediente requiere una auditoría GEE con resultado APROBADO "
-                "para emitir el certificado"
-            ),
+            detail=("El expediente requiere una auditoría GEE con resultado APROBADO para emitir el certificado"),
         )
 
     generado_por = data.generado_por if data.generado_por else current_user.get("sub", "sistema")
     codigo = f"DDS-{datetime.utcnow().year}-{uuid4().hex[:8].upper()}"
 
-    certificado = db.certificado.create(data={
-        **data.model_dump(),
-        "codigo_certificado": codigo,
-        "generado_por": generado_por,
-    })
-    db.historial.create(data={
-        "expediente_id": data.expediente_id,
-        "accion": "Certificado DDS generado",
-        "descripcion": f"Código: {codigo}. Generado por: {generado_por}.",
-        "usuario": current_user.get("sub", "sistema"),
-    })
+    certificado = db.certificado.create(
+        data={
+            **data.model_dump(),
+            "codigo_certificado": codigo,
+            "generado_por": generado_por,
+        }
+    )
+    db.historial.create(
+        data={
+            "expediente_id": data.expediente_id,
+            "accion": "Certificado DDS generado",
+            "descripcion": f"Código: {codigo}. Generado por: {generado_por}.",
+            "usuario": current_user.get("sub", "sistema"),
+        }
+    )
     return certificado
 
 

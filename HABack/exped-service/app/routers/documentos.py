@@ -6,12 +6,11 @@ desde el móvil) y RF-28 (consulta de evidencias documentales).
 """
 
 import hashlib
-import unicodedata
 import re
-
-from fastapi.responses import RedirectResponse
+import unicodedata
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import RedirectResponse
 from prisma import Json, Prisma
 
 from app.database import get_db
@@ -44,6 +43,7 @@ def _normalizar_carpeta(valor: str) -> str:
 
 
 # ===== Catálogo de requisitos documentales (administrativo) =====
+
 
 @router.get(
     "/requisitos",
@@ -114,6 +114,7 @@ def actualizar_requisito(
 
 
 # ===== Documentos =====
+
 
 @router.post(
     "/",
@@ -319,8 +320,6 @@ def _validar_titular(db: Prisma, productor_id: str | None, finca_id: str | None)
         raise HTTPException(status_code=404, detail="Productor no encontrado")
     if finca_id and not db.finca.find_first(where={"id": finca_id}):
         raise HTTPException(status_code=404, detail="Finca no encontrada")
-
-
 
 
 @router.get(

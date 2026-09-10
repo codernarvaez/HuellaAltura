@@ -6,7 +6,7 @@ from prisma import Prisma
 from app.database import get_db
 from app.dependencies import log_user_action, require_roles
 from app.routers.acopio.roles import MUESTREO
-from app.schemas.acopio import MuestraCreate, MuestraOut
+from app.schemas.acopio import MuestraCreate
 
 router = APIRouter(prefix="/acopio/muestras", tags=["Acopio - Muestras"])
 

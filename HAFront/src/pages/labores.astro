@@ -31,19 +31,19 @@ if (token) {
             const response = await LaboresService.obtenerLedger(fincaId, token);
             ledgerData = response;
             console.log("📋 Ledger cargado:", JSON.stringify(ledgerData, null, 2));
-          } catch (e) {
-            console.warn("⚠️ Error obteniendo ledger:", e.message);
+          } catch (e: unknown) {
+            console.warn("⚠️ Error obteniendo ledger:", (e instanceof Error ? e.message : String(e)));
             ledgerData = null;
           }
         }
-      } catch (e) {
-        console.warn("⚠️ Error obteniendo finca:", e.message);
+      } catch (e: unknown) {
+        console.warn("⚠️ Error obteniendo finca:", (e instanceof Error ? e.message : String(e)));
       }
     }
     
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error:", e);
     isLoading = false;
   }
@@ -132,7 +132,7 @@ const API_URL = "https://huellaaltura.onrender.com"; // o la URL de tu backend
   ledgerData: ledgerDataStr, 
   userData: userDataStr,
   API_URL: API_URL 
-}}>
+}} is:inline>
   console.log("📋 Ledger Data recibido:", ledgerData);
   console.log("🔗 API_URL:", API_URL);
 

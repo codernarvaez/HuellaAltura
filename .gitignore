@@ -220,6 +220,15 @@ __marimo__/
 # Node / Monorepo
 node_modules/
 .turbo/
+
+# Pants
+.pants.d/
+.pids/
+.pants.workdir.dir/
+dist/
+pants.local.toml
+*.pex
+.pants-bin/
 .astro/
 .vercel/
 HAFront/dist/

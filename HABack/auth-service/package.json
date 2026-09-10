@@ -1,11 +1,9 @@
 {
   "name": "auth-service",
   "private": true,
+  "description": "HABack identity service — orchestrated by Pants, not Turbo",
   "scripts": {
-    "lint": "ruff check app tests && ruff format --check app tests",
-    "build": "prisma generate && python -m compileall -q app",
-    "test": "prisma generate && pytest tests/ -q",
-    "ci": "npm run lint && npm run test && npm run build"
+    "ci": "./pants_ci.sh"
   },
   "devDependencies": {
     "prisma": "^5.22.0"

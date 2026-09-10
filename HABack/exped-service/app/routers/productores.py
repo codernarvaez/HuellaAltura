@@ -5,18 +5,18 @@ from prisma import Json, Prisma
 
 from app.database import get_db
 from app.dependencies import get_current_user, log_user_action, require_roles
-from app.services import screening_service
-
-logger = logging.getLogger("exped-service.productores")
 from app.schemas.schemas import (
+    _REQUERIDOS_JURIDICA,
+    _REQUERIDOS_NATURAL,
     FincaOut,
     ProductorCreate,
     ProductorOut,
     ProductorUpdate,
     TipoPersonaEnum,
-    _REQUERIDOS_JURIDICA,
-    _REQUERIDOS_NATURAL,
 )
+from app.services import screening_service
+
+logger = logging.getLogger("exped-service.productores")
 
 router = APIRouter()
 
@@ -38,9 +38,7 @@ def _screening_automatico(db: Prisma, productor_id: str, ejecutado_por: str | No
         if not productor:
             return
 
-        resultado = screening_service.verificar_productor(
-            db=db, productor=productor, ejecutado_por=ejecutado_por
-        )
+        resultado = screening_service.verificar_productor(db=db, productor=productor, ejecutado_por=ejecutado_por)
 
         db.screeningproductor.create(
             data={
@@ -127,9 +125,7 @@ def crear_productor(
 
     productor = db.productor.create(data=payload)
 
-    background_tasks.add_task(
-        _screening_automatico, db, productor.id, current_user.get("sub")
-    )
+    background_tasks.add_task(_screening_automatico, db, productor.id, current_user.get("sub"))
 
     return productor
 
@@ -171,8 +167,7 @@ def actualizar_productor(
         raise HTTPException(
             status_code=409,
             detail=(
-                "El expediente está BLOQUEADO por una coincidencia en listas de "
-                "sanciones y no admite modificaciones."
+                "El expediente está BLOQUEADO por una coincidencia en listas de sanciones y no admite modificaciones."
             ),
         )
 
@@ -220,9 +215,7 @@ def completitud_productor(
 
     # 1. Campos base según tipo de persona
     requeridos = (
-        _REQUERIDOS_NATURAL
-        if productor.tipo_persona == TipoPersonaEnum.NATURAL.value
-        else _REQUERIDOS_JURIDICA
+        _REQUERIDOS_NATURAL if productor.tipo_persona == TipoPersonaEnum.NATURAL.value else _REQUERIDOS_JURIDICA
     )
     campos_faltantes = [c for c in requeridos if not getattr(productor, c, None)]
 
@@ -239,9 +232,7 @@ def completitud_productor(
     for campo in campos_dinamicos:
         if campo.visible_si_tipo_persona not in (None, productor.tipo_persona):
             continue
-        valor = db.valorcampo.find_first(
-            where={"campo_id": campo.id, "entidad_id": productor_id}
-        )
+        valor = db.valorcampo.find_first(where={"campo_id": campo.id, "entidad_id": productor_id})
         if not valor or not valor.valor:
             dinamicos_faltantes.append(campo.clave)
 

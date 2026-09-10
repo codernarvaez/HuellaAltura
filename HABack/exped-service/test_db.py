@@ -1,5 +1,7 @@
-from prisma import Prisma
 import asyncio
+
+from prisma import Prisma
+
 
 async def main():
     db = Prisma()
@@ -9,5 +11,6 @@ async def main():
     for f in fincas:
         print(f.id, f.nombre, f.usuario_id)
     await db.disconnect()
+
 
 asyncio.run(main())

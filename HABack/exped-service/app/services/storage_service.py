@@ -42,7 +42,7 @@ def subir_documento_privado(contenido: bytes, nombre: str, carpeta: str) -> str:
     resultado: dict[str, Any] = cloudinary.uploader.upload(
         contenido,
         folder=f"expedientes/{carpeta}",
-        resource_type="raw",   # <--- Forzamos tipo raw para conservar la extensión del PDF
+        resource_type="raw",  # <--- Forzamos tipo raw para conservar la extensión del PDF
         type="authenticated",  # <--- Privado y seguro
         use_filename=True,
         unique_filename=False,
@@ -62,7 +62,7 @@ def url_firmada(public_id: str) -> str:
     _configurar()
     url, _ = cloudinary.utils.cloudinary_url(
         public_id,
-        resource_type="raw",   # <--- Debe coincidir con el tipo con el que se subió
+        resource_type="raw",  # <--- Debe coincidir con el tipo con el que se subió
         type="authenticated",
         sign_url=True,
         secure=True,

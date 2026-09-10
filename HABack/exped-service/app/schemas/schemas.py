@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ─── Enums (valores alineados con Prisma) ────────────────────
 
+
 class TenenciaEnum(StrEnum):
     PROPIA = "PROPIA"
     POSESION = "POSESION"
@@ -45,6 +46,7 @@ class EstadoCertificadoEnum(StrEnum):
 
 # ─── Variable Dinámica ───────────────────────────────────────
 
+
 class TipoDatoEnum(StrEnum):
     STRING = "STRING"
     INTEGER = "INTEGER"
@@ -78,6 +80,7 @@ class VariableDinamicaOut(BaseModel):
 
 # ─── Agroambiental ───────────────────────────────────────────
 
+
 class DatoAgroambientalBase(BaseModel):
     indice_shannon: float | None = None
     indice_simpson: float | None = None
@@ -108,6 +111,7 @@ class DatoAgroambientalOut(DatoAgroambientalBase):
 
 # ─── Historial / Trazabilidad ────────────────────────────────
 
+
 class HistorialCreate(BaseModel):
     accion: str
     descripcion: str | None = None
@@ -131,6 +135,7 @@ class HistorialOut(HistorialCreate):
 
 # ─── Tipos de persona (RF-01) ────────────────────────────────
 
+
 class TipoPersonaEnum(StrEnum):
     NATURAL = "NATURAL"
     JURIDICA = "JURIDICA"
@@ -143,6 +148,7 @@ class EstadoProductorEnum(StrEnum):
 
 
 # ─── Formularios dinámicos (RF-08, RF-09) ────────────────────
+
 
 class EntidadFormularioEnum(StrEnum):
     PRODUCTOR = "PRODUCTOR"
@@ -232,6 +238,7 @@ class ValorCampoOut(BaseModel):
 
 # ─── Documentos del expediente (RF-07, RF-08, RF-09) ─────────
 
+
 class EstadoDocumentoEnum(StrEnum):
     PENDIENTE = "PENDIENTE"
     VALIDADO = "VALIDADO"
@@ -318,10 +325,9 @@ class RequisitoDocumentalOut(BaseModel):
 
 # ─── Firma digital del productor (RF-11) ─────────────────────
 
+
 class FirmaProductorCreate(BaseModel):
-    documento_id: str | None = Field(
-        None, description="Documento tipo FIRMA con el trazo capturado"
-    )
+    documento_id: str | None = Field(None, description="Documento tipo FIRMA con el trazo capturado")
     latitud: float | None = None
     longitud: float | None = None
     firmado_en: datetime = Field(..., description="Instante de la firma en UTC")
@@ -344,6 +350,7 @@ class FirmaProductorOut(BaseModel):
 
 # ─── Listas de sanciones (RF-14, RF-15, RF-16) ───────────────
 
+
 class FuenteSancionEnum(StrEnum):
     OFAC_SDN = "OFAC_SDN"
     ONU_CONSOLIDATED = "ONU_CONSOLIDATED"
@@ -359,9 +366,7 @@ class ListaSancionCreate(BaseModel):
 
 
 class ScreeningRequest(BaseModel):
-    umbral: float = Field(
-        85.0, ge=50.0, le=100.0, description="Puntaje mínimo para considerar coincidencia"
-    )
+    umbral: float = Field(85.0, ge=50.0, le=100.0, description="Puntaje mínimo para considerar coincidencia")
 
 
 class ScreeningOut(BaseModel):
@@ -380,9 +385,7 @@ class ScreeningOut(BaseModel):
 
 
 class DesbloqueoRequest(BaseModel):
-    motivo: str = Field(
-        ..., min_length=10, description="Justificación documentada del desbloqueo"
-    )
+    motivo: str = Field(..., min_length=10, description="Justificación documentada del desbloqueo")
 
 
 # ─── Productor ───────────────────────────────────────────────
@@ -431,16 +434,11 @@ class ProductorCreate(ProductorBase):
     @model_validator(mode="after")
     def validar_campos_por_tipo(self):
         """Exige los campos que correspondan al tipo de persona seleccionado."""
-        requeridos = (
-            _REQUERIDOS_NATURAL
-            if self.tipo_persona == TipoPersonaEnum.NATURAL
-            else _REQUERIDOS_JURIDICA
-        )
+        requeridos = _REQUERIDOS_NATURAL if self.tipo_persona == TipoPersonaEnum.NATURAL else _REQUERIDOS_JURIDICA
         faltantes = [c for c in requeridos if not getattr(self, c, None)]
         if faltantes:
             raise ValueError(
-                f"Para una persona {self.tipo_persona.value.lower()} son obligatorios: "
-                f"{', '.join(faltantes)}."
+                f"Para una persona {self.tipo_persona.value.lower()} son obligatorios: {', '.join(faltantes)}."
             )
         return self
 
@@ -465,6 +463,7 @@ class ProductorOut(ProductorBase):
 
 # ─── Finca ───────────────────────────────────────────────────
 
+
 class FincaCreate(BaseModel):
     nombre: str = Field(..., example="El Ahuacate")
     usuario_id: str = Field(..., example="uuid-del-usuario", description="ID del usuario (productor) de auth-service")
@@ -479,7 +478,7 @@ class FincaCreate(BaseModel):
     latitud: float | None = Field(None, example=-4.2625)
     longitud: float | None = Field(None, example=-79.2231)
     poligono: Any | None = Field(None, description="Datos del polígono de la finca (GeoJSON o lista de coordenadas)")
-    
+
     # --- Nuevos campos agregados ---
     variedad_cafe: str | None = None
     densidad_siembra: str | None = None
@@ -516,7 +515,7 @@ class FincaUpdate(BaseModel):
     latitud: float | None = None
     longitud: float | None = None
     poligono: Any | None = None
-    
+
     # --- Nuevos campos agregados ---
     variedad_cafe: str | None = None
     densidad_siembra: str | None = None
@@ -532,6 +531,7 @@ class FincaUpdate(BaseModel):
 
 
 # ─── Expediente ──────────────────────────────────────────────
+
 
 class ExpedienteCreate(BaseModel):
     dato_id: str = Field(..., description="ID del dato agroambiental asociado")
@@ -557,6 +557,7 @@ class ExpedienteOut(BaseModel):
 
 
 # ─── AuditoriaGEE ────────────────────────────────────────────
+
 
 class AuditoriaCreate(BaseModel):
     expediente_id: str
@@ -585,6 +586,7 @@ class AuditoriaOut(BaseModel):
 
 # ─── CertificadoDDS ──────────────────────────────────────────
 
+
 class CertificadoCreate(BaseModel):
     expediente_id: str
     fecha_vencimiento: datetime | None = None
@@ -608,14 +610,17 @@ class CertificadoOut(BaseModel):
 
 # --- SCHEMAS PARA AGENDAR LABOR (Planificación) ---
 
+
 class LaborAgricolaBase(BaseModel):
     nombre: str
     tipo_proceso: str
     mes: str
     cantidad_proyectada: str
 
+
 class LaborAgricolaCreate(LaborAgricolaBase):
     finca_id: str
+
 
 class LaborAgricolaOut(LaborAgricolaBase):
     id: str
@@ -626,10 +631,13 @@ class LaborAgricolaOut(LaborAgricolaBase):
     class Config:
         from_attributes = True
 
+
 # --- SCHEMAS PARA EJECUTAR LABOR ---
+
 
 class InsumoLaborCreate(BaseModel):
     """Un insumo aplicado en la ejecución. Una ejecución admite N insumos."""
+
     nombre: str = Field(min_length=1, max_length=150)
     cantidad: float = Field(gt=0, description="Cantidad aplicada, debe ser mayor a 0")
     unidad: str = Field(min_length=1, max_length=30)
@@ -641,6 +649,7 @@ class InsumoLaborCreate(BaseModel):
         if not limpio:
             raise ValueError("El valor no puede estar vacío")
         return limpio
+
 
 # Edad mínima legal para trabajo de jornaleros (RF PPC-05, requisito crítico
 # de Comercio Justo / normativa laboral: prohibición de trabajo infantil).
@@ -664,8 +673,7 @@ class EjecucionLaborCreate(BaseModel):
                 raise ValueError("El nombre del jornalero es obligatorio")
             if self.edad_jornalero is None:
                 raise ValueError(
-                    "La edad del jornalero es obligatoria: la normativa exige "
-                    "verificar que sea mayor de edad"
+                    "La edad del jornalero es obligatoria: la normativa exige verificar que sea mayor de edad"
                 )
             if self.edad_jornalero < EDAD_MINIMA_JORNALERO:
                 raise ValueError(
@@ -693,13 +701,14 @@ class EjecucionLaborCreate(BaseModel):
     @classmethod
     def _herramientas_limpias(cls, v: list[str]) -> list[str]:
         return [h.strip() for h in v if h and h.strip()]
-    
+
     # Evidencia
     foto_url: str | None = None
     foto_hash: str | None = None
     latitud: float | None = None
     longitud: float | None = None
     watermark_text: str | None = None
+
 
 class InsumoLaborOut(BaseModel):
     id: str
@@ -710,12 +719,14 @@ class InsumoLaborOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class HerramientaLaborOut(BaseModel):
     id: str
     nombre: str
 
     class Config:
         from_attributes = True
+
 
 class EjecucionLaborOut(BaseModel):
     id: str

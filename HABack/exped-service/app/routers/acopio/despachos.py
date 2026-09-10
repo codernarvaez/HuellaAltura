@@ -7,15 +7,16 @@ from prisma import Prisma
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.dependencies import log_user_action, require_roles, get_current_user
+from app.dependencies import log_user_action, require_roles
 from app.routers.acopio.laboratorio import clasificar
 from app.routers.acopio.roles import CONSULTA, GERENCIA
-from app.schemas.acopio import DespachoCreate, InventarioAcopioOut
+from app.schemas.acopio import DespachoCreate
 from app.utils.pdf_generator import generar_certificado_pdf
 
 
 class DespachoHistorialOut(BaseModel):
     """Historial de despachos con información de trazabilidad."""
+
     id: str
     ordenCompraId: str
     pesoIngresoKg: float
@@ -52,9 +53,7 @@ def listar_despachos(
     - Generar reportes de movimiento en bodega
     """
     despachos = db.inventarioacopio.find_many(
-        where={"pesoSalidaKg": {"gt": 0}},
-        include={"ordenCompra": True},
-        order={"id": "desc"}
+        where={"pesoSalidaKg": {"gt": 0}}, include={"ordenCompra": True}, order={"id": "desc"}
     )
     return despachos
 
@@ -84,9 +83,7 @@ def obtener_datos_trazabilidad(db: Prisma, inventario_id: str) -> dict:
     )
 
     if not inventario or not inventario.ordenCompra:
-        raise HTTPException(
-            status_code=404, detail="Cadena de trazabilidad incompleta o no encontrada"
-        )
+        raise HTTPException(status_code=404, detail="Cadena de trazabilidad incompleta o no encontrada")
 
     muestra = inventario.ordenCompra.muestra
 
@@ -108,28 +105,20 @@ def obtener_datos_trazabilidad(db: Prisma, inventario_id: str) -> dict:
         },
         "cumplimiento_eudr": {
             "aprobado_cero_deforestacion": inventario.ordenCompra.aprobadoEUDR,
-            "fecha_analisis_satelital": (
-                auditoria.fecha_auditoria.isoformat() if auditoria else "N/A"
-            ),
+            "fecha_analisis_satelital": (auditoria.fecha_auditoria.isoformat() if auditoria else "N/A"),
         },
         "perfil_calidad": {
             "clasificacion": clasificar(puntaje_sca),
             "puntaje_sca": puntaje_sca,
-            "humedad_fisica": (
-                muestra.analisisFisico.humedad if muestra.analisisFisico else "N/A"
-            ),
+            "humedad_fisica": (muestra.analisisFisico.humedad if muestra.analisisFisico else "N/A"),
         },
         "rendimiento_industrial": {
             "peso_ingreso_pergamino_kg": inventario.pesoIngresoKg,
             "factor_trilla": (
-                inventario.procesoTrilla.factorRendimiento
-                if inventario.procesoTrilla
-                else "No trillado"
+                inventario.procesoTrilla.factorRendimiento if inventario.procesoTrilla else "No trillado"
             ),
             "peso_oro_exportable_kg": (
-                inventario.procesoTrilla.pesoOroKg
-                if inventario.procesoTrilla
-                else "No calculado"
+                inventario.procesoTrilla.pesoOroKg if inventario.procesoTrilla else "No calculado"
             ),
         },
         "estado_despacho": {
@@ -169,9 +158,7 @@ def registrar_despacho(
             ),
         )
 
-    estado_nuevo = (
-        "DESPACHADO" if nuevo_peso_acumulado == peso_ingreso_historico else inventario_db.estado
-    )
+    estado_nuevo = "DESPACHADO" if nuevo_peso_acumulado == peso_ingreso_historico else inventario_db.estado
 
     db.inventarioacopio.update(
         where={"id": despacho.inventarioId},
@@ -213,7 +200,5 @@ def descargar_certificado_pdf(
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"attachment; filename=certificado_{inventario_id}.pdf"
-        },
+        headers={"Content-Disposition": f"attachment; filename=certificado_{inventario_id}.pdf"},
     )

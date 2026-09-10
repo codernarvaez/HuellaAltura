@@ -14,7 +14,7 @@ let error = null;
 let isLoading = true;
 let calendarioData = null;
 let userRole = null;
-let fincasDisponibles = [];
+let fincasDisponibles: any[] = [];
 
 if (token) {
   try {
@@ -59,8 +59,8 @@ if (token) {
           fincaId = fincasDisponibles[0].id;
           console.log("✅ Finca seleccionada por defecto:", fincasDisponibles[0].nombre);
         }
-      } catch (e) {
-        console.warn("⚠️ Error obteniendo fincas:", e.message);
+      } catch (e: unknown) {
+        console.warn("⚠️ Error obteniendo fincas:", (e instanceof Error ? e.message : String(e)));
       }
       
       // 🔥 Cargar calendario si hay fincaId
@@ -69,16 +69,16 @@ if (token) {
           const response = await LaboresService.obtenerCalendario(fincaId, token);
           calendarioData = response;
           console.log("📋 Calendario cargado para finca:", fincaId);
-        } catch (e) {
-          console.warn("⚠️ Error obteniendo calendario:", e.message);
+        } catch (e: unknown) {
+          console.warn("⚠️ Error obteniendo calendario:", (e instanceof Error ? e.message : String(e)));
           calendarioData = null;
         }
       }
     }
     
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error:", e);
     isLoading = false;
   }
@@ -254,7 +254,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
                 class="flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white text-sm"
             >
                 {fincasDisponibles.map((finca) => (
-                    <option key={finca.id} value={finca.id} selected={finca.id === fincaId}>
+                    <option value={finca.id} selected={finca.id === fincaId}>
                         {finca.nombre} {finca.provincia ? `- ${finca.provincia}` : ''}
                     </option>
                 ))}
@@ -473,7 +473,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
                 >
                     <option value="">Selecciona primero una actividad</option>
                     {tiposProceso.map((tipo) => (
-                        <option key={tipo.value} value={tipo.value}>
+                        <option value={tipo.value}>
                             {tipo.label}
                         </option>
                     ))}
@@ -496,7 +496,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
                 >
                     <option value="">Selecciona un mes</option>
                     {meses.map((mes) => (
-                        <option key={mes.value} value={mes.label}>{mes.label}</option>
+                        <option value={mes.label}>{mes.label}</option>
                     ))}
                 </select>
             </div>
@@ -797,7 +797,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
     fincasDisponibles: fincasDisponiblesStr,
     esAdmin: esAdminStr,
     API_URL: 'https://geoguard-exped1.onrender.com'
-}}>
+}} is:inline>
     console.log("🏠 Finca ID:", fincaId);
     console.log("📋 Calendario Data:", calendarioData);
     console.log("🎭 User Role:", userRole);

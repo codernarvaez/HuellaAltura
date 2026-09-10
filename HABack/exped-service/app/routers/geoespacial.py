@@ -1,14 +1,13 @@
 import json
 import math
 import xml.etree.ElementTree as ET
-from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from prisma import Prisma, Json
+from prisma import Json, Prisma
 
 from app.database import get_db
-from app.dependencies import get_current_user, log_user_action, require_roles
+from app.dependencies import log_user_action, require_roles
 from app.schemas.schemas import FincaOut
 
 router = APIRouter()
@@ -28,18 +27,27 @@ async def _process_geospatial_file(archivo: UploadFile) -> dict:
     """
     # Validar nombre de archivo
     if not archivo.filename:
-        raise HTTPException(status_code=400, detail="El archivo no tiene nombre. Por favor, verifica el archivo e intenta de nuevo.")
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo no tiene nombre. Por favor, verifica el archivo e intenta de nuevo.",
+        )
 
     # Leer contenido
     content = await archivo.read()
     if not content:
-        raise HTTPException(status_code=400, detail="El archivo está vacío. Por favor, selecciona un archivo válido.")
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo está vacío. Por favor, selecciona un archivo válido.",
+        )
 
     # Decodificar UTF-8
     try:
         content_str = content.decode("utf-8")
     except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo no está en formato UTF-8. Asegúrate de que sea un archivo de texto válido.")
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo no está en formato UTF-8. Asegúrate de que sea un archivo de texto válido.",
+        ) from None
 
     # Detectar extensión
     file_ext = archivo.filename.lower().split(".")[-1] if "." in archivo.filename else ""
@@ -58,22 +66,28 @@ async def _process_geospatial_file(archivo: UploadFile) -> dict:
         else:
             raise HTTPException(
                 status_code=400,
-                detail=f"Formato de archivo no soportado: .{file_ext}. Utiliza .gpx, .kml o .geojson."
+                detail=f"Formato de archivo no soportado: .{file_ext}. Utiliza .gpx, .kml o .geojson.",
             )
     except HTTPException:
         raise
     except ValueError as e:
         raise HTTPException(
             status_code=400,
-            detail=f"El archivo no tiene un formato válido: {str(e)}. Verifica que sea un archivo GPX, KML o GeoJSON correcto."
-        )
+            detail=(
+                f"El archivo no tiene un formato válido: {str(e)}. "
+                "Verifica que sea un archivo GPX, KML o GeoJSON correcto."
+            ),
+        ) from None
 
     # Extraer y validar coordenadas
     coordinates = parsed.get("coordinates", [])
     if not coordinates:
         raise HTTPException(
             status_code=400,
-            detail="El archivo no contiene coordenadas válidas. Asegúrate de que el archivo tenga polígonos o puntos geográficos definidos."
+            detail=(
+                "El archivo no contiene coordenadas válidas. "
+                "Asegúrate de que el archivo tenga polígonos o puntos geográficos definidos."
+            ),
         )
 
     # Procesar datos geoespaciales
@@ -115,10 +129,10 @@ def parse_geojson(content: str) -> dict:
             "type": "geojson",
             "coordinates": coordinates,
             "properties": properties,
-            "raw": data
+            "raw": data,
         }
     except json.JSONDecodeError as e:
-        raise ValueError(f"Error al parsear GeoJSON: {str(e)}")
+        raise ValueError(f"Error al parsear GeoJSON: {str(e)}") from e
 
 
 def parse_kml(content: str) -> dict:
@@ -167,10 +181,10 @@ def parse_kml(content: str) -> dict:
             "type": "kml",
             "coordinates": coordinates,
             "properties": {"name": name, "description": description},
-            "raw": content
+            "raw": content,
         }
     except ET.ParseError as e:
-        raise ValueError(f"Error al parsear KML: {str(e)}")
+        raise ValueError(f"Error al parsear KML: {str(e)}") from e
 
 
 def parse_gpx(content: str) -> dict:
@@ -214,10 +228,10 @@ def parse_gpx(content: str) -> dict:
             "type": "gpx",
             "coordinates": coordinates,
             "properties": {"name": name, "description": description},
-            "raw": content
+            "raw": content,
         }
     except ET.ParseError as e:
-        raise ValueError(f"Error al parsear GPX: {str(e)}")
+        raise ValueError(f"Error al parsear GPX: {str(e)}") from e
 
 
 def extract_coordinates(geometry: dict) -> list:
@@ -264,9 +278,24 @@ def geocode_location(lat: float, lon: float) -> dict:
     # En producción, esto usaría la API de nominatim o Google Maps
     # Por ahora retorna datos simulados que pueden ser sobrescritos
     locations_map = {
-        (-4.26, -79.22): {"provincia": "Loja", "canton": "Loja", "parroquia": "Vilcabamba", "sector": "18"},
-        (-4.0, -79.0): {"provincia": "Loja", "canton": "Catamayo", "parroquia": "Catamayo", "sector": "Urbano"},
-        (-3.9, -78.5): {"provincia": "Azuay", "canton": "Cuenca", "parroquia": "Cuenca", "sector": "Centro"},
+        (-4.26, -79.22): {
+            "provincia": "Loja",
+            "canton": "Loja",
+            "parroquia": "Vilcabamba",
+            "sector": "18",
+        },
+        (-4.0, -79.0): {
+            "provincia": "Loja",
+            "canton": "Catamayo",
+            "parroquia": "Catamayo",
+            "sector": "Urbano",
+        },
+        (-3.9, -78.5): {
+            "provincia": "Azuay",
+            "canton": "Cuenca",
+            "parroquia": "Cuenca",
+            "sector": "Centro",
+        },
     }
 
     # Buscar la ubicación más cercana
@@ -283,7 +312,7 @@ def geocode_location(lat: float, lon: float) -> dict:
         "provincia": "Ecuador",
         "canton": "Desconocido",
         "parroquia": "Desconocido",
-        "sector": "Rural"
+        "sector": "Rural",
     }
 
 
@@ -338,21 +367,20 @@ async def validate_eudr_deforestation(coordinates: list) -> dict:
         "porcentaje": 0.0,
         "fecha_analisis": "2026-06-28",
         "fuente": "Google Earth Engine - Sentinel-2",
-        "estado_eudr": "APROBADO"
+        "estado_eudr": "APROBADO",
     }
 
 
 # ===== ENDPOINTS PÚBLICOS (Sin autenticación) =====
 
+
 @router.post(
     "/publico/cargar-poligono",
     response_model=dict,
     summary="Cargar polígono desde GPX/KML/GEOJSON (público)",
-    tags=["Público"]
+    tags=["Público"],
 )
-async def cargar_poligono_publico(
-    archivo: UploadFile = File(...)
-) -> dict:
+async def cargar_poligono_publico(archivo: UploadFile = File(...)) -> dict:
     """
     Endpoint público para cargar un archivo geoespacial sin autenticación.
 
@@ -385,18 +413,19 @@ async def cargar_poligono_publico(
                 "parroquia": result["ubicacion"].get("parroquia", ""),
                 "sector": result["ubicacion"].get("sector", ""),
                 "area_total_ha": result["area_hectareas"],
-            }
+            },
         }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Error inesperado al procesar el archivo. Por favor, intenta de nuevo. Detalles: {str(e)[:100]}"
-        )
+            detail=f"Error inesperado al procesar el archivo. Por favor, intenta de nuevo. Detalles: {str(e)[:100]}",
+        ) from None
 
 
 # ===== ENDPOINTS PRIVADOS (Requieren autenticación) =====
+
 
 @router.post(
     "/cargar-poligono",
@@ -409,9 +438,7 @@ async def cargar_poligono_crear_finca(
     archivo: UploadFile = File(...),
     nombre_finca: str = None,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(
-        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")
-    ),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "PRODUCTOR")),
 ) -> FincaOut:
     """
     Carga un archivo geoespacial, extrae datos y crea una finca automáticamente.
@@ -437,13 +464,15 @@ async def cargar_poligono_crear_finca(
             "longitud": result["centro"][1],
             "area_total_ha": result["area_hectareas"],
             "area_cultivada_ha": result["area_hectareas"],
-            "poligono": Json({
-                "type": "Polygon",
-                "coordinates": [[[c[1], c[0]] for c in result["coordenadas"]]],
-                "fuente": result["parsed"]["type"],
-                "archivo_original": archivo.filename,
-                "area_hectareas": result["area_hectareas"]
-            }),
+            "poligono": Json(
+                {
+                    "type": "Polygon",
+                    "coordinates": [[[c[1], c[0]] for c in result["coordenadas"]]],
+                    "fuente": result["parsed"]["type"],
+                    "archivo_original": archivo.filename,
+                    "area_hectareas": result["area_hectareas"],
+                }
+            ),
             "eudr_id": f"uuidv4-{uuid4().hex[:8].upper()}-{uuid4().hex[:5].upper()}",
         }
 
@@ -454,8 +483,8 @@ async def cargar_poligono_crear_finca(
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Error al crear la finca desde el archivo. Por favor, intenta de nuevo. Detalles: {str(e)[:100]}"
-        )
+            detail=f"Error al crear la finca desde el archivo. Por favor, intenta de nuevo. Detalles: {str(e)[:100]}",
+        ) from None
 
 
 @router.post(
@@ -465,9 +494,7 @@ async def cargar_poligono_crear_finca(
 async def validar_eudr_finca(
     finca_id: str,
     db: Prisma = Depends(get_db),
-    current_user: dict = Depends(
-        require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")
-    ),
+    current_user: dict = Depends(require_roles("SUPER_ADMIN", "TENANT_ADMIN", "TECNICO_CAMPO", "AUDITOR_INTERNO")),
 ) -> dict:
     """
     Valida si la finca tiene deforestación usando Google Earth Engine.
@@ -481,14 +508,17 @@ async def validar_eudr_finca(
         if not finca:
             raise HTTPException(
                 status_code=404,
-                detail=f"No se encontró una finca con el ID: {finca_id}. Verifica que el ID sea correcto."
+                detail=f"No se encontró una finca con el ID: {finca_id}. Verifica que el ID sea correcto.",
             )
 
         poligono = finca.poligono
         if not poligono or not poligono.get("coordinates"):
             raise HTTPException(
                 status_code=400,
-                detail=f"La finca '{finca.nombre}' no tiene un polígono definido. Por favor, carga un archivo geoespacial (GPX, KML o GeoJSON) primero."
+                detail=(
+                    f"La finca '{finca.nombre}' no tiene un polígono definido. "
+                    "Por favor, carga un archivo geoespacial (GPX, KML o GeoJSON) primero."
+                ),
             )
 
         # Extraer coordenadas del polígono
@@ -509,5 +539,5 @@ async def validar_eudr_finca(
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Error al validar deforestación de la finca. Por favor, intenta de nuevo. Detalles: {str(e)[:100]}"
-        )
+            detail=f"Error al validar deforestación de la finca. Por favor, intenta de nuevo. Detalles: {str(e)[:100]}",
+        ) from None

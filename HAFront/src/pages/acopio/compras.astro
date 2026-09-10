@@ -10,13 +10,13 @@ const token = Astro.cookies.get("token")?.value;
 
 let userData = null;
 let userRole = '';
-let muestras = [];
-let fincas = [];
+let muestras: any[] = [];
+let fincas: any[] = [];
 let error = null;
 let isLoading = true;
 
 // 🔥 Mapa de muestraId -> orden de compra existente (para marcar como "Ya procesada")
-let ordenPorMuestra = {};
+let ordenPorMuestra: Record<string, any> = {};
 
 if (token) {
   try {
@@ -36,7 +36,7 @@ if (token) {
     console.log("📋 Fincas obtenidas:", fincas.length);
     
     // Obtener todas las muestras de todas las fincas
-    let todasLasMuestras = [];
+    let todasLasMuestras: any[] = [];
     for (const finca of fincas) {
       try {
         const muestrasFinca = await AcopioService.getMuestrasByFinca(finca.id, token);
@@ -46,8 +46,8 @@ if (token) {
           fincaId: finca.id
         }));
         todasLasMuestras = [...todasLasMuestras, ...muestrasConFinca];
-      } catch (e) {
-        console.warn(`⚠️ Error obteniendo muestras de finca ${finca.id}:`, e.message);
+      } catch (e: unknown) {
+        console.warn(`⚠️ Error obteniendo muestras de finca ${finca.id}:`, (e instanceof Error ? e.message : String(e)));
       }
     }
     
@@ -74,13 +74,13 @@ if (token) {
           ordenPorMuestra[muestraKey] = orden;
         }
       });
-    } catch (e) {
-      console.warn("⚠️ Error obteniendo órdenes de compra existentes:", e.message);
+    } catch (e: unknown) {
+      console.warn("⚠️ Error obteniendo órdenes de compra existentes:", (e instanceof Error ? e.message : String(e)));
     }
     
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error:", e);
     isLoading = false;
   }
@@ -98,7 +98,7 @@ const fincasStr = JSON.stringify(fincas);
 const muestrasStr = JSON.stringify(muestras);
 const userRoleStr = userRole;
 const puedeAprobarComprasStr = puedeAprobarCompras ? 'true' : 'false';
-// 🔧 Se escapa "<" para poder incrustar este JSON dentro de un <script> sin
+// 🔧 Se escapa "<" para poder incrustar este JSON dentro de un <script is:inline> sin
 // riesgo de que una secuencia como "</script" corte la etiqueta antes de tiempo.
 const ordenPorMuestraStr = JSON.stringify(ordenPorMuestra).replace(/</g, '\\u003c');
 const API_URL = "https://geoguard-exped1.onrender.com";
@@ -197,7 +197,7 @@ const API_URL = "https://geoguard-exped1.onrender.com";
                 >
                     <option value="todas">Todas las fincas</option>
                     {fincas.map((finca) => (
-                        <option key={finca.id} value={finca.id}>
+                        <option value={finca.id}>
                             {finca.nombre}
                         </option>
                     ))}
@@ -226,7 +226,6 @@ const API_URL = "https://geoguard-exped1.onrender.com";
                     const yaProcesada = !!ordenExistente;
                     return (
                     <div 
-                        key={muestra.id} 
                         class={`bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow muestra-item ${yaProcesada ? 'border-slate-200 opacity-75' : 'border-slate-200'}`}
                         data-muestra-id={muestra.id}
                         data-muestra-data={JSON.stringify(muestra)}
@@ -502,13 +501,13 @@ const API_URL = "https://geoguard-exped1.onrender.com";
 <!-- 🔧 FIX: los datos del servidor van en un script aparte con define:vars
      (que Astro renderiza como script clásico inline). El script de abajo,
      que usa "import", necesita ser un módulo, y define:vars + import no
-     son compatibles en el mismo <script> (por eso salía
+     son compatibles en el mismo <script is:inline> (por eso salía
      "Cannot use import statement outside a module"). -->
 <script define:vars={{ ordenPorMuestraStr }} is:inline>
     window.__ORDEN_POR_MUESTRA__ = JSON.parse(ordenPorMuestraStr || '{}');
 </script>
 
-<script>
+<script is:inline>
     import { AuthService } from "/src/services/auth.service.ts";
     import { AcopioService } from "/src/services/acopio.service.ts";
     import { FincaService } from "/src/services/finca.service.ts";

@@ -8,7 +8,7 @@ import { ExpedienteService } from "../services/expediente.service.ts";
 // Obtener token de las cookies
 const token = Astro.cookies.get("token")?.value;
 
-let fincasPendientes = [];
+let fincasPendientes: any[] = [];
 let error = null;
 let isLoading = true;
 let userRole = null;
@@ -38,8 +38,8 @@ if (token) {
     console.log('📋 Fincas pendientes:', fincasPendientes.length);
     
     isLoading = false;
-  } catch (e) {
-    error = e.message;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
     console.error("❌ Error cargando fincas:", e);
     isLoading = false;
   }
@@ -161,13 +161,13 @@ const esAdminStr = esAdmin ? 'true' : 'false';
 </style>
 
 <!-- Script 1: Inyección de datos -->
-<script>
+<script is:inline>
   window.__FINCA_DATA__ = {fincasPendientesJSON};
   window.__ES_ADMIN__ = {esAdminStr};
 </script>
 
 <!-- Script 2: Lógica de la aplicación -->
-<script>
+<script is:inline>
   // ============================================================
   // OBTENER DATOS DE LA VENTANA GLOBAL
   // ============================================================

@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from prisma import Prisma, Json
+from prisma import Json, Prisma
 
 from app.database import get_db
 from app.dependencies import get_current_user, log_user_action, require_roles
@@ -26,11 +26,12 @@ def _build_finca_filter(provincia: str | None = None, canton: str | None = None)
 
 # ===== ENDPOINTS PUBLICOS (Sin autenticacion) =====
 
+
 @router.get(
     "/publico/listar",
     response_model=list[FincaOut],
     summary="Listar fincas (público - sin autenticación)",
-    tags=["Público"]
+    tags=["Público"],
 )
 def listar_fincas_publico(
     provincia: str | None = Query(None),
@@ -50,14 +51,14 @@ def listar_fincas_publico(
         fincas = db.finca.find_many(where=where)
         return fincas if fincas else []
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}") from None
 
 
 @router.get(
     "/publico/por-usuario/{usuario_id}",
     response_model=list[FincaOut],
     summary="Obtener fincas por usuario (público - sin autenticación)",
-    tags=["Público"]
+    tags=["Público"],
 )
 def obtener_fincas_publico(
     usuario_id: str,
@@ -75,10 +76,11 @@ def obtener_fincas_publico(
         fincas = db.finca.find_many(where={"usuario_id": usuario_id})
         return fincas if fincas else []
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}") from None
 
 
 # ===== ENDPOINTS PRIVADOS (Requieren autenticacion) =====
+
 
 @router.get("/", response_model=list[FincaOut], summary="Listar fincas")
 def listar_fincas(
@@ -99,10 +101,14 @@ def listar_fincas(
         fincas = db.finca.find_many(where=where)
         return fincas if fincas else []
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error al listar fincas: {str(e)}") from None
 
 
-@router.get("/por-usuario/{usuario_id}", response_model=list[FincaOut], summary="Obtener fincas por usuario (productor)")
+@router.get(
+    "/por-usuario/{usuario_id}",
+    response_model=list[FincaOut],
+    summary="Obtener fincas por usuario (productor)",
+)
 def obtener_fincas_por_usuario(
     usuario_id: str,
     db: Prisma = Depends(get_db),
@@ -119,7 +125,7 @@ def obtener_fincas_por_usuario(
         fincas = db.finca.find_many(where={"usuario_id": usuario_id})
         return fincas if fincas else []
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error al obtener fincas: {str(e)}") from None
 
 
 @router.post(

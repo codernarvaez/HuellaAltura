@@ -1,6 +1,6 @@
+import json
 import os
 from contextlib import asynccontextmanager
-import json
 
 # Forzar compatibilidad de Prisma en entornos de producción (Render)
 os.environ["PRISMA_PY_DEBUG_GENERATOR"] = "1"
@@ -8,7 +8,6 @@ os.environ["PRISMA_PY_DEBUG_GENERATOR"] = "1"
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
@@ -18,18 +17,17 @@ from app.routers import (
     agroambiental,
     auditoria,
     certificados,
-    expedientes,
     documentos,
+    expedientes,
     fincas,
     formularios,
-    productores,
-    screening,
-    variables,
-    sync,
     geoespacial,
     labores,
+    productores,
+    screening,
+    sync,
+    variables,
 )
-
 from app.routers.acopio import (
     bodega,
     compras,
@@ -57,8 +55,7 @@ class ErrorMessageMiddleware(BaseHTTPMiddleware):
         403: (
             "Not authenticated",
             lambda _: (
-                "Requiere autenticación. Proporciona un token JWT válido en el "
-                "header 'Authorization: Bearer <token>'."
+                "Requiere autenticación. Proporciona un token JWT válido en el header 'Authorization: Bearer <token>'."
             ),
         ),
     }
@@ -225,4 +222,3 @@ def root():
 @app.get(endpoints.HEALTH_CHECK)
 def health():
     return {"status": "ok", "service": settings.app_name}
-

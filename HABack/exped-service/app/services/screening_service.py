@@ -40,11 +40,7 @@ def normalizar(nombre: str) -> str:
     """
     if not nombre:
         return ""
-    sin_tildes = "".join(
-        c
-        for c in unicodedata.normalize("NFD", nombre)
-        if unicodedata.category(c) != "Mn"
-    )
+    sin_tildes = "".join(c for c in unicodedata.normalize("NFD", nombre) if unicodedata.category(c) != "Mn")
     return " ".join(sin_tildes.upper().split())
 
 
@@ -64,9 +60,7 @@ def nombres_a_verificar(productor) -> list[str]:
     else:
         if productor.razon_social:
             nombres.append(productor.razon_social)
-        representante = " ".join(
-            filter(None, [productor.representante_nombres, productor.representante_apellidos])
-        )
+        representante = " ".join(filter(None, [productor.representante_nombres, productor.representante_apellidos]))
         if representante.strip():
             nombres.append(representante.strip())
 
@@ -127,8 +121,7 @@ def verificar_productor(db, productor, umbral: float = UMBRAL_POR_DEFECTO, ejecu
     registros = db.listasancion.find_many()
     if not registros:
         logger.warning(
-            "Listas de sanciones vacías: el screening no es concluyente. "
-            "Ejecuta la ingesta antes de operar."
+            "Listas de sanciones vacías: el screening no es concluyente. Ejecuta la ingesta antes de operar."
         )
 
     nombres = nombres_a_verificar(productor)

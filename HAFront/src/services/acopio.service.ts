@@ -104,6 +104,9 @@ export interface OrdenCompraCreate {
 export interface OrdenCompraOut {
   id: string;
   muestraId: string;
+  /** Alias snake_case / nested que a veces devuelve el backend */
+  muestra_id?: string;
+  muestra?: { id?: string; _id?: string };
   fincaNombre?: string;
   precioAcordado: number;
   volumenKg: number;

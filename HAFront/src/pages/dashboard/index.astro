@@ -68,7 +68,7 @@ const wallet = user?.user_metadata?.wallet_address as string | undefined;
     </div>
   </main>
 
-  <script>
+  <script is:inline>
     document.getElementById("signout-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const { createClient } = await import("../../lib/supabase/client.ts");

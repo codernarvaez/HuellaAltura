@@ -12,19 +12,16 @@ import uuid
 
 import pytest
 
-TEST_DB_URL = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://postgres@localhost:5432/geoguard_test"
-)
+TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://postgres@localhost:5432/geoguard_test")
 os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ["SESSION_VALIDATION_ENABLED"] = "false"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-ci")
 
 import jwt  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-
 from app.config import settings  # noqa: E402
 from app.database import db  # noqa: E402
 from app.main import app  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 
 def _hay_bd() -> bool:
@@ -40,9 +37,7 @@ def _hay_bd() -> bool:
             db.disconnect()
 
 
-pytestmark = pytest.mark.skipif(
-    not _hay_bd(), reason="Base de datos de pruebas no disponible"
-)
+pytestmark = pytest.mark.skipif(not _hay_bd(), reason="Base de datos de pruebas no disponible")
 
 
 def auth(rol: str) -> dict:
@@ -83,9 +78,7 @@ def _crear_finca_con_eudr(aprobada: bool) -> str:
         }
     )
     dato = db.dato.create(data={"finca_id": finca.id})
-    expediente = db.expediente.create(
-        data={"dato_id": dato.id, "organizacion_inquilino": "APECAEL_TEST"}
-    )
+    expediente = db.expediente.create(data={"dato_id": dato.id, "organizacion_inquilino": "APECAEL_TEST"})
     db.auditoria.create(
         data={
             "expediente_id": expediente.id,
@@ -116,6 +109,7 @@ def _crear_muestra(client, finca_id: str) -> dict:
 
 # ===== RF-APE-01/02: muestras =====
 
+
 def test_registrar_muestra_convierte_a_kg(client):
     finca_id = _crear_finca_con_eudr(aprobada=True)
     muestra = _crear_muestra(client, finca_id)
@@ -130,19 +124,13 @@ def test_peso_de_muestra_exigido_por_proceso(client):
     finca_id = _crear_finca_con_eudr(aprobada=True)
 
     # Natural exige 1 kg: media libra se queda muy corto
-    assert _post_muestra(
-        client, finca_id, tipoProceso="Natural", peso_lb=1.1
-    ).status_code == 422
+    assert _post_muestra(client, finca_id, tipoProceso="Natural", peso_lb=1.1).status_code == 422
 
     # Natural con ~1 kg sí se acepta
-    assert _post_muestra(
-        client, finca_id, tipoProceso="Natural", peso_lb=2.2
-    ).status_code == 200
+    assert _post_muestra(client, finca_id, tipoProceso="Natural", peso_lb=2.2).status_code == 200
 
     # Lavado con 1 kg duplica el peso exigido
-    assert _post_muestra(
-        client, finca_id, tipoProceso="Lavado", peso_lb=2.2
-    ).status_code == 422
+    assert _post_muestra(client, finca_id, tipoProceso="Lavado", peso_lb=2.2).status_code == 422
 
 
 def test_tipo_de_proceso_restringido_al_catalogo(client):
@@ -158,6 +146,7 @@ def test_muestra_con_finca_inexistente(client):
 
 # ===== RF-APE-03/04/05: laboratorio =====
 
+
 def _analisis_fisico(client, muestra_id: int, **campos):
     payload = {
         "muestraId": muestra_id,
@@ -168,9 +157,7 @@ def _analisis_fisico(client, muestra_id: int, **campos):
         "defectosSec": 2,
     }
     payload.update(campos)
-    return client.post(
-        "/acopio/laboratorio/fisico", headers=auth("ANALISTA_FISICO"), json=payload
-    )
+    return client.post("/acopio/laboratorio/fisico", headers=auth("ANALISTA_FISICO"), json=payload)
 
 
 def test_analisis_fisico_conforme(client):
@@ -208,9 +195,7 @@ def test_criba_y_defecto_primario_generan_no_conformidad(client):
     finca_id = _crear_finca_con_eudr(aprobada=True)
     muestra = _crear_muestra(client, finca_id)
 
-    cuerpo = _analisis_fisico(
-        client, muestra["muestra_id"], criba="12", defectosPrim=3
-    ).json()
+    cuerpo = _analisis_fisico(client, muestra["muestra_id"], criba="12", defectosPrim=3).json()
 
     assert cuerpo["conforme"] is False
     assert len(cuerpo["no_conformidades"]) == 2
@@ -237,8 +222,16 @@ def test_analisis_fisico_requiere_rol_de_laboratorio(client):
 
 
 _ATRIBUTOS_SCA = (
-    "fraganciaAroma", "sabor", "saborResidual", "acidez", "cuerpo",
-    "uniformidad", "balance", "tazaLimpia", "dulzor", "puntajeCatador",
+    "fraganciaAroma",
+    "sabor",
+    "saborResidual",
+    "acidez",
+    "cuerpo",
+    "uniformidad",
+    "balance",
+    "tazaLimpia",
+    "dulzor",
+    "puntajeCatador",
 )
 
 
@@ -310,6 +303,7 @@ def test_catacion_requiere_rol_de_catador(client):
 
 # ===== RF-APE-07: bloqueo EUDR =====
 
+
 def test_compra_bloqueada_si_finca_no_cumple_eudr(client):
     """El requisito crítico: sin cero deforestación no se autoriza la compra."""
     finca_id = _crear_finca_con_eudr(aprobada=False)
@@ -338,6 +332,7 @@ def test_compra_autorizada_si_finca_cumple_eudr(client):
 
 
 # ===== RF-APE-08 + trilla + despacho: cadena completa =====
+
 
 def _cadena_hasta_bodega(client, peso_lb: float = 220.46):
     finca_id = _crear_finca_con_eudr(aprobada=True)
@@ -420,9 +415,7 @@ def test_balance_de_masa_en_trilla(client):
     assert res["merma_esperada_kg"] == pytest.approx(round(peso_kg - peso_kg * 0.80, 2))
 
     # El lote queda marcado como procesado
-    assert db.inventarioacopio.find_unique(
-        where={"id": inventario["inventario_id"]}
-    ).estado == "EN_TRILLA"
+    assert db.inventarioacopio.find_unique(where={"id": inventario["inventario_id"]}).estado == "EN_TRILLA"
 
 
 def test_trilla_rechaza_factor_fuera_de_rango(client):
@@ -469,7 +462,11 @@ def test_despacho_parcial_y_cierre_de_lote(client):
     primero = client.post(
         "/acopio/despachos/registrar",
         headers=auth("TENANT_ADMIN"),
-        json={"inventarioId": inventario["inventario_id"], "peso_salida_kg": mitad, "destino": "Puerto"},
+        json={
+            "inventarioId": inventario["inventario_id"],
+            "peso_salida_kg": mitad,
+            "destino": "Puerto",
+        },
     ).json()
     assert primero["saldo_restante_bodega"] == pytest.approx(peso_kg - mitad)
 

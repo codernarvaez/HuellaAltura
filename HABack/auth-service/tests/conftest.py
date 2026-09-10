@@ -19,8 +19,8 @@ def client():
         patch.object(Prisma, "connect", new=AsyncMock(return_value=None)),
         patch.object(Prisma, "disconnect", new=AsyncMock(return_value=None)),
     ):
-        from fastapi.testclient import TestClient
         from app.main import app
+        from fastapi.testclient import TestClient
 
         with TestClient(app) as test_client:
             yield test_client

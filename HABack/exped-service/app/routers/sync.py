@@ -1,38 +1,40 @@
 from datetime import datetime
-from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends
 from prisma import Prisma
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.dependencies import get_current_user, log_user_action
 from app.schemas.schemas import (
-    FincaCreate,
-    ExpedienteCreate,
     DatoAgroambientalCreate,
+    ExpedienteCreate,
+    FincaCreate,
     VariableDinamicaCreate,
-    FincaOut,
-    ExpedienteOut,
-    DatoAgroambientalOut,
-    VariableDinamicaOut
 )
 
 router = APIRouter()
 
 # --- Esquemas de Sincronización ---
 
+
 class SyncFinca(FincaCreate):
     id: str  # Obligatorio para offline (UUID generado por el móvil)
+
 
 class SyncExpediente(ExpedienteCreate):
     id: str
 
+
 class SyncDato(DatoAgroambientalCreate):
     id: str
+
 
 class SyncVariable(VariableDinamicaCreate):
     id: int | None = None
     local_id: str  # ID temporal del móvil para mapeo si es necesario
     dato_id: str  # Dato agroambiental al que pertenece la variable
+
 
 class SyncPayload(BaseModel):
     fincas: list[SyncFinca] = []
@@ -40,12 +42,15 @@ class SyncPayload(BaseModel):
     datos_agroambientales: list[SyncDato] = []
     variables_dinamicas: list[SyncVariable] = []
 
+
 class SyncResponse(BaseModel):
     status: str
     synchronized_counts: dict
     timestamp: datetime
 
+
 # --- Endpoint de Sincronización ---
+
 
 @router.post(
     "/upload",
@@ -67,7 +72,6 @@ def sync_upload(
 
     # Usamos una transacción para asegurar integridad
     with db.tx() as transaction:
-
         # 1. Sincronizar Fincas
         for finca in payload.fincas:
             # Forzamos que la finca pertenezca al usuario si es rol PRODUCTOR
@@ -81,8 +85,8 @@ def sync_upload(
                 where={"id": finca.id},
                 data={
                     "create": finca_data,
-                    "update": {k: v for k, v in finca_data.items() if k not in ["id"]}
-                }
+                    "update": {k: v for k, v in finca_data.items() if k not in ["id"]},
+                },
             )
             counts["fincas"] += 1
 
@@ -92,8 +96,8 @@ def sync_upload(
                 where={"id": dato.id},
                 data={
                     "create": dato.model_dump(exclude={"variables"}),
-                    "update": dato.model_dump(exclude={"id", "variables"})
-                }
+                    "update": dato.model_dump(exclude={"id", "variables"}),
+                },
             )
             counts["datos"] += 1
 
@@ -106,35 +110,24 @@ def sync_upload(
                 where={"id": exp.id},
                 data={
                     "create": exp_data,
-                    "update": {k: v for k, v in exp_data.items() if k not in ["id"]}
-                }
+                    "update": {k: v for k, v in exp_data.items() if k not in ["id"]},
+                },
             )
             counts["expedientes"] += 1
 
         # 4. Sincronizar Variables Dinámicas
         for var in payload.variables_dinamicas:
-            # Aquí no usamos ID ya que suelen ser autoincrementales, 
+            # Aquí no usamos ID ya que suelen ser autoincrementales,
             # pero filtramos por dato_id y nombre para evitar duplicados
-            existing = transaction.variabledinamica.find_first(
-                where={"dato_id": var.dato_id, "nombre": var.nombre}
-            )
-            
+            existing = transaction.variabledinamica.find_first(where={"dato_id": var.dato_id, "nombre": var.nombre})
+
             # local_id e id son artefactos del móvil, no columnas del modelo
             var_data = var.model_dump(exclude={"id", "local_id"})
 
             if existing:
-                transaction.variabledinamica.update(
-                    where={"id": existing.id},
-                    data=var_data
-                )
+                transaction.variabledinamica.update(where={"id": existing.id}, data=var_data)
             else:
-                transaction.variabledinamica.create(
-                    data=var_data
-                )
+                transaction.variabledinamica.create(data=var_data)
             counts["variables"] += 1
 
-    return SyncResponse(
-        status="success",
-        synchronized_counts=counts,
-        timestamp=datetime.now()
-    )
+    return SyncResponse(status="success", synchronized_counts=counts, timestamp=datetime.now())
