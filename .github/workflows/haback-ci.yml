@@ -20,10 +20,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pip-audit-auth:
+    name: pip-audit (auth-service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Audit auth-service dependencies
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r HABack/auth-service/requirements.txt --strict --desc on
+
+  pip-audit-exped:
+    name: pip-audit (exped-service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Audit exped-service dependencies
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r HABack/exped-service/requirements.txt --strict --desc on
+
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
   pants:
     name: Pants CI (HABack)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: [pip-audit-auth, pip-audit-exped]
 
     steps:
       - uses: actions/checkout@v4

@@ -5,7 +5,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 
 from app.config import settings
 
@@ -67,7 +68,7 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
             settings.secret_key,
             algorithms=[settings.jwt_algorithm],
         )
-    except JWTError:
+    except PyJWTError:
         return None
 
 
@@ -101,7 +102,7 @@ def verify_password_reset_token(token: str, current_password_hash: str) -> str |
             return None
 
         return payload.get("sub")
-    except JWTError:
+    except PyJWTError:
         return None
 
 
@@ -111,7 +112,11 @@ def get_email_from_token_unverified(token: str) -> str | None:
     Útil para obtener el usuario y luego verificar el token con su hash actual.
     """
     try:
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(
+            token,
+            options={"verify_signature": False},
+            algorithms=[settings.jwt_algorithm],
+        )
         return payload.get("sub")
     except Exception:
         return None
