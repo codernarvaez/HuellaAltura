@@ -4,38 +4,32 @@
   "packageManager": "npm@10.9.7",
   "workspaces": [
     "HAFront",
-    "HAMobile",
-    "HABack/auth-service",
-    "HABack/exped-service"
+    "HAMobile"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "build:hafront": "turbo run build --filter=hafront",
-    "build:haback": "turbo run build --filter=./HABack/*",
-    "build:hamobile": "turbo run build --filter=hamobile",
-    "check": "turbo run check",
-    "check:hafront": "turbo run check --filter=hafront",
-    "lint": "turbo run lint",
-    "lint:hafront": "turbo run lint --filter=hafront",
-    "lint:haback": "turbo run lint --filter=./HABack/*",
-    "lint:hamobile": "turbo run lint --filter=hamobile",
-    "test": "turbo run test",
-    "test:haback": "turbo run test --filter=./HABack/*",
-    "ci": "turbo run ci",
-    "ci:all": "turbo run lint check test build",
-    "ci:hafront": "turbo run ci --filter=hafront",
-    "ci:haback": "turbo run ci --filter=./HABack/*",
-    "ci:hamobile": "turbo run ci --filter=hamobile",
-    "ci:affected": "turbo run ci --filter=[HEAD^1]",
-    "dev": "turbo run dev",
-    "dev:hafront": "turbo run dev --filter=hafront",
-    "dev:hamobile": "turbo run dev --filter=hamobile",
-    "preview:hafront": "turbo run preview --filter=hafront"
-  },
-  "devDependencies": {
-    "turbo": "^2.9.0"
-  },
-  "dependencies": {
-    "ofetch": "^1.5.1"
+    "build": "npm run build:hafront && npm run build:hamobile",
+    "build:hafront": "npm -w hafront run build",
+    "build:hamobile": "npm -w hamobile run build",
+    "check": "npm run check:hafront",
+    "check:hafront": "npm -w hafront run check",
+    "lint": "npm run lint:hafront && npm run lint:hamobile",
+    "lint:hafront": "npm -w hafront run lint",
+    "lint:hamobile": "npm -w hamobile run lint",
+    "lint:haback": "pants run HABack/auth-service:lint && pants run HABack/exped-service:lint",
+    "test:haback": "pants run HABack/auth-service:ci && pants run HABack/exped-service:ci",
+    "ci": "npm run ci:hafront && npm run ci:hamobile && npm run ci:haback",
+    "ci:hafront": "pants run HAFront:ci",
+    "ci:hamobile": "pants run HAMobile:ci",
+    "ci:hafront:npm": "npm -w hafront run ci",
+    "ci:hamobile:npm": "npm -w hamobile run ci",
+    "ci:haback": "pants run HABack/auth-service:ci && pants run HABack/exped-service:ci",
+    "ci:haback:auth": "pants run HABack/auth-service:ci",
+    "ci:haback:exped": "pants run HABack/exped-service:ci",
+    "ci:haback:direct": "./HABack/auth-service/pants_ci.sh && ./HABack/exped-service/pants_ci.sh",
+    "dev": "npm run dev:hafront",
+    "dev:hafront": "npm -w hafront run dev",
+    "dev:hamobile": "npm -w hamobile run dev",
+    "preview:hafront": "npm -w hafront run preview",
+    "pants:list": "pants list ::"
   }
 }

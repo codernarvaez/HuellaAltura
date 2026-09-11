@@ -1,20 +1,21 @@
-from typing import Optional
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
 
 class AuditCreate(BaseModel):
     user_id: str
     action: str
-    endpoint: Optional[str] = None
-    ip_address: Optional[str] = None
+    endpoint: str | None = None
+    ip_address: str | None = None
 
 
 class AuditLogOut(BaseModel):
     id: str
     user_id: str
     action: str
-    endpoint: Optional[str] = None
-    ip_address: Optional[str] = None
+    endpoint: str | None = None
+    ip_address: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -22,7 +23,7 @@ class AuditLogOut(BaseModel):
 
 class SessionValidate(BaseModel):
     user_id: str
-    session_token: Optional[str] = None
+    session_token: str | None = None
 
 
 class SessionValidateOut(BaseModel):

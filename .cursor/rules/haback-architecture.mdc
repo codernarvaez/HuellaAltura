@@ -1,0 +1,54 @@
+---
+description: Mapa de HABack (auth-service + exped-service) para análisis de backend
+alwaysApply: true
+---
+
+# HABack — arquitectura
+
+Dos microservicios FastAPI + Prisma bajo **HABack**, orquestados con **Pants**. Identidad en **auth-service**; dominio EUDR/acopio en **exped-service**. JWT HS256 compartido (`SECRET_KEY`). S2S con `X-Internal-Api-Key`.
+
+Todo el monorepo (HABack, HAFront, HAMobile) usa **Pants**; npm workspaces solo para deps de HAFront/HAMobile.
+
+## Servicios
+
+| | auth-service | exped-service |
+|---|---|---|
+| Puerto local | 8000 | 8031 |
+| Prisma | **async** | **sync** (`interface = "sync"`) |
+| Prefijo | `/api` | `/api/v1` (excepto acopio) |
+| Docs | `/docs` (ReDoc) | `/docs` ReDoc, `/swagger` |
+| CORS | `allow_origins=["*"]` | `CORS_ORIGINS` allowlist, `credentials=False` |
+| DBs | Postgres propias — **no** hay FK entre servicios |
+
+JWT claims: `sub` (user id), `role`, `session_token`. Login rota `session_token` (sesión única). Exped valida sesión en `POST {AUTH_SERVICE_URL}/api/internal/session/validate` si `SESSION_VALIDATION_ENABLED`. Env JWT: `SECRET_KEY` / `JWT_ALGORITHM` (no `ALGORITHM`).
+
+## Roles (`app/core/roles.py` — mantener iguales en ambos)
+
+EUDR: `SUPER_ADMIN`, `TENANT_ADMIN`, `TECNICO_CAMPO`, `AUDITOR_INTERNO`, `PRODUCTOR` (default).
+Acopio: `ANALISTA_FISICO`, `CATADOR_Q`, `JEFE_CALIDAD`, `GERENCIA_ACOPIO`, `BODEGUERO`.
+`SUPER_ADMIN` bypasea `RoleChecker`.
+
+## Auth — rutas `/api`
+
+- `/auth/register|login|me|password-recovery|reset-password`
+- `/users`, `/roles` → `require_manage_users` (SUPER_ADMIN, TENANT_ADMIN)
+- `/internal/audit`, `/internal/session/validate` → API key S2S
+- Registro público solo `PRODUCTOR`; otros roles requieren SUPER_ADMIN
+- Gap: `USERS_SUSPEND` está en endpoints pero **sin handler** en `users.py`
+
+## Exped — dominio
+
+Flujo: **User (auth)** → **Finca** (`usuario_id` obligatorio, `productor_id` opcional) → **Dato** (`/{finca_id}`, no expediente) → **Expediente** (`dato_id`) → **Auditoría GEE** → **Certificado DDS**.
+`Productor` ≠ `User`: sujeto EUDR; puede existir sin cuenta. `usuario_id` es referencia blanda al auth DB.
+
+Prefijos `/api/v1`: `expedientes`, `agroambiental`, `productores`, `fincas`, `formularios`, `documentos`, `cumplimiento`, `auditoria`, `certificados`, `variables`, `sync`, `geoespacial`, `labores`.
+Acopio **sin** `/api/v1`: `/acopio/muestras|laboratorio|compras|bodega|trilla|despachos` (+ `/public/catalogo`). Roles de etapa en `routers/acopio/roles.py`.
+
+## Al analizar HABack
+
+1. Distinguir identidad (`User`) vs productor vs finca (`usuario_id` vs `productor_id`).
+2. No mezclar Prisma async (auth) con sync (exped); `current_user` es `User` en auth y `dict` en exped.
+3. Rutas nuevas: constantes en `app/core/endpoints.py`; roles en `app/core/roles.py`.
+4. Escrituras: `require_roles(...)` + `log_user_action("snake_case")`.
+5. `SECRET_KEY` e `INTERNAL_API_KEY` deben coincidir entre servicios.
+6. README/DOCUMENTACION.md pueden estar desfasados (agroambiental por finca, S2S sí existe).

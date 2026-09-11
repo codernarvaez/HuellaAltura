@@ -21,5 +21,14 @@ class Settings(BaseSettings):
     internal_api_key: str = "change-me-in-production"
     session_validation_enabled: bool = True
 
+    # Orígenes permitidos por CORS, separados por comas.
+    cors_origins: str = (
+        "http://localhost:4321,http://localhost:4322,http://localhost:3000,https://huella-altura-frontend.onrender.com"
+    )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
 
 settings = Settings()

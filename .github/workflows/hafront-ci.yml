@@ -5,31 +5,25 @@ on:
     branches: [main, master, develop, landingPage]
     paths:
       - "HAFront/**"
-      - "turbo.json"
-      - "HAFront/turbo.json"
       - "package.json"
       - "package-lock.json"
+      - "pants.toml"
       - ".github/workflows/hafront-ci.yml"
   pull_request:
     paths:
       - "HAFront/**"
-      - "turbo.json"
-      - "HAFront/turbo.json"
       - "package.json"
       - "package-lock.json"
+      - "pants.toml"
       - ".github/workflows/hafront-ci.yml"
 
 concurrency:
   group: hafront-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-
 jobs:
   ci:
-    name: Turbo CI (HAFront)
+    name: HAFront CI
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -46,13 +40,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run HAFront CI via Turbo
-        run: npm run ci:hafront
+      - name: Setup Pants
+        uses: pantsbuild/actions/init-pants@v10
+        with:
+          gha-cache-key: hafront-pants-v1
+          named-caches-hash: ${{ hashFiles('HAFront/package.json', 'pants.toml', 'HAFront/BUILD') }}
+
+      - name: Run HAFront CI via Pants
+        run: pants run HAFront:ci
         env:
           CI: true
           PUBLIC_SITE_URL: http://127.0.0.1:4321
-          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          # Fallbacks so check/build stay green in forks/demos without repo secrets.
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY || 'public-anon-key-ci' }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

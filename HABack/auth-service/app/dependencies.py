@@ -1,25 +1,29 @@
-from datetime import datetime, timezone
-from typing import Annotated, Callable, Optional
 import logging
-from fastapi import Depends, HTTPException, Request, status, BackgroundTasks
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Annotated
+
+from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from prisma import Prisma
 from prisma.models import User
 
-from app.security import decode_access_token
-from app.database import get_db
 from app.config import settings
 from app.core import endpoints
 from app.core.roles import SUPER_ADMIN, TENANT_ADMIN
+from app.database import get_db
+from app.security import decode_access_token
 
 logger = logging.getLogger("auth-service.dependencies")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_prefix}{endpoints.AUTH_PREFIX}{endpoints.AUTH_LOGIN}")
+
 
 def get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
 
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
@@ -43,10 +47,7 @@ async def get_current_user(
         logger.warning("Token JWT no contiene 'sub' (user_id)")
         raise credentials_exception
 
-    user = await db.user.find_unique(
-        where={"id": user_id},
-        include={"role": True}
-    )
+    user = await db.user.find_unique(where={"id": user_id}, include={"role": True})
 
     if user is None:
         logger.warning(f"Usuario {user_id} no encontrado en la base de datos")
@@ -64,29 +65,39 @@ async def get_current_user(
 
     return user
 
+
 async def get_optional_current_user(
     request: Request,
     db: Annotated[Prisma, Depends(get_db)],
-) -> Optional[User]:
+) -> User | None:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return None
-    
+
     token = auth_header.split(" ")[1]
     try:
         return await get_current_user(token, db)
     except Exception:
         return None
 
+
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     # 1. Verificar si el usuario está suspendido por fechas
-    now = datetime.now(timezone.utc)
-    
+    now = datetime.now(UTC)
+
     if current_user.suspended_from and current_user.suspended_until:
-        susp_from = current_user.suspended_from.replace(tzinfo=timezone.utc) if current_user.suspended_from.tzinfo is None else current_user.suspended_from
-        susp_until = current_user.suspended_until.replace(tzinfo=timezone.utc) if current_user.suspended_until.tzinfo is None else current_user.suspended_until
+        susp_from = (
+            current_user.suspended_from.replace(tzinfo=UTC)
+            if current_user.suspended_from.tzinfo is None
+            else current_user.suspended_from
+        )
+        susp_until = (
+            current_user.suspended_until.replace(tzinfo=UTC)
+            if current_user.suspended_until.tzinfo is None
+            else current_user.suspended_until
+        )
 
         if susp_from <= now <= susp_until:
             logger.info(f"Intento de acceso de usuario suspendido: {current_user.email}")
@@ -102,8 +113,9 @@ async def get_current_active_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Acceso denegado: {current_user.status}",
         )
-    
+
     return current_user
+
 
 class RoleChecker:
     def __init__(self, allowed_roles: list[str]):
@@ -117,16 +129,23 @@ class RoleChecker:
             return current_user
 
         if current_user.role.name not in self.allowed_roles:
-            logger.warning(f"Usuario {current_user.email} con rol {current_user.role.name} intentó acceder a recurso que requiere {self.allowed_roles}")
+            logger.warning(
+                "Usuario %s con rol %s intentó acceder a recurso que requiere %s",
+                current_user.email,
+                current_user.role.name,
+                self.allowed_roles,
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"No tienes el rol necesario para esta acción. Requerido: {', '.join(self.allowed_roles)}",
             )
         return current_user
 
+
 # Dependencias de roles comunes (EUDR)
 require_all_access = RoleChecker([SUPER_ADMIN])
 require_manage_users = RoleChecker([SUPER_ADMIN, TENANT_ADMIN])
+
 
 async def _record_audit_log(db: Prisma, user_id: str, action: str, endpoint: str, ip_address: str):
     try:
@@ -141,6 +160,7 @@ async def _record_audit_log(db: Prisma, user_id: str, action: str, endpoint: str
     except Exception as e:
         logger.error(f"Error al registrar auditoría: {e}")
 
+
 def log_user_action(action: str) -> Callable:
     async def _log_action_dependency(
         request: Request,
@@ -149,8 +169,7 @@ def log_user_action(action: str) -> Callable:
         db: Annotated[Prisma, Depends(get_db)],
     ):
         ip_address = get_client_ip(request)
-        background_tasks.add_task(
-            _record_audit_log, db, current_user.id, action, str(request.url.path), ip_address
-        )
+        background_tasks.add_task(_record_audit_log, db, current_user.id, action, str(request.url.path), ip_address)
         return None
+
     return _log_action_dependency

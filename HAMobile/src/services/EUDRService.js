@@ -1,15 +1,16 @@
-import { EXPED_API_URL, API_BASE_URL } from '@env';
+import { endpoints } from '../api/endpoints';
 
 export class EUDRService {
   constructor(token) {
+    if (!token) throw new Error('Se requiere token de autenticación');
     this.token = token;
     this.headers = {
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.token}`
     };
     
-    // Si EXPED_API_URL no está definido, usamos API_BASE_URL/v1 como fallback
-    this.baseUrl = EXPED_API_URL || `${API_BASE_URL}/v1`;
+    // The baseUrl is now managed by endpoints.js, but kept here if needed for dynamic overrides.
+    this.baseUrl = endpoints.fincas.getAll.replace('/fincas/', '');
   }
 
   async checkResponse(response) {
@@ -23,7 +24,7 @@ export class EUDRService {
 
   // 1. Registro de Finca
   async crearFinca(fincaData) {
-    const url = `${this.baseUrl}/fincas/`;
+    const url = endpoints.fincas.getAll;
     const response = await fetch(url, {
       method: 'POST',
       headers: this.headers,
@@ -34,7 +35,7 @@ export class EUDRService {
 
   // 2. Crear datos agroambientales
   async crearDatosAgroambientales(datosData) {
-    const url = `${this.baseUrl}/agroambiental/`;
+    const url = `${endpoints.agroambiental.base}/`;
     const response = await fetch(url, {
       method: 'POST',
       headers: this.headers,
@@ -45,7 +46,7 @@ export class EUDRService {
 
   // 3. Crear expediente
   async crearExpediente(expedienteData) {
-    const url = `${this.baseUrl}/expedientes/`;
+    const url = `${endpoints.expedientes.base}/`;
     const response = await fetch(url, {
       method: 'POST',
       headers: this.headers,
@@ -56,7 +57,7 @@ export class EUDRService {
 
   // 4. Sincronización Masiva Offline (Mantiene compatibilidad si existe el endpoint)
   async syncUpload(syncPackage) {
-    const response = await fetch(`${this.baseUrl}/sync/upload`, {
+    const response = await fetch(endpoints.sync.upload, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify(syncPackage)

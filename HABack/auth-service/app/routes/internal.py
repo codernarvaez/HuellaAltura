@@ -1,13 +1,13 @@
-from datetime import datetime, timezone
 import logging
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Security, status, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
 from app.config import settings
+from app.core import endpoints
 from app.database import db
 from app.schemas.audit import AuditCreate, SessionValidate, SessionValidateOut
-from app.core import endpoints
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=endpoints.INTERNAL_PREFIX, tags=["Servicios Internos"])
@@ -28,16 +28,10 @@ async def get_internal_api_key(api_key: str = Security(api_key_header)):
 def _is_user_suspended(user) -> bool:
     if not (user.suspended_from and user.suspended_until):
         return False
-    now = datetime.now(timezone.utc)
-    susp_from = (
-        user.suspended_from.replace(tzinfo=timezone.utc)
-        if user.suspended_from.tzinfo is None
-        else user.suspended_from
-    )
+    now = datetime.now(UTC)
+    susp_from = user.suspended_from.replace(tzinfo=UTC) if user.suspended_from.tzinfo is None else user.suspended_from
     susp_until = (
-        user.suspended_until.replace(tzinfo=timezone.utc)
-        if user.suspended_until.tzinfo is None
-        else user.suspended_until
+        user.suspended_until.replace(tzinfo=UTC) if user.suspended_until.tzinfo is None else user.suspended_until
     )
     return susp_from <= now <= susp_until
 
@@ -111,11 +105,7 @@ async def validate_session(
             detail=f"Acceso denegado: {user.status}",
         )
 
-    if (
-        data.session_token
-        and user.session_token
-        and user.session_token != data.session_token
-    ):
+    if data.session_token and user.session_token and user.session_token != data.session_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="SESSION_INVALIDATED",

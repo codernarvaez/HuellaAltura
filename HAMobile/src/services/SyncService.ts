@@ -9,6 +9,14 @@ export class SyncService {
    * 1. Fincas
    * 2. Datos Agroambientales
    * 3. Expedientes
+   *
+   * Dominios pendientes de incorporar a esta cadena (Track C2 del roadmap):
+   * - `labores_locales` y `ejecuciones_locales` → POST /labores/agendar y
+   *   /labores/{id}/ejecutar (la evidencia local en foto_uri se sube primero).
+   * - `muestras_locales` → POST /acopio/muestras/.
+   * - `documentos_finca` → requiere el object storage privado (Track A4);
+   *   hasta entonces los archivos y su hash SHA-256 permanecen en el dispositivo.
+   * - `empleados` → catálogo servidor-side aún no existe (Track D2).
    */
   static async syncAll(token: string) {
     try {

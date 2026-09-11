@@ -4,12 +4,15 @@ requires-python = ">=3.11"
 
 [tool.ruff]
 target-version = "py311"
-line-length = 100
+line-length = 120
 src = ["app", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/utils/email.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

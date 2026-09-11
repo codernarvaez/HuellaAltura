@@ -1,0 +1,56 @@
+---
+description: Convenciones al editar HABack (FastAPI, Prisma, RBAC)
+globs: HABack/**/*.py
+alwaysApply: false
+---
+
+# HABack — convenciones
+
+## Auth vs Exped
+
+- **auth-service**: `async def`, `await db.user.find_*`, OAuth2, `jose` JWT, bcrypt.
+- **exped-service**: `def` síncrono, `db.finca.find_*` sin await, `HTTPBearer` + PyJWT.
+- No copiar `await` de auth a exped ni viceversa.
+
+## RBAC
+
+```python
+# ✅ roles desde constantes, SUPER_ADMIN ya bypasea RoleChecker
+from app.core.roles import TECNICO_CAMPO, PRODUCTOR
+from app.dependencies import require_roles, log_user_action
+
+@router.post("/", dependencies=[Depends(log_user_action("create_finca"))])
+def crear(..., current_user: dict = Depends(require_roles(TECNICO_CAMPO, PRODUCTOR))):
+```
+
+```python
+# ❌ strings sueltos duplicados; no reimplementar RoleChecker
+Depends(require_roles("tecnico", "admin"))
+```
+
+En acopio usa grupos de `app/routers/acopio/roles.py` (`MUESTREO`, `CATACION`, …), no armés listas ad hoc.
+
+## Identidad
+
+- `current_user` en auth es modelo Prisma `User`; en exped es `dict` del JWT (`sub`, `role`).
+- `Finca.usuario_id` = id de auth-service (obligatorio). `Finca.productor_id` = titular EUDR (opcional en migración).
+- No reintroducir `productor_id` como único dueño de la finca.
+
+## Rutas y errores
+
+- Paths en `app/core/endpoints.py`. Prefijo exped: `/api/v1/...` excepto módulo acopio (`/acopio/...`).
+- Mensajes de error en español, HTTPException con `detail` accionable.
+- 404 de entidad: helpers `get_finca_or_404`, `get_expediente_or_404` en exped.
+
+## Prisma / schema
+
+- Cambios de modelo en `schema.prisma` del servicio afectado. Auth = PostgreSQL usuarios/roles; exped = fincas/expedientes/acopio.
+- Modelo agroambiental se llama `Dato` (tabla `datos_agroambientales`), no `DatoAgroambiental`.
+- Módulo 3 (Muestra, OrdenCompra, …) usa camelCase (`fincaId`); el resto snake_case. Respeta el estilo del archivo.
+
+## Seguridad
+
+- Públicos a propósito: fincas `/publico/*`, geoespacial `/publico/cargar-poligono`, `/public/catalogo`. No ampliar sin justificación.
+- S2S: header `X-Internal-Api-Key`. Nunca exponer `/internal` al frontend.
+- Rate limit (`slowapi`) solo en auth (register/login/recovery).
+- En tests de exped: `SESSION_VALIDATION_ENABLED=false` en `conftest.py`.

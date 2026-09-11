@@ -1,24 +1,22 @@
-import smtplib
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import List, Optional
 import re
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 def clean_html(raw_html: str) -> str:
     """Extrae texto plano de HTML de forma básica."""
-    cleanr = re.compile('<.*?>', re.DOTALL)
-    cleantext = re.sub(cleanr, '', raw_html)
+    cleanr = re.compile("<.*?>", re.DOTALL)
+    cleantext = re.sub(cleanr, "", raw_html)
     return cleantext
 
-def send_email(
-    recipient_email: str,
-    subject: str,
-    body_html: str
-):
+
+def send_email(recipient_email: str, subject: str, body_html: str):
     """
     Envía un correo electrónico utilizando la configuración SMTP.
     Soporta TLS (587) y SSL (465).
@@ -50,7 +48,7 @@ def send_email(
             if settings.smtp_port != 465 and settings.smtp_tls:
                 server.starttls()
                 server.ehlo()
-            
+
             server.login(settings.smtp_user, settings.smtp_password)
             server.send_message(message)
             logger.info(f"Correo enviado exitosamente a {recipient_email}")
@@ -59,16 +57,17 @@ def send_email(
     except Exception as e:
         logger.error(f"Error al enviar correo a {recipient_email}: {str(e)}")
 
+
 def send_password_reset_email(email: str, token: str):
     """
     Envía el enlace de recuperación de contraseña al usuario con la identidad visual de la finca.
     """
     reset_link = f"{settings.frontend_url}/reset-password?token={token}"
-    
-    # Colores: 
-    # Marine Green: #636b3f | Deep Green: #2b361c | Barium Yellow: #fefae3 
+
+    # Colores:
+    # Marine Green: #636b3f | Deep Green: #2b361c | Barium Yellow: #fefae3
     # Sepia E37: #d4a369 | Leather: #b17036
-    
+
     subject = "Recuperación de Contraseña - STGC Tierra Fértil"
     body_html = f"""
     <html>

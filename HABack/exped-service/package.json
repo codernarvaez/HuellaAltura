@@ -1,10 +1,8 @@
 {
   "name": "exped-service",
   "private": true,
+  "description": "HABack EUDR/acopio service — orchestrated by Pants, not Turbo",
   "scripts": {
-    "lint": "ruff check app tests && ruff format --check app tests",
-    "build": "python3 -m prisma generate && python3 -m compileall -q app",
-    "test": "python3 -m prisma generate && pytest tests/ -q",
-    "ci": "npm run lint && npm run test && npm run build"
+    "ci": "./pants_ci.sh"
   }
 }

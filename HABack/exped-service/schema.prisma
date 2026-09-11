@@ -60,6 +60,178 @@ model VariableDinamica {
   @@map("variables_dinamicas")
 }
 
+/// Definición de un campo configurable por el administrador del inquilino
+/// (RF-08, RF-09). Es la *plantilla*: el valor capturado vive en `ValorCampo`.
+model CampoFormulario {
+  id                     String   @id @default(uuid())
+  organizacion_inquilino String
+  /// PRODUCTOR | FINCA | AGROAMBIENTAL
+  entidad                String
+  /// Identificador estable usado por las apps; único dentro de entidad+inquilino
+  clave                  String
+  etiqueta               String
+  /// STRING | INTEGER | FLOAT | BOOLEAN | DATE | SELECCION
+  tipo_dato              String
+  requerido              Boolean  @default(false)
+  orden                  Int      @default(0)
+  /// Desactivar en vez de borrar preserva los valores ya capturados (RF-09)
+  activo                 Boolean  @default(true)
+  seccion                String?
+  ayuda                  String?
+  /// Opciones para tipo_dato = SELECCION
+  opciones               Json?
+  /// Muestra el campo solo para este tipo de persona (RF-02). Null = siempre.
+  visible_si_tipo_persona String?
+  creado_en              DateTime @default(now())
+  actualizado_en         DateTime @updatedAt
+
+  valores                ValorCampo[]
+
+  @@unique([organizacion_inquilino, entidad, clave])
+  @@index([organizacion_inquilino, entidad])
+  @@map("campos_formulario")
+}
+
+/// Valor capturado para un `CampoFormulario` sobre una entidad concreta.
+/// Se referencia por (entidad, entidad_id) para servir a productores, fincas y
+/// datos agroambientales sin una FK por cada uno.
+model ValorCampo {
+  id             String          @id @default(uuid())
+  campo_id       String
+  entidad        String
+  entidad_id     String
+  valor          String?
+  creado_en      DateTime        @default(now())
+  actualizado_en DateTime        @updatedAt
+
+  campo          CampoFormulario @relation(fields: [campo_id], references: [id], onDelete: Cascade)
+
+  @@unique([campo_id, entidad_id])
+  @@index([entidad, entidad_id])
+  @@map("valores_campo")
+}
+
+/// Documento del expediente: escrituras, cédula, RUC, firma, etc.
+/// (RF-07, RF-08, RF-10, RF-17, RF-28 del Módulo 1)
+model Documento {
+  id                String    @id @default(uuid())
+  organizacion_inquilino String
+  productor_id      String?
+  finca_id          String?
+  /// Coincide con RequisitoDocumental.tipo_documento
+  tipo_documento    String
+  nombre_archivo    String?
+  url_storage       String
+  /// SHA-256 del archivo, para verificar integridad e inmutabilidad
+  hash_sha256       String?
+  mime              String?
+  tamano_bytes      Int?
+  subido_por        String?
+  /// Texto/campos extraídos por OCR (RF-18)
+  ocr_json          Json?
+  /// PENDIENTE | VALIDADO | RECHAZADO
+  estado_validacion String    @default("PENDIENTE")
+  observaciones     String?
+  creado_en         DateTime  @default(now())
+
+  productor         Productor? @relation(fields: [productor_id], references: [id], onDelete: Cascade)
+  finca             Finca?     @relation(fields: [finca_id], references: [id], onDelete: Cascade)
+  firma             FirmaProductor?
+
+  @@index([productor_id])
+  @@index([finca_id])
+  @@map("documentos")
+}
+
+/// Firma digital del productor sobre su expediente (RF-11, RF-19).
+///
+/// Guarda no solo el trazo, sino *qué* se firmó: el hash del snapshot de datos
+/// en el instante de la firma, con GPS y hora UTC, para que la firma sea
+/// verificable y no repudiable ante una auditoría.
+model FirmaProductor {
+  id              String    @id @default(uuid())
+  productor_id    String
+  documento_id    String?   @unique
+  /// SHA-256 del snapshot de datos firmado
+  hash_expediente String
+  snapshot_json   Json
+  latitud         Float?
+  longitud        Float?
+  /// Instante de la firma en UTC, capturado en el dispositivo
+  firmado_en      DateTime
+  registrado_por  String?
+  creado_en       DateTime  @default(now())
+
+  productor       Productor  @relation(fields: [productor_id], references: [id], onDelete: Cascade)
+  documento       Documento? @relation(fields: [documento_id], references: [id])
+
+  @@index([productor_id])
+  @@map("firmas_productor")
+}
+
+/// Registro consolidado de las listas de sanciones OFAC (SDN) y ONU
+/// (Consolidated List), ingeridas periódicamente (RF-14).
+model ListaSancion {
+  id             String   @id @default(uuid())
+  /// OFAC_SDN | ONU_CONSOLIDATED
+  fuente         String
+  /// Identificador en la lista de origen
+  referencia     String
+  nombre         String
+  /// Nombre normalizado (sin tildes, mayúsculas) para el cotejo difuso
+  nombre_normalizado String
+  /// INDIVIDUO | ENTIDAD
+  tipo           String?
+  programa       String?
+  nacionalidad   String?
+  datos_json     Json?
+  actualizado_en DateTime @default(now())
+
+  @@unique([fuente, referencia, nombre])
+  @@index([nombre_normalizado])
+  @@map("listas_sanciones")
+}
+
+/// Resultado de una verificación del productor contra las listas (RF-15, RF-16).
+model ScreeningProductor {
+  id                String   @id @default(uuid())
+  productor_id      String
+  /// Nombre efectivamente cotejado (productor o representante legal)
+  nombre_consultado String
+  /// LIMPIO | COINCIDENCIA
+  resultado         String
+  /// Puntaje de la mejor coincidencia (0-100)
+  puntaje_maximo    Float    @default(0)
+  umbral            Float
+  coincidencias     Json?
+  fuentes           String?
+  ejecutado_por     String?
+  creado_en         DateTime @default(now())
+
+  productor         Productor @relation(fields: [productor_id], references: [id], onDelete: Cascade)
+
+  @@index([productor_id])
+  @@map("screenings_productor")
+}
+
+/// Catálogo de documentos exigidos por tipo de persona (RF-07, RF-08, RF-09).
+model RequisitoDocumental {
+  id                     String   @id @default(uuid())
+  organizacion_inquilino String
+  /// NATURAL | JURIDICA
+  tipo_persona           String
+  tipo_documento         String
+  etiqueta               String
+  obligatorio            Boolean  @default(true)
+  activo                 Boolean  @default(true)
+  orden                  Int      @default(0)
+  descripcion            String?
+
+  @@unique([organizacion_inquilino, tipo_persona, tipo_documento])
+  @@index([organizacion_inquilino, tipo_persona])
+  @@map("requisitos_documentales")
+}
+
 model Historial {
   id            String     @id @default(uuid())
   expediente_id String
@@ -73,11 +245,60 @@ model Historial {
   @@map("historial_trazabilidad")
 }
 
+/// Sujeto de cumplimiento EUDR: la persona natural o jurídica dueña del predio.
+/// Se distingue del `User` de auth-service, que modela la identidad de acceso:
+/// un productor puede existir sin tener cuenta en la plataforma.
+model Productor {
+  id                     String    @id @default(uuid())
+  tipo_persona           String    // NATURAL | JURIDICA
+  usuario_id             String?   // Cuenta en auth-service, si la tiene
+  organizacion_inquilino String
+
+  // --- Persona natural ---
+  nombres                String?
+  apellidos              String?
+  cedula                 String?
+  fecha_nacimiento       DateTime?
+  genero                 String?
+  nivel_educativo        String?
+
+  // --- Persona jurídica ---
+  razon_social           String?
+  ruc                    String?
+  representante_nombres  String?
+  representante_apellidos String?
+  representante_cedula   String?
+
+  // --- Contacto y ubicación ---
+  email                  String?
+  telefono               String?
+  direccion              String?
+  provincia              String?
+  canton                 String?
+  parroquia              String?
+
+  /// BORRADOR | COMPLETO | BLOQUEADO (bloqueo por coincidencia en listas de sanciones)
+  estado                 String    @default("BORRADOR")
+  creado_en              DateTime  @default(now())
+  actualizado_en         DateTime  @updatedAt
+
+  fincas                 Finca[]
+  documentos             Documento[]
+  firmas                 FirmaProductor[]
+  screenings             ScreeningProductor[]
+
+  @@index([organizacion_inquilino])
+  @@map("productores")
+}
+
 model Finca {
   id                String   @id @default(uuid())
   nombre            String
   eudr_id           String?  @unique
   usuario_id        String
+  /// Productor titular. Opcional durante la migración desde `usuario_id`.
+  productor_id      String?
+  productor         Productor? @relation(fields: [productor_id], references: [id])
   provincia         String?
   canton            String?
   parroquia         String?
@@ -89,6 +310,12 @@ model Finca {
   longitud          Float?
   poligono          Json?
   creado_en         DateTime @default(now())
+  variedad_cafe       String?
+  densidad_siembra    String?
+  origen_semilla      String?
+  anio_establecimiento Int?
+  labores             LaborAgricola[]
+  documentos          Documento[]
 
   datos_agroambientales  Dato[]
 
@@ -124,4 +351,156 @@ model Certificado {
   expediente         Expediente @relation(fields: [expediente_id], references: [id], onDelete: Cascade)
 
   @@map("certificados_dds")
+}
+
+
+model LaborAgricola {
+  id                  String           @id @default(uuid())
+  finca_id            String
+  nombre              String
+  tipo_proceso        String           
+  mes                 String           
+  cantidad_proyectada String
+  estado              String           @default("PLANIFICADO")
+  creado_en           DateTime         @default(now())
+  
+  finca               Finca            @relation(fields: [finca_id], references: [id], onDelete: Cascade)
+  ejecuciones         EjecucionLabor[]
+
+  @@map("labores_agricolas")
+}
+
+model EjecucionLabor {
+  id                 String             @id @default(uuid())
+  labor_id           String
+  finca_id           String
+  persona_desarrollo String
+  nombre_jornalero   String?
+  edad_jornalero     Int?
+  dias_trabajo       Float?
+  detalle_aplicacion String
+  salario            Float?
+  foto_url           String?
+  foto_hash          String?
+  latitud            Float?
+  longitud           Float?
+  timestamp          DateTime           @default(now())
+  creado_en          DateTime           @default(now())
+  
+  labor              LaborAgricola      @relation(fields: [labor_id], references: [id], onDelete: Cascade)
+  insumos            InsumoLabor[]
+  herramientas       HerramientaLabor[]
+
+  @@map("ejecuciones_labores")
+}
+
+model InsumoLabor {
+  id           String         @id @default(uuid())
+  ejecucion_id String
+  nombre       String         
+  cantidad     Float
+  unidad       String        
+  
+  ejecucion    EjecucionLabor @relation(fields: [ejecucion_id], references: [id], onDelete: Cascade)
+
+  @@map("insumos_labores")
+}
+
+model HerramientaLabor {
+  id           String         @id @default(uuid())
+  ejecucion_id String
+  nombre       String         // Machete, Lampa, etc.
+  
+  ejecucion    EjecucionLabor @relation(fields: [ejecucion_id], references: [id], onDelete: Cascade)
+
+  @@map("herramientas_labores")
+}
+
+// ─── MÓDULO 3: CALIDAD, ACOPIO Y EXPORTACIÓN ─────────────────
+
+model Muestra {
+  id              String    @id @default(uuid())
+  fincaId         String    // Relacionado con el ID de la Finca (SRID 4326)
+  productorId     String    // Relacionado con el ID del Productor (UUID de auth-service)
+  codigoQR        String    @unique
+  tipoProceso     String    // Lavado, Honey, Natural
+  pesoKg          Float     // Estandarizado en KG
+  fechaToma       DateTime  @default(now())
+  evidenciaFoto   String?
+
+  analisisFisico    AnalisisFisico?
+  analisisSensorial AnalisisSensorial?
+  ordenCompra       OrdenCompra?
+}
+
+model AnalisisFisico {
+  id              String    @id @default(uuid())
+  muestraId       String    @unique
+  muestra         Muestra   @relation(fields: [muestraId], references: [id])
+  humedad         Float     // Umbral 10-12%
+  criba           String    // 14 al 18
+  densidad        Float
+  defectosPrim    Int
+  defectosSec     Int
+  // La medición fuera de umbral debe poder registrarse: el lote no conforme
+  // forma parte de la trazabilidad tanto como el aprobado (RF-APE-03).
+  conforme        Boolean   @default(true)
+  noConformidades String[]  @default([])
+  fechaAnalisis   DateTime  @default(now())
+}
+
+model AnalisisSensorial {
+  id              String    @id @default(uuid())
+  muestraId       String    @unique
+  muestra         Muestra   @relation(fields: [muestraId], references: [id])
+  fraganciaAroma  Float
+  sabor           Float
+  saborResidual   Float
+  acidez          Float
+  cuerpo          Float
+  uniformidad     Float
+  balance         Float
+  tazaLimpia      Float
+  dulzor          Float
+  puntajeCatador  Float
+  // 11º item del formato SCA: penalizacion por defectos de taza, que se resta
+  // de la suma de los 10 atributos positivos.
+  defectos        Float     @default(0)
+  puntajeTotal    Float     // Si es >= 80 -> "Café de Especialidad"
+  nivelTueste     String
+}
+
+model OrdenCompra {
+  id              String    @id @default(uuid())
+  muestraId       String    @unique
+  muestra         Muestra   @relation(fields: [muestraId], references: [id])
+  aprobadoEUDR    Boolean   @default(false) // Cero deforestación post-2020
+  precioAcordado  Float
+  volumenKg       Float
+  primas          Float?
+  estado          String    // PENDIENTE, APROBADA, RECHAZADA
+
+  inventario      InventarioAcopio?
+}
+
+model InventarioAcopio {
+  id              String    @id @default(uuid())
+  ordenCompraId   String    @unique
+  ordenCompra     OrdenCompra @relation(fields: [ordenCompraId], references: [id])
+  pesoIngresoKg   Float
+  pesoSalidaKg    Float     @default(0) // Para control antifraude
+  estado          String    // EN_BODEGA, EN_TRILLA, DESPACHADO
+
+  procesoTrilla   ProcesoTrilla?
+}
+
+model ProcesoTrilla {
+  id                String   @id @default(uuid())
+  inventarioId      String   @unique
+  inventario        InventarioAcopio @relation(fields: [inventarioId], references: [id])
+  factorRendimiento Float    // Validado entre 0.78 y 0.82
+  pesoEntradaKg     Float
+  pesoOroKg         Float
+  mermaKg           Float
+  fechaProceso      DateTime @default(now())
 }

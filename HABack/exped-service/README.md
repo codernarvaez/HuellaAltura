@@ -95,6 +95,48 @@ Usuario (auth-service) con rol PRODUCTOR
 | GET | `/expediente/{id}` | Por expediente |
 | PATCH | `/{id}/revocar` | Revocar |
 
+### Módulo 3 — Acopio, Procesamiento y Exportación `/acopio`
+
+| Método | Ruta | Rol requerido | RF |
+|--------|------|---------------|-----|
+| POST | `/acopio/muestras/` | `TECNICO_CAMPO` | APE-01, APE-02 |
+| POST | `/acopio/laboratorio/fisico` | `ANALISTA_FISICO` | APE-03 |
+| POST | `/acopio/laboratorio/sensorial` | `CATADOR_Q` | APE-04, APE-05 |
+| POST | `/acopio/compras/aprobar` | `GERENCIA_ACOPIO` | APE-06, APE-07 |
+| POST | `/acopio/bodega/ingreso` | `BODEGUERO` | APE-08 |
+| GET | `/acopio/bodega/{inventario_id}` | `BODEGUERO` | APE-08 |
+| POST | `/acopio/trilla/procesar` | `BODEGUERO` | RS-AGR-003 |
+| POST | `/acopio/despachos/registrar` | `GERENCIA_ACOPIO` | Antifraude de segregación |
+| GET | `/acopio/despachos/certificado/{id}` | `AUDITOR_INTERNO` | Trazabilidad consolidada |
+| GET | `/acopio/despachos/certificado/{id}/pdf` | `AUDITOR_INTERNO` | Certificado descargable |
+
+`SUPER_ADMIN` y `TENANT_ADMIN` conservan acceso transversal. Los grupos de rol
+se definen en `app/routers/acopio/roles.py`.
+
+**Reglas de negocio del módulo:**
+
+- **Peso de muestra (APE-01):** 0,5 kg para Lavado y Honey, 1 kg para Natural,
+  con ±10 % de tolerancia de báscula. El peso se envía en libras y se valida
+  ya convertido.
+- **Análisis físico (APE-03):** humedad fuera de 10–12 %, criba fuera de 14–18
+  o cualquier defecto primario marcan el lote como **no conforme**, pero el
+  análisis se registra igual. La medición real nunca se descarta.
+- **Catación (APE-04):** puntaje = suma de los 10 atributos SCA **menos** la
+  penalización por defectos de taza. Especialidad a partir de 80 puntos.
+- **Compra (APE-07):** bloqueo duro si la finca no tiene auditoría EUDR
+  aprobada o si se detectó deforestación post-2020.
+- **Despacho:** Σ kg de salida nunca puede superar Σ kg de ingreso.
+
+### Labores agrícolas — ejecución con jornaleros (RF PPC-05)
+
+`POST /api/v1/labores/{id}/ejecutar` acepta ahora `edad_jornalero` y
+`dias_trabajo`, y admite **N insumos** por ejecución (sin duplicados
+nombre+unidad). Cuando `persona_desarrollo` es `JORNALERO`, el nombre y la
+edad son obligatorios y la edad debe ser **≥ 18 años** (prohibición de trabajo
+infantil — requisito crítico de Comercio Justo). La validación vive en
+`app/schemas/schemas.py::EjecucionLaborCreate` y está cubierta por
+`tests/test_schemas_labores.py`.
+
 ---
 
 ## Instalación local
@@ -128,6 +170,40 @@ uvicorn app.main:app --reload --port 8031
 
 ---
 
+## Pruebas
+
+```bash
+# Unitarias (no requieren base de datos)
+python -m pytest tests/test_health.py tests/test_geoespacial.py -q
+```
+
+Las pruebas de integración necesitan una base PostgreSQL local. **Nunca las
+ejecutes contra la base de producción**: `prisma db push` altera el esquema.
+
+```bash
+# 1. Crear la base de pruebas (una sola vez)
+createdb geoguard_test        # o: psql -U postgres -c "CREATE DATABASE geoguard_test;"
+
+# 2. Aplicar el esquema
+DATABASE_URL="postgresql://postgres@localhost:5432/geoguard_test" \
+  python -m prisma db push
+
+# 3. Ejecutar toda la suite
+DATABASE_URL="postgresql://postgres@localhost:5432/geoguard_test" \
+  python -m pytest tests/ -q
+```
+
+Si la base no está disponible, los módulos de integración se omiten
+automáticamente en lugar de fallar.
+
+| Módulo | Cubre |
+|--------|-------|
+| `tests/test_integracion_expediente.py` | Productor, formularios dinámicos, documentos y completitud |
+| `tests/test_integracion_acopio.py` | Muestras, laboratorio SCA, EUDR, bodega, trilla y despacho |
+| `tests/test_integracion_cumplimiento.py` | Listas de sanciones, bloqueo automático y firma digital |
+
+---
+
 ## Stack tecnológico
 
 | Componente | Versión | Descripción |
@@ -157,6 +233,24 @@ INTERNAL_API_KEY="clave_interna_entre_servicios"
 # Validación de sesión
 AUTH_SERVICE_URL=https://huellaaltura.onrender.com
 SESSION_VALIDATION_ENABLED=true
+
+# Orígenes permitidos por CORS, separados por coma.
+# Debe configurarse en el panel de Render antes del próximo despliegue
+# o el frontend quedará bloqueado.
+CORS_ORIGINS=http://localhost:4321,https://tu-dominio-web
 ```
 
 > El archivo `.env` nunca se sube al repositorio (`.gitignore`).
+
+### Seed de `auth-service`
+
+El usuario administrador ya no tiene contraseña fija en el código. `seed.py`
+lee del entorno:
+
+```env
+SEED_ADMIN_EMAIL=admin@tu-dominio
+SEED_ADMIN_PASSWORD=      # opcional: si se omite se genera una aleatoria
+```
+
+Sin `SEED_ADMIN_EMAIL` el seed solo sincroniza los roles y no crea ningún
+usuario.

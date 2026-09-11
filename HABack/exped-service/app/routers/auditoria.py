@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from prisma import Prisma
 
@@ -36,7 +35,8 @@ def crear_auditoria(
     Registra el resultado de un análisis de deforestación vía Google Earth Engine.
 
     **Lógica de Negocio:**
-    - Al registrar una auditoría, el estado del expediente se actualiza automáticamente a APROBADO o RECHAZADO según el resultado.
+    - Al registrar una auditoría, el estado del expediente se actualiza
+      automáticamente a APROBADO o RECHAZADO según el resultado.
     - Se registra automáticamente el evento en el historial del expediente.
 
     **Relaciones:**
@@ -55,16 +55,15 @@ def crear_auditoria(
     nuevo_estado = "APROBADO" if data.resultado == "APROBADO" else "RECHAZADO"
     db.expediente.update(where={"id": data.expediente_id}, data={"estado": nuevo_estado})
 
-    desc = (
-        f"Resultado: {data.resultado}. "
-        f"Deforestación detectada: {data.deforestacion_detectada}."
+    desc = f"Resultado: {data.resultado}. Deforestación detectada: {data.deforestacion_detectada}."
+    db.historial.create(
+        data={
+            "expediente_id": data.expediente_id,
+            "accion": "Auditoría GEE ejecutada",
+            "descripcion": desc,
+            "usuario": current_user.get("sub", "sistema"),
+        }
     )
-    db.historial.create(data={
-        "expediente_id": data.expediente_id,
-        "accion": "Auditoría GEE ejecutada",
-        "descripcion": desc,
-        "usuario": current_user.get("sub", "sistema"),
-    })
     return auditoria
 
 

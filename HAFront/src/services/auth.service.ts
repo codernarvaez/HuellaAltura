@@ -31,7 +31,16 @@ export interface UserOut {
   status: string;
   identifier?: string;
   phone_number?: string;
+  organizacion?: string;
+  genero?: string;
+  edad?: number;
+  nivel_educativo?: string;
   role?: { id: string; name: string };
+  user_metadata?: {
+    full_name?: string;
+    auth_provider?: string;
+    wallet_address?: string;
+  };
   created_at?: string;
   updated_at?: string;
 }
@@ -124,6 +133,30 @@ export class AuthService {
     }
 
     return data;
+  }
+
+  /**
+   * Obtiene un usuario por ID (vía listado de gestores; no hay GET /users/{id}).
+   */
+  static async getById(userId: string, token: string): Promise<UserOut> {
+    const response = await fetch(`${API_URL}/api/users`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || "Error al obtener usuario");
+    }
+
+    const user = (data as UserOut[]).find((u) => u.id === userId);
+    if (!user) {
+      throw new Error("Usuario no encontrado");
+    }
+    return user;
   }
 
   /**

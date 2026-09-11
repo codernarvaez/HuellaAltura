@@ -1,16 +1,37 @@
-import React from 'react';
-import { View, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Image, StyleSheet, Animated, Easing } from 'react-native';
 import { theme } from '../../theme/theme';
 
 const GlobalLoader = () => {
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(spinValue, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [spinValue]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
     <View style={styles.container}>
-      <Image 
-        source={require('../../../assets/Icon.png')} 
-        style={styles.logo}
+      <Animated.Image 
+        source={require('../../../assets/Logo.png')} 
+        style={[styles.logo, { transform: [{ rotate: spin }] }]}
         resizeMode="contain"
       />
-      <ActivityIndicator size="large" color={theme.colors.secondary} style={styles.loader} />
     </View>
   );
 };
@@ -18,7 +39,7 @@ const GlobalLoader = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -26,9 +47,6 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
   },
-  loader: {
-    marginTop: 30,
-  }
 });
 
 export default GlobalLoader;

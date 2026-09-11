@@ -1,73 +1,77 @@
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, ConfigDict
-from enum import Enum
+from enum import StrEnum
 
-class UserStatus(str, Enum):
+from pydantic import BaseModel, ConfigDict, EmailStr
+
+
+class UserStatus(StrEnum):
     ACTIVO = "ACTIVO"
     INACTIVO = "INACTIVO"
     SUSPENDIDO = "SUSPENDIDO"
     PENDIENTE = "PENDIENTE"
 
-class Genero(str, Enum):
+
+class Genero(StrEnum):
     MASCULINO = "MASCULINO"
     FEMENINO = "FEMENINO"
     OTRO = "OTRO"
 
-class NivelEducativo(str, Enum):
+
+class NivelEducativo(StrEnum):
     PRIMARIA = "PRIMARIA"
     SECUNDARIA = "SECUNDARIA"
     SUPERIOR = "SUPERIOR"
     POSTGRADO = "POSTGRADO"
     NINGUNO = "NINGUNO"
 
+
 class RoleOut(BaseModel):
     id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class UserBase(BaseModel):
     email: EmailStr
 
+
 class UserCreate(UserBase):
     password: str
-    role_name: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    identifier: Optional[str] = None
-    phone_number: Optional[str] = None
-    edad: Optional[int] = None
-    genero: Optional[Genero] = None
-    nivel_educativo: Optional[NivelEducativo] = None
-    status: Optional[UserStatus] = UserStatus.ACTIVO
+    role_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    identifier: str | None = None
+    phone_number: str | None = None
+    edad: int | None = None
+    genero: Genero | None = None
+    nivel_educativo: NivelEducativo | None = None
+    status: UserStatus | None = UserStatus.ACTIVO
+
 
 class UserOut(UserBase):
     id: str
     role: RoleOut
     status: UserStatus
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    identifier: Optional[str] = None
-    phone_number: Optional[str] = None
-    edad: Optional[int] = None
-    genero: Optional[Genero] = None
-    nivel_educativo: Optional[NivelEducativo] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    identifier: str | None = None
+    phone_number: str | None = None
+    edad: int | None = None
+    genero: Genero | None = None
+    nivel_educativo: NivelEducativo | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
     model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "email": "admin@finca.com",
-                "password": "tu_contraseña_segura"
-            }
-        }
+        json_schema_extra={"example": {"email": "admin@finca.com", "password": "tu_contraseña_segura"}}
     )
+
 
 class Token(BaseModel):
     access_token: str
@@ -77,17 +81,20 @@ class Token(BaseModel):
         json_schema_extra={
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                "token_type": "bearer"
+                "token_type": "bearer",
             }
         }
     )
 
+
 class TokenData(BaseModel):
-    user_id: Optional[str] = None
-    session_token: Optional[str] = None
+    user_id: str | None = None
+    session_token: str | None = None
+
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
+
 
 class PasswordResetConfirm(BaseModel):
     token: str

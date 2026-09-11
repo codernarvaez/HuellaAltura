@@ -1,0 +1,1090 @@
+---
+// src/pages/acopio/compras.astro
+import DashboardLayout from "../../layouts/LayoutVariable.astro";
+import { AuthService } from "../../services/auth.service.ts";
+import { AcopioService } from "../../services/acopio.service.ts";
+import { FincaService } from "../../services/finca.service.ts";
+
+// Obtener token y datos del usuario
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let userRole = '';
+let muestras: any[] = [];
+let fincas: any[] = [];
+let error = null;
+let isLoading = true;
+
+// 🔥 Mapa de muestraId -> orden de compra existente (para marcar como "Ya procesada")
+let ordenPorMuestra: Record<string, any> = {};
+
+if (token) {
+  try {
+    userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
+    console.log("👤 Usuario:", userData?.first_name, userData?.last_name);
+    console.log("🎭 Rol del usuario:", userRole);
+    
+    // Obtener fincas del usuario
+    const esAdmin = userRole === 'SUPER_ADMIN' || userRole === 'TENANT_ADMIN' || userRole === 'ADMIN';
+    
+    if (esAdmin) {
+      fincas = await FincaService.list(token);
+    } else {
+      fincas = await FincaService.getByUsuarioId(userData.id, token) || [];
+    }
+    console.log("📋 Fincas obtenidas:", fincas.length);
+    
+    // Obtener todas las muestras de todas las fincas
+    let todasLasMuestras: any[] = [];
+    for (const finca of fincas) {
+      try {
+        const muestrasFinca = await AcopioService.getMuestrasByFinca(finca.id, token);
+        const muestrasConFinca = muestrasFinca.map(m => ({
+          ...m,
+          fincaNombre: finca.nombre,
+          fincaId: finca.id
+        }));
+        todasLasMuestras = [...todasLasMuestras, ...muestrasConFinca];
+      } catch (e: unknown) {
+        console.warn(`⚠️ Error obteniendo muestras de finca ${finca.id}:`, (e instanceof Error ? e.message : String(e)));
+      }
+    }
+    
+    muestras = todasLasMuestras;
+    console.log("📋 Total muestras:", muestras.length);
+    
+    // 🔥 Obtener las órdenes de compra ya existentes, para marcar muestras "Ya procesadas"
+    try {
+      const ordenesExistentes = await AcopioService.getOrdenesCompra(token);
+      console.log("📋 Órdenes de compra existentes:", ordenesExistentes.length);
+      
+      ordenesExistentes.forEach((orden) => {
+        // 🔧 FIX #1: soporta distintos nombres de campo que pueda devolver el backend
+        // (muestraId, muestra_id, o un objeto anidado muestra.id) para que el mapeo
+        // no se quede vacío por un mismatch de naming y las muestras procesadas
+        // no se detecten.
+        const muestraKey =
+          orden.muestraId ||
+          orden.muestra_id ||
+          orden?.muestra?.id ||
+          orden?.muestra?._id;
+
+        if (muestraKey) {
+          ordenPorMuestra[muestraKey] = orden;
+        }
+      });
+    } catch (e: unknown) {
+      console.warn("⚠️ Error obteniendo órdenes de compra existentes:", (e instanceof Error ? e.message : String(e)));
+    }
+    
+    isLoading = false;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
+    console.error("❌ Error:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+const puedeAprobarCompras = userRole === 'SUPER_ADMIN' || 
+                            userRole === 'TENANT_ADMIN' || 
+                            userRole === 'ADMIN' || 
+                            userRole === 'JEFE_CALIDAD';
+
+const fincasStr = JSON.stringify(fincas);
+const muestrasStr = JSON.stringify(muestras);
+const userRoleStr = userRole;
+const puedeAprobarComprasStr = puedeAprobarCompras ? 'true' : 'false';
+// 🔧 Se escapa "<" para poder incrustar este JSON dentro de un <script is:inline> sin
+// riesgo de que una secuencia como "</script" corte la etiqueta antes de tiempo.
+const ordenPorMuestraStr = JSON.stringify(ordenPorMuestra).replace(/</g, '\\u003c');
+const API_URL = "https://geoguard-exped1.onrender.com";
+---
+
+<DashboardLayout title="Órdenes de Compra - Acopio">
+
+<div class="space-y-6 max-w-[1400px] mx-auto">
+
+    <!-- HEADER -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
+                🛒 Órdenes de Compra
+            </h1>
+            <p class="mt-1 text-sm text-slate-500 max-w-3xl">
+                Selecciona muestras analizadas para generar órdenes de compra con validación EUDR.
+            </p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-slate-500">Tu rol:</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                    {userRole || 'No definido'}
+                </span>
+                {puedeAprobarCompras && (
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                        ✅ Puede aprobar compras
+                    </span>
+                )}
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <a
+                href="/acopio/muestras"
+                class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 h-10 rounded-xl transition font-medium text-sm"
+            >
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Volver a Muestras
+            </a>
+            <a
+                href="/acopio/bodega"
+                class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 h-10 rounded-xl transition font-medium text-sm"
+            >
+                <i data-lucide="package" class="w-4 h-4"></i>
+                Ir a Bodega
+            </a>
+        </div>
+    </div>
+
+    <!-- INDICADOR DE CARGA -->
+    {isLoading && (
+        <div class="text-center py-12">
+            <span class="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+            <p class="mt-2 text-slate-500">Cargando muestras...</p>
+        </div>
+    )}
+
+    <!-- MENSAJE DE ERROR -->
+    {error && (
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-red-500 text-4xl">error</span>
+            <p class="mt-2 text-red-600">{error}</p>
+        </div>
+    )}
+
+    <!-- MENSAJE SIN MUESTRAS -->
+    {!isLoading && !error && muestras.length === 0 && (
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+            <span class="material-symbols-outlined text-yellow-500 text-4xl">info</span>
+            <p class="mt-2 font-semibold text-yellow-700">No hay muestras disponibles</p>
+            <p class="text-sm text-yellow-600 mt-1">
+                {fincas.length === 0 
+                    ? 'No tienes fincas asociadas. Contacta a un administrador.'
+                    : 'Las muestras aparecerán aquí cuando tengan análisis físico y sensorial completos.'}
+            </p>
+            <a
+                href="/acopio/laboratorio"
+                class="mt-4 inline-block px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-500 transition"
+            >
+                Ir a Laboratorio
+            </a>
+        </div>
+    )}
+
+    <!-- FILTRO Y LISTADO DE MUESTRAS -->
+    {!isLoading && !error && muestras.length > 0 && (
+        <div class="space-y-4">
+            <!-- Filtro por finca -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-slate-400">filter_list</span>
+                    <span class="text-sm font-medium text-slate-700">Filtrar por:</span>
+                </div>
+                <select
+                    id="filtro-finca"
+                    class="flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white text-sm"
+                >
+                    <option value="todas">Todas las fincas</option>
+                    {fincas.map((finca) => (
+                        <option value={finca.id}>
+                            {finca.nombre}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    id="filtro-estado"
+                    class="flex-1 h-10 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition bg-white text-sm"
+                >
+                    <option value="todas">Todos los estados</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="analizada">Con análisis completo</option>
+                    <option value="procesada">Ya procesada</option>
+                </select>
+                <button
+                    id="btn-filtrar"
+                    class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition"
+                >
+                    Filtrar
+                </button>
+            </div>
+
+            <!-- Grid de muestras -->
+            <div id="muestras-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {muestras.map((muestra) => {
+                    const ordenExistente = ordenPorMuestra[muestra.id];
+                    const yaProcesada = !!ordenExistente;
+                    return (
+                    <div 
+                        class={`bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow muestra-item ${yaProcesada ? 'border-slate-200 opacity-75' : 'border-slate-200'}`}
+                        data-muestra-id={muestra.id}
+                        data-muestra-data={JSON.stringify(muestra)}
+                        data-tiene-orden={yaProcesada ? 'true' : 'false'}
+                        data-orden-id={ordenExistente?.id || ''}
+                    >
+                        <div class="p-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900 text-sm">
+                                        {muestra.fincaNombre || 'Finca no asignada'}
+                                    </h3>
+                                    <div class="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                        <span>📅 {new Date(muestra.creadoEn).toLocaleDateString('es-ES')}</span>
+                                        <span>•</span>
+                                        <span>⚖️ {muestra.pesoKg} kg</span>
+                                    </div>
+                                </div>
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                    {muestra.tipoProceso || 'N/A'}
+                                </span>
+                            </div>
+                            
+                            <div class="mt-3 flex items-center gap-2">
+                                <span class="text-xs text-slate-400">Código:</span>
+                                <span class="text-xs font-mono text-slate-600">{muestra.codigoQR || 'N/A'}</span>
+                            </div>
+
+                            {yaProcesada ? (
+                                <!-- ✅ YA TIENE ORDEN DE COMPRA -->
+                                <div class="estado-analisis-wrap mt-3 border-t border-slate-100 pt-3">
+                                    <div class="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-2 py-1.5">
+                                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-slate-500"></i>
+                                        <span class="font-medium text-slate-500">
+                                            Ya procesada — Orden #{ordenExistente.id?.substring(0, 8)}
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400 mt-1">
+                                        Estado: {ordenExistente.estado || 'N/A'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <!-- Estado de análisis (solo si aún no tiene orden) -->
+                                <div class="estado-analisis-wrap mt-3 border-t border-slate-100 pt-3">
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <span class="text-slate-500">🔬 Físico:</span>
+                                        <span class="estado-fisico font-medium text-yellow-600" data-muestra-id={muestra.id}>
+                                            <i data-lucide="loader-circle" class="w-3 h-3 inline animate-spin"></i>
+                                            Cargando...
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-xs mt-1">
+                                        <span class="text-slate-500">☕ Sensorial:</span>
+                                        <span class="estado-sensorial font-medium text-yellow-600" data-muestra-id={muestra.id}>
+                                            <i data-lucide="loader-circle" class="w-3 h-3 inline animate-spin"></i>
+                                            Cargando...
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div class="border-t border-slate-100 px-4 py-3 bg-slate-50/50 flex justify-end">
+                            {yaProcesada ? (
+                                <button 
+                                    class="text-sm bg-slate-200 text-slate-500 px-4 py-2 rounded-lg font-medium flex items-center gap-1 cursor-not-allowed"
+                                    disabled
+                                    title="Esta muestra ya tiene una orden de compra"
+                                >
+                                    <i data-lucide="check" class="w-4 h-4"></i>
+                                    Ya procesada
+                                </button>
+                            ) : (
+                                <button 
+                                    class="btn-seleccionar-muestra text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg transition font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    data-muestra-id={muestra.id}
+                                    disabled
+                                >
+                                    <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                                    Seleccionar
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    );
+                })}
+            </div>
+        </div>
+    )}
+
+    <!-- CONTADOR DE MUESTRAS -->
+    {!isLoading && !error && muestras.length > 0 && (
+        <div class="text-xs text-slate-500 text-right">
+            Total: <span class="font-semibold">{muestras.length}</span> muestras
+        </div>
+    )}
+
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL PARA CREAR ORDEN DE COMPRA                            -->
+<!-- ============================================================ -->
+<div id="modal-orden-compra" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-600">
+                    <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Crear Orden de Compra</h2>
+            </div>
+            <button id="btn-cerrar-modal" class="text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-orden-compra" class="space-y-4">
+            <input type="hidden" id="orden-muestra-id" />
+
+            <!-- Información de la muestra -->
+            <div class="bg-slate-50 rounded-xl p-4 space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Finca:</span>
+                    <span id="orden-finca" class="font-medium text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Código QR:</span>
+                    <span id="orden-qr" class="font-mono text-sm text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Peso disponible:</span>
+                    <span id="orden-peso" class="font-medium text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Puntaje SCA:</span>
+                    <span id="orden-puntaje" class="font-medium text-slate-700">-</span>
+                </div>
+            </div>
+
+            <!-- Datos de la orden -->
+            <div>
+                <label for="orden-volumen" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Volumen (kg) <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="orden-volumen"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    required
+                />
+                <p class="text-xs text-slate-400 mt-1">Máximo: <span id="orden-volumen-max">0</span> kg</p>
+            </div>
+
+            <div>
+                <label for="orden-precio" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Precio Acordado ($/kg) <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="orden-precio"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    required
+                />
+            </div>
+
+            <div>
+                <label for="orden-primas" class="block text-sm font-medium text-slate-700 mb-1.5">
+                    Primas ($)
+                </label>
+                <input
+                    id="orden-primas"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                />
+                <p class="text-xs text-slate-400 mt-1">Opcional - primas por calidad o certificación</p>
+            </div>
+
+            <!-- VALIDACIÓN EUDR CON INDICADOR DE ESTADO EN TIEMPO REAL -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4" id="eudr-container">
+                <div class="flex items-start gap-3">
+                    <div class="mt-0.5" id="eudr-icon">
+                        <i data-lucide="clock" class="w-5 h-5 text-blue-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-blue-700">Validación EUDR</p>
+                        <p class="text-xs text-blue-600 mt-1">
+                            La orden será validada contra requisitos de cero deforestación y trazabilidad
+                        </p>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="text-xs font-medium text-slate-600">Estado:</span>
+                            <span id="eudr-status" class="text-xs font-medium text-yellow-600">
+                                ⏳ Pendiente de validación
+                            </span>
+                        </div>
+                        <div id="eudr-detalles" class="hidden mt-2 text-xs border-t border-blue-200 pt-2">
+                            <p class="text-blue-600">
+                                <span id="eudr-mensaje">Validación automática contra auditoría EUDR</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mensaje de error/éxito/info -->
+            <div id="orden-error" class="hidden text-sm flex items-center gap-2 p-3 rounded-xl">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span id="orden-error-text">Error al crear la orden</span>
+            </div>
+
+            <!-- Botones -->
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                    type="button"
+                    id="btn-cancelar-orden"
+                    class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    id="btn-guardar-orden"
+                    class="flex-1 h-12 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    Aprobar Orden
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</DashboardLayout>
+
+<!-- Estilos CSS Inyectados -->
+<style is:global>
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    .animate-modal-in {
+        animation: modalIn 0.2s ease-out;
+    }
+    .eudr-validando {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .btn-accion-success {
+        transition: all 0.3s ease;
+    }
+    .btn-accion-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+</style>
+
+<script is:inline src="https://unpkg.com/lucide@latest"></script>
+
+<!-- 🔧 FIX: los datos del servidor van en un script aparte con define:vars
+     (que Astro renderiza como script clásico inline). El script de abajo,
+     que usa "import", necesita ser un módulo, y define:vars + import no
+     son compatibles en el mismo <script is:inline> (por eso salía
+     "Cannot use import statement outside a module"). -->
+<script define:vars={{ ordenPorMuestraStr }} is:inline>
+    window.__ORDEN_POR_MUESTRA__ = JSON.parse(ordenPorMuestraStr || '{}');
+</script>
+
+<script is:inline>
+    import { AuthService } from "/src/services/auth.service.ts";
+    import { AcopioService } from "/src/services/acopio.service.ts";
+    import { FincaService } from "/src/services/finca.service.ts";
+
+    console.log("🛒 Página de Órdenes de Compra cargada");
+
+    const API_URL = "https://geoguard-exped1.onrender.com";
+    let muestraSeleccionada = null;
+
+    // 🔧 FIX #2: guard para evitar doble envío del formulario (doble click,
+    // doble submit por Enter, etc.) que provocaba que el backend respondiera
+    // "ya existe una orden" en la segunda llamada aunque la primera ya
+    // hubiera creado la orden correctamente.
+    let procesandoOrden = false;
+
+    // 🔥 Mapa de muestraId -> orden existente, inyectado desde el servidor
+    const ORDEN_POR_MUESTRA = window.__ORDEN_POR_MUESTRA__ || {};
+
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    function getToken() {
+        return getCookie('token');
+    }
+
+    // 🔥 Interpreta el error del backend y decide si es un caso "informativo"
+    // (ej. orden duplicada) en vez de un error real.
+    function clasificarError(mensaje) {
+        const mensajeLower = (mensaje || '').toLowerCase();
+        
+        if (mensajeLower.includes('ya existe una orden')) {
+            return {
+                tipo: 'info',
+                titulo: 'ℹ️ Esta muestra ya fue procesada',
+                detalle: 'Ya existe una orden de compra registrada para esta muestra. No es necesario crear otra.'
+            };
+        }
+        
+        if (mensajeLower.includes('eudr') || 
+            mensajeLower.includes('deforestación') || 
+            mensajeLower.includes('auditoría')) {
+            return {
+                tipo: 'error-eudr',
+                titulo: '❌ Validación EUDR fallida',
+                detalle: mensaje
+            };
+        }
+        
+        return {
+            tipo: 'error',
+            titulo: '❌ Error al crear la orden',
+            detalle: mensaje
+        };
+    }
+
+    // ============================================================
+    // 🔧 FIX #1: MARCAR UNA MUESTRA COMO PROCESADA EN EL DOM
+    // (actualización optimista, sin recargar la página)
+    // ============================================================
+
+    function marcarMuestraComoProcesada(muestraId, ordenId, estadoOrden) {
+        const item = document.querySelector(`.muestra-item[data-muestra-id="${muestraId}"]`);
+        if (!item) return;
+
+        item.dataset.tieneOrden = 'true';
+        item.dataset.ordenId = ordenId || '';
+        item.classList.add('opacity-75');
+
+        const idCorto = (ordenId || '').toString().substring(0, 8);
+
+        // Reemplaza el bloque de estado de análisis (🔬/☕) por el bloque "Ya procesada"
+        const bloqueAnalisis = item.querySelector('.estado-analisis-wrap');
+        if (bloqueAnalisis) {
+            bloqueAnalisis.innerHTML = `
+                <div class="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-2 py-1.5">
+                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-slate-500"></i>
+                    <span class="font-medium text-slate-500">
+                        Ya procesada — Orden #${idCorto}
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">
+                    Estado: ${estadoOrden || 'N/A'}
+                </p>
+            `;
+        }
+
+        // Reemplaza el botón "Seleccionar" por el botón deshabilitado "Ya procesada"
+        const btn = item.querySelector('.btn-seleccionar-muestra');
+        if (btn) {
+            const nuevoBtn = document.createElement('button');
+            nuevoBtn.className = 'text-sm bg-slate-200 text-slate-500 px-4 py-2 rounded-lg font-medium flex items-center gap-1 cursor-not-allowed';
+            nuevoBtn.disabled = true;
+            nuevoBtn.title = 'Esta muestra ya tiene una orden de compra';
+            nuevoBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Ya procesada';
+            btn.replaceWith(nuevoBtn);
+        }
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================
+    // CARGAR ANÁLISIS DE CADA MUESTRA
+    // ============================================================
+
+    async function cargarAnalisisMuestra(muestraId) {
+        try {
+            const token = getToken();
+            if (!token) return null;
+
+            const [fisico, sensorial] = await Promise.all([
+                AcopioService.getAnalisisFisico(muestraId, token),
+                AcopioService.getAnalisisSensorial(muestraId, token)
+            ]);
+
+            return { fisico, sensorial };
+        } catch (error) {
+            console.warn(`⚠️ Error cargando análisis para muestra ${muestraId}:`, error);
+            return null;
+        }
+    }
+
+    async function cargarTodosLosAnalisis() {
+        const items = document.querySelectorAll('.muestra-item');
+        for (const item of items) {
+            // 🔥 Si ya tiene orden, no hace falta cargar análisis ni tocar el botón
+            if (item.dataset.tieneOrden === 'true') {
+                continue;
+            }
+
+            const muestraId = item.dataset.muestraId;
+            const estadoFisico = item.querySelector('.estado-fisico');
+            const estadoSensorial = item.querySelector('.estado-sensorial');
+            const btnSeleccionar = item.querySelector('.btn-seleccionar-muestra');
+
+            if (!estadoFisico || !estadoSensorial || !btnSeleccionar) continue;
+
+            const analisis = await cargarAnalisisMuestra(muestraId);
+            
+            if (analisis && analisis.fisico && analisis.sensorial) {
+                estadoFisico.textContent = '✅ Completado';
+                estadoFisico.className = 'estado-fisico font-medium text-emerald-600';
+                estadoSensorial.textContent = `✅ ${analisis.sensorial.puntajeTotal} pts`;
+                estadoSensorial.className = 'estado-sensorial font-medium text-emerald-600';
+                btnSeleccionar.disabled = false;
+                btnSeleccionar.title = 'Seleccionar muestra para orden de compra';
+            } else if (analisis && analisis.fisico) {
+                estadoFisico.textContent = '✅ Completado';
+                estadoFisico.className = 'estado-fisico font-medium text-emerald-600';
+                estadoSensorial.textContent = '⏳ Pendiente';
+                estadoSensorial.className = 'estado-sensorial font-medium text-yellow-600';
+                btnSeleccionar.disabled = true;
+                btnSeleccionar.title = 'Falta análisis sensorial';
+            } else if (analisis && analisis.sensorial) {
+                estadoFisico.textContent = '⏳ Pendiente';
+                estadoFisico.className = 'estado-fisico font-medium text-yellow-600';
+                estadoSensorial.textContent = `✅ ${analisis.sensorial.puntajeTotal} pts`;
+                estadoSensorial.className = 'estado-sensorial font-medium text-emerald-600';
+                btnSeleccionar.disabled = true;
+                btnSeleccionar.title = 'Falta análisis físico';
+            } else {
+                estadoFisico.textContent = '❌ No realizado';
+                estadoFisico.className = 'estado-fisico font-medium text-red-500';
+                estadoSensorial.textContent = '❌ No realizado';
+                estadoSensorial.className = 'estado-sensorial font-medium text-red-500';
+                btnSeleccionar.disabled = true;
+                btnSeleccionar.title = 'Faltan análisis completos';
+            }
+
+            if (analisis) {
+                item.dataset.analisisFisico = JSON.stringify(analisis.fisico);
+                item.dataset.analisisSensorial = JSON.stringify(analisis.sensorial);
+            }
+        }
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================
+    // MODAL DE ORDEN DE COMPRA
+    // ============================================================
+
+    function toggleModalOrden(show, muestraData = null, analisis = null) {
+        const modal = document.getElementById('modal-orden-compra');
+        if (show && muestraData && analisis) {
+            muestraSeleccionada = muestraData;
+            
+            document.getElementById('orden-muestra-id').value = muestraData.id;
+            document.getElementById('orden-finca').textContent = muestraData.fincaNombre || 'N/A';
+            document.getElementById('orden-qr').textContent = muestraData.codigoQR || 'N/A';
+            document.getElementById('orden-peso').textContent = `${muestraData.pesoKg} kg`;
+            
+            const puntaje = analisis.sensorial?.puntajeTotal || 'N/A';
+            document.getElementById('orden-puntaje').textContent = puntaje;
+            
+            document.getElementById('orden-volumen-max').textContent = muestraData.pesoKg;
+            document.getElementById('orden-volumen').max = muestraData.pesoKg;
+            document.getElementById('orden-volumen').value = '';
+            document.getElementById('orden-precio').value = '';
+            document.getElementById('orden-primas').value = '';
+            
+            // Resetear estado EUDR
+            resetearEstadoEUDR();
+            
+            document.getElementById('orden-error').classList.add('hidden');
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+            muestraSeleccionada = null;
+        }
+    }
+
+    // ============================================================
+    // FUNCIONES DE ESTADO EUDR
+    // ============================================================
+
+    function resetearEstadoEUDR() {
+        const statusEl = document.getElementById('eudr-status');
+        const iconEl = document.getElementById('eudr-icon');
+        const detallesEl = document.getElementById('eudr-detalles');
+        const mensajeEl = document.getElementById('eudr-mensaje');
+        const containerEl = document.getElementById('eudr-container');
+        
+        statusEl.textContent = '⏳ Pendiente de validación';
+        statusEl.className = 'text-xs font-medium text-yellow-600';
+        iconEl.innerHTML = '<i data-lucide="clock" class="w-5 h-5 text-blue-600"></i>';
+        containerEl.className = 'bg-blue-50 border border-blue-200 rounded-xl p-4';
+        detallesEl.classList.add('hidden');
+        mensajeEl.textContent = 'Validación automática contra auditoría EUDR';
+        
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function actualizarEstadoEUDR(estado, mensaje, detalles = null) {
+        const statusEl = document.getElementById('eudr-status');
+        const iconEl = document.getElementById('eudr-icon');
+        const detallesEl = document.getElementById('eudr-detalles');
+        const mensajeEl = document.getElementById('eudr-mensaje');
+        const containerEl = document.getElementById('eudr-container');
+        
+        switch(estado) {
+            case 'validando':
+                statusEl.textContent = '⏳ Validando EUDR...';
+                statusEl.className = 'text-xs font-medium text-yellow-600 eudr-validando';
+                iconEl.innerHTML = '<i data-lucide="loader-circle" class="w-5 h-5 text-yellow-600 animate-spin"></i>';
+                containerEl.className = 'bg-yellow-50 border border-yellow-200 rounded-xl p-4';
+                break;
+                
+            case 'aprobado':
+                statusEl.textContent = '✅ Aprobado';
+                statusEl.className = 'text-xs font-medium text-emerald-600';
+                iconEl.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>';
+                containerEl.className = 'bg-emerald-50 border border-emerald-200 rounded-xl p-4';
+                break;
+                
+            case 'rechazado':
+                statusEl.textContent = '❌ Rechazado';
+                statusEl.className = 'text-xs font-medium text-red-600';
+                iconEl.innerHTML = '<i data-lucide="x-circle" class="w-5 h-5 text-red-600"></i>';
+                containerEl.className = 'bg-red-50 border border-red-200 rounded-xl p-4';
+                break;
+                
+            case 'info':
+                statusEl.textContent = 'ℹ️ Ya procesada anteriormente';
+                statusEl.className = 'text-xs font-medium text-blue-600';
+                iconEl.innerHTML = '<i data-lucide="info" class="w-5 h-5 text-blue-600"></i>';
+                containerEl.className = 'bg-blue-50 border border-blue-200 rounded-xl p-4';
+                break;
+                
+            default:
+                resetearEstadoEUDR();
+                return;
+        }
+        
+        if (mensaje) {
+            mensajeEl.textContent = mensaje;
+            detallesEl.classList.remove('hidden');
+        }
+        
+        if (detalles) {
+            // Agregar detalles adicionales si se proporcionan
+        }
+        
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================
+    // CREAR ORDEN DE COMPRA
+    // ============================================================
+
+    async function crearOrdenCompra(event) {
+        event.preventDefault();
+
+        // 🔧 FIX #2: si ya hay una petición en curso, ignorar este submit
+        // (evita el doble envío que generaba el falso "ya existe una orden")
+        if (procesandoOrden) {
+            return;
+        }
+
+        const muestraId = document.getElementById('orden-muestra-id').value;
+        const volumenKg = parseFloat(document.getElementById('orden-volumen').value);
+        const precioAcordado = parseFloat(document.getElementById('orden-precio').value);
+        const primas = parseFloat(document.getElementById('orden-primas').value) || 0;
+        const errorDiv = document.getElementById('orden-error');
+        const errorText = document.getElementById('orden-error-text');
+        const btnGuardar = document.getElementById('btn-guardar-orden');
+
+        // Validaciones básicas
+        if (!muestraId || isNaN(volumenKg) || isNaN(precioAcordado) || volumenKg <= 0 || precioAcordado <= 0) {
+            errorDiv.classList.remove('hidden');
+            errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
+            errorText.textContent = 'Volumen y precio son obligatorios y deben ser mayores a 0';
+            return;
+        }
+
+        const payload = {
+            muestraId,
+            volumenKg,
+            precioAcordado,
+            primas
+        };
+
+        console.log('📦 Payload orden de compra:', JSON.stringify(payload, null, 2));
+
+        const token = getToken();
+        if (!token) {
+            errorDiv.classList.remove('hidden');
+            errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
+            errorText.textContent = 'No hay sesión activa';
+            return;
+        }
+
+        procesandoOrden = true;
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Validando...';
+
+        try {
+            // Actualizar estado EUDR a "Validando"
+            actualizarEstadoEUDR('validando', 'Verificando auditoría EUDR de la finca...');
+
+            const resultado = await AcopioService.aprobarOrdenCompra(payload, token);
+            console.log('✅ Orden de compra creada:', resultado);
+
+            // Actualizar estado EUDR a "Aprobado"
+            actualizarEstadoEUDR(
+                'aprobado', 
+                `✅ Orden #${resultado.orden_id} aprobada - Cumplimiento EUDR verificado`,
+                'La finca cuenta con auditoría EUDR aprobada y sin deforestación'
+            );
+
+            // 🔧 FIX #1: marcar la muestra como "Ya procesada" al instante,
+            // sin esperar a que el usuario recargue la página
+            marcarMuestraComoProcesada(muestraId, resultado.orden_id, resultado.estado);
+
+            // ============================================================
+            // ✅ MODAL DE ÉXITO CON BOTÓN "IR A BODEGA"
+            // ============================================================
+            errorDiv.classList.remove('hidden');
+            errorDiv.className = 'text-sm flex flex-col items-center gap-2 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700';
+            errorDiv.innerHTML = '';
+            
+            // Mensaje de éxito
+            const mensajeExito = document.createElement('div');
+            mensajeExito.className = 'flex items-center gap-2 w-full';
+            mensajeExito.innerHTML = `
+                <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600 flex-shrink-0"></i>
+                <span>✅ Orden #${resultado.orden_id} aprobada exitosamente</span>
+            `;
+            errorDiv.appendChild(mensajeExito);
+
+            // Botones de acción
+            const accionesDiv = document.createElement('div');
+            accionesDiv.className = 'flex flex-col sm:flex-row gap-3 w-full mt-2';
+            
+            // Botón "Ir a Bodega" (principal)
+            const btnBodega = document.createElement('button');
+            btnBodega.type = 'button';
+            btnBodega.className = 'flex-1 h-10 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition flex items-center justify-center gap-2 btn-accion-success text-sm';
+            btnBodega.innerHTML = '<i data-lucide="package" class="w-4 h-4"></i> 📦 Ir a Bodega';
+            btnBodega.onclick = () => {
+                window.location.href = '/acopio/bodega';
+            };
+            accionesDiv.appendChild(btnBodega);
+
+            // Botón "Crear otra orden"
+            const btnOtraOrden = document.createElement('button');
+            btnOtraOrden.type = 'button';
+            btnOtraOrden.className = 'flex-1 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm';
+            btnOtraOrden.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i> Crear otra orden';
+            btnOtraOrden.onclick = () => {
+                // 🔧 Ya no hace falta recargar la página: la tarjeta se
+                // actualizó en el DOM con marcarMuestraComoProcesada().
+                toggleModalOrden(false);
+                filtrarMuestras();
+            };
+            accionesDiv.appendChild(btnOtraOrden);
+
+            errorDiv.appendChild(accionesDiv);
+
+            // Actualizar íconos
+            if (window.lucide) window.lucide.createIcons();
+
+            // Habilitar botón guardar
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Aprobar Orden';
+
+        } catch (error) {
+            console.error('❌ Error al crear orden de compra:', error);
+            
+            const mensajeOriginal = error.message || 'Error al crear la orden';
+            const clasificado = clasificarError(mensajeOriginal);
+            
+            if (clasificado.tipo === 'info') {
+                // 🔥 Caso "Ya existe una orden": la muestra YA fue procesada
+                // (por esta u otra petición previa). No es un error real:
+                // se trata como éxito y se marca la muestra como procesada,
+                // sin mostrar una advertencia roja.
+                marcarMuestraComoProcesada(muestraId, null, null);
+
+                actualizarEstadoEUDR('info', clasificado.detalle);
+                
+                errorDiv.classList.remove('hidden');
+                errorDiv.className = 'text-sm flex flex-col items-center gap-2 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700';
+                errorDiv.innerHTML = `
+                    <div class="flex items-center gap-2 w-full">
+                        <i data-lucide="info" class="w-5 h-5 text-blue-600 flex-shrink-0"></i>
+                        <span>${clasificado.titulo}</span>
+                    </div>
+                    <p class="text-xs text-blue-600 w-full text-left">${clasificado.detalle}</p>
+                `;
+                
+                const accionesDiv = document.createElement('div');
+                accionesDiv.className = 'flex flex-col sm:flex-row gap-3 w-full mt-2';
+                
+                const btnCerrar = document.createElement('button');
+                btnCerrar.type = 'button';
+                btnCerrar.className = 'flex-1 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm';
+                btnCerrar.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i> Cerrar';
+                btnCerrar.onclick = () => {
+                    toggleModalOrden(false);
+                    filtrarMuestras();
+                };
+                accionesDiv.appendChild(btnCerrar);
+                errorDiv.appendChild(accionesDiv);
+                
+                if (window.lucide) window.lucide.createIcons();
+            } else if (clasificado.tipo === 'error-eudr') {
+                actualizarEstadoEUDR(
+                    'rechazado',
+                    clasificado.detalle,
+                    'La finca no cumple con los requisitos de cero deforestación'
+                );
+                
+                errorDiv.classList.remove('hidden');
+                errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600';
+                errorDiv.innerHTML = `
+                    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+                    <span id="orden-error-text">${clasificado.titulo}: ${clasificado.detalle}</span>
+                `;
+            } else {
+                resetearEstadoEUDR();
+                
+                errorDiv.classList.remove('hidden');
+                errorDiv.className = 'text-sm flex items-center gap-2 p-3 rounded-xl bg-orange-50 border border-orange-200 text-orange-600';
+                errorDiv.innerHTML = `
+                    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+                    <span id="orden-error-text">${clasificado.detalle}</span>
+                `;
+            }
+            
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Aprobar Orden';
+            if (window.lucide) window.lucide.createIcons();
+        } finally {
+            procesandoOrden = false;
+        }
+    }
+
+    // ============================================================
+    // FILTRAR MUESTRAS
+    // ============================================================
+
+    function filtrarMuestras() {
+        const fincaFilter = document.getElementById('filtro-finca').value;
+        const estadoFilter = document.getElementById('filtro-estado').value;
+        const items = document.querySelectorAll('.muestra-item');
+
+        items.forEach(item => {
+            const data = JSON.parse(item.dataset.muestraData);
+            const tieneOrden = item.dataset.tieneOrden === 'true';
+            let mostrar = true;
+
+            if (fincaFilter !== 'todas' && data.fincaId !== fincaFilter) {
+                mostrar = false;
+            }
+
+            if (estadoFilter !== 'todas') {
+                if (estadoFilter === 'procesada') {
+                    mostrar = mostrar && tieneOrden;
+                } else if (tieneOrden) {
+                    // Si ya está procesada, no aplica a "pendiente" ni "analizada"
+                    mostrar = false;
+                } else {
+                    const btn = item.querySelector('.btn-seleccionar-muestra');
+                    const tieneAnalisis = btn ? !btn.disabled : false;
+                    if (estadoFilter === 'analizada' && !tieneAnalisis) {
+                        mostrar = false;
+                    }
+                    if (estadoFilter === 'pendiente' && tieneAnalisis) {
+                        mostrar = false;
+                    }
+                }
+            }
+
+            item.style.display = mostrar ? '' : 'none';
+        });
+    }
+
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🔧 Inicializando eventos...');
+
+        cargarTodosLosAnalisis();
+
+        // 🔧 Delegación de eventos en el contenedor: como marcarMuestraComoProcesada()
+        // reemplaza el botón "Seleccionar" por uno nuevo, un listener puesto
+        // directamente sobre el botón original se perdería para futuras muestras
+        // seleccionadas en la misma sesión. Con delegación no hay ese problema.
+        document.getElementById('muestras-container')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-seleccionar-muestra');
+            if (!btn || btn.disabled) return;
+
+            const item = btn.closest('.muestra-item');
+            const data = JSON.parse(item.dataset.muestraData);
+            const analisis = {
+                fisico: JSON.parse(item.dataset.analisisFisico || 'null'),
+                sensorial: JSON.parse(item.dataset.analisisSensorial || 'null')
+            };
+
+            if (!analisis.fisico || !analisis.sensorial) {
+                alert('Esta muestra no tiene análisis completos');
+                return;
+            }
+
+            toggleModalOrden(true, data, analisis);
+        });
+
+        document.getElementById('btn-cerrar-modal')?.addEventListener('click', () => toggleModalOrden(false));
+        document.getElementById('btn-cancelar-orden')?.addEventListener('click', () => toggleModalOrden(false));
+        document.getElementById('modal-orden-compra')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) toggleModalOrden(false);
+        });
+
+        document.getElementById('form-orden-compra')?.addEventListener('submit', crearOrdenCompra);
+
+        document.getElementById('btn-filtrar')?.addEventListener('click', filtrarMuestras);
+        document.getElementById('filtro-finca')?.addEventListener('change', filtrarMuestras);
+        document.getElementById('filtro-estado')?.addEventListener('change', filtrarMuestras);
+
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
+        console.log('✅ Eventos inicializados correctamente');
+    });
+
+    document.addEventListener('astro:after-swap', () => {
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    });
+</script>

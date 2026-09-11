@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from prisma import Prisma
 
@@ -34,7 +33,8 @@ def listar_expedientes(
     - Devuelve la información básica del expediente junto con sus datos agroambientales y el historial de cambios.
 
     **Relaciones:**
-    - Los `id` de estos expedientes son necesarios para consultar detalles, agregar datos agroambientales o ejecutar auditorías.
+    - Los `id` de estos expedientes son necesarios para consultar detalles,
+      agregar datos agroambientales o ejecutar auditorías.
     """
     where: dict = {}
     if estado:
@@ -80,11 +80,13 @@ def crear_expediente(
     create_data = data.model_dump()
     desc = f"Expediente creado para la finca {finca.nombre} con datos agroambientales"
     create_data["historial"] = {
-        "create": [{
-            "accion": "Expediente creado",
-            "descripcion": desc,
-            "usuario": current_user.get("sub", "sistema"),
-        }]
+        "create": [
+            {
+                "accion": "Expediente creado",
+                "descripcion": desc,
+                "usuario": current_user.get("sub", "sistema"),
+            }
+        ]
     }
 
     expediente = db.expediente.create(data=create_data, include=_INCLUDE)
@@ -163,12 +165,14 @@ def actualizar_expediente(
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     cambios = data.model_dump(exclude_unset=True)
     db.expediente.update(where={"id": expediente_id}, data=cambios)
-    db.historial.create(data={
-        "expediente_id": expediente_id,
-        "accion": "Expediente actualizado",
-        "descripcion": f"Campos modificados: {', '.join(cambios.keys())}",
-        "usuario": current_user.get("sub", "sistema"),
-    })
+    db.historial.create(
+        data={
+            "expediente_id": expediente_id,
+            "accion": "Expediente actualizado",
+            "descripcion": f"Campos modificados: {', '.join(cambios.keys())}",
+            "usuario": current_user.get("sub", "sistema"),
+        }
+    )
     return db.expediente.find_first(where={"id": expediente_id}, include=_INCLUDE)
 
 

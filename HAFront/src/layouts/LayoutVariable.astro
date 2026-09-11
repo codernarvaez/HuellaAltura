@@ -1,70 +1,102 @@
 ---
 import "../styles/global.css";
 import { isAdminRole } from "../services/roles";
-import { AuthService } from "../services/auth.service.ts";
-import { FincaService } from "../services/finca.service.ts";
-import { ExpedienteService } from "../services/expediente.service.ts";
+import { AuthService, type UserOut } from "../services/auth.service";
+import { FincaService } from "../services/finca.service";
+import {
+  getProductorProgress,
+  pasosPreviosCompletos,
+  type ProductorProgress,
+} from "../services/productorProgress";
 
+interface Props {
+  title?: string;
+  userRole?: string;
+}
+
+const { title = "Huella de Altura", userRole: propRole } = Astro.props as Props;
 const user = Astro.locals.user;
-const userRole = user?.role?.name || Astro.props.userRole || "Usuario";
+const userRole = user?.role?.name || propRole || "Usuario";
 const isAdmin = isAdminRole(user?.role?.name);
-const title = Astro.props.title || "Huella de Altura";
 
 // Obtener token de las cookies
 const token = Astro.cookies.get("token")?.value;
-let userData = null;
+let userData: UserOut | null = null;
 let hasFinca = false;
 let hasExpediente = false;
-let fincaId = null; // <-- NUEVA VARIABLE para almacenar el ID de la finca
+let fincaId: string | null = null;
+
+// Determinar si el usuario es INVESTIGADOR
+const esInvestigador = userRole === 'INVESTIGADOR' || userRole === 'AUDITOR_INTERNO';
+// El resto de usuarios no-admin se consideran PRODUCTOR (misma regla que ya usaba el sidebar)
+const esProductor = !isAdmin && !esInvestigador;
+
+// 🔥 Progreso secuencial del productor (finca -> agroambiental -> satelital -> expediente)
+let progress: ProductorProgress | null = null;
 
 if (token) {
   try {
     userData = await AuthService.getMe(token);
-    
-    // Verificar si tiene finca
-    if (userData?.id) {
+
+    if (userData?.id && esProductor) {
       try {
-        const finca = await FincaService.getByProductorId(userData.id, token);
-        // Ahora verificamos si finca es un objeto válido
-        hasFinca = finca !== null && typeof finca === 'object' && Object.keys(finca).length > 0;
-        
-        // GUARDAMOS EL ID DE LA FINCA
-        if (hasFinca && finca.id) {
-          fincaId = finca.id;
-          console.log('✅ Finca encontrada con ID:', fincaId);
-        }
-        
-        // Verificar si tiene expediente
-        if (hasFinca) {
-          try {
-            const expedientes = await ExpedienteService.list(token, { productor_id: userData.id });
-            hasExpediente = expedientes && expedientes.length > 0;
-            if (hasExpediente) {
-              console.log('✅ Expedientes encontrados:', expedientes.length);
-            }
-          } catch (e) {
-            console.warn('⚠️ No se pudieron cargar expedientes:', e);
-            hasExpediente = false;
-          }
-        } else {
-          console.log('ℹ️ No se encontró finca para el usuario:', userData.id);
-        }
-      } catch (e) {
-        console.error('❌ Error cargando finca:', e);
-        hasFinca = false;
+        progress = await getProductorProgress(userData.id, token);
+        hasFinca = progress.finca;
+        hasExpediente = progress.expediente;
+        fincaId = progress.fincaId;
+      } catch (e: unknown) {
+        console.error('❌ Error calculando progreso del productor:', e);
+      }
+    } else if (userData?.id) {
+      // Investigador / Admin: solo necesitamos la finca para armar enlaces con finca_id
+      try {
+        const fincas = await FincaService.getByUsuarioId(userData.id, token);
+        const finca = Array.isArray(fincas) ? fincas[0] : fincas;
+        hasFinca = !!finca;
+        if (finca?.id) fincaId = finca.id;
+      } catch (e: unknown) {
+        console.warn('⚠️ Error cargando finca:', e);
       }
     }
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("❌ Error cargando usuario en layout:", e);
   }
 } else {
   console.warn('⚠️ No hay token de autenticación');
 }
 
-// Construir la URL de Información Agroambiental con el finca_id
+// Estado de bloqueo de cada paso del sidebar.
+// Para roles distintos a PRODUCTOR (admin/investigador) todo queda desbloqueado,
+// ya que el flujo secuencial solo aplica al productor.
+const pasoAgroDesbloqueado = !esProductor || !progress || pasosPreviosCompletos('agroambiental', progress);
+const pasoSatelitalDesbloqueado = !esProductor || !progress || pasosPreviosCompletos('satelital', progress);
+const pasoExpedienteDesbloqueado = !esProductor || !progress || pasosPreviosCompletos('expediente', progress);
+
+// Construir URLs con finca_id
 const infoAgroUrl = fincaId ? `/infoAgro?finca_id=${fincaId}` : '/infoAgro';
 const expedientesUrl = fincaId ? `/expedientes?finca_id=${fincaId}` : '/expedientes';
 const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
+const auditoriaSatelitalUrl = '/auditoriaSatelital';
+const calendarioUrl = '/calendario';
+const ledgerUrl = fincaId ? `/labores?finca_id=${fincaId}` : '/labores';
+
+// ============================================================
+// 🔥 URLS DEL MÓDULO DE ACOPIO
+// ============================================================
+const acopioMuestrasUrl = '/acopio/muestras';
+const acopioLaboratorioUrl = '/acopio/laboratorio';
+const acopioComprasUrl = '/acopio/compras';
+const acopioBodegaUrl = '/acopio/bodega';
+const acopioDespachosUrl = '/acopio/despachos';
+const acopioCertificadosUrl = '/acopio/certificados';
+
+// INVESTIGADOR siempre puede ver Info Agro
+const puedeVerInfoAgro = esInvestigador || hasExpediente;
+
+// Convertir booleans a strings para el cliente
+const esInvestigadorStr = esInvestigador ? 'true' : 'false';
+const puedeVerInfoAgroStr = puedeVerInfoAgro ? 'true' : 'false';
+const isAdminStr = isAdmin ? 'true' : 'false';
 ---
 
 <!DOCTYPE html>
@@ -123,7 +155,7 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
 
         <div class="hidden md:block">
           <p class="text-sm font-semibold">
-            {user?.user_metadata?.full_name || user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() || "Usuario" : "Usuario"}
+            {[user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Usuario"}
           </p>
           <p class="text-xs text-on-surface-variant">
             {userRole}
@@ -148,7 +180,7 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         </h2>
 
         <p class="text-xs text-on-surface-variant mt-1">
-          {isAdmin ? "Administración del Sistema" : "Gestión General"}
+          {isAdmin ? "Administración del Sistema" : (esInvestigador ? "Investigador" : "Gestión General")}
         </p>
       </div>
 
@@ -158,85 +190,271 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         {
           !isAdmin && (
             <>
-              <!-- PRODUCTOR Y FINCA -->
-              <a
-                href="/productorFinca"
-                id="link-productor"
-                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition enabled-link"
-              >
-                <span class="material-symbols-outlined">
-                  agriculture
-                </span>
+              {/* SI ES INVESTIGADOR - SOLO MUESTRA INFO AGROAMBIENTAL */}
+              {esInvestigador ? (
+                <>
+                  <!-- INFORMACIÓN AGROAMBIENTAL (único enlace visible) -->
+                  <a
+                    href={infoAgroUrl}
+                    id="link-infoagro"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition bg-primary/5 border border-primary/20"
+                  >
+                    <span class="material-symbols-outlined text-primary">
+                      eco
+                    </span>
 
-                <span>Productor y Finca</span>
-              </a>
+                    <span class="font-medium">Información Agroambiental</span>
 
-              <!-- EXPEDIENTE -->
-              <a
-                href={expedientesUrl}
-                id="link-expediente"
-                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasFinca ? 'enabled-link' : 'disabled-link'}`}
-              >
-                <span class="material-symbols-outlined">
-                  folder_open
-                </span>
+                    <span class="ml-auto text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                      Acceso
+                    </span>
+                  </a>
 
-                <span>Expediente</span>
+                  <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+                    <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
+                    Como Investigador, tienes acceso a la información agroambiental de las fincas.
+                  </div>
+                </>
+              ) : (
+                /* USUARIO NORMAL (PRODUCTOR) - FLUJO SECUENCIAL */
+                <>
+                  <!-- 1. PRODUCTOR Y FINCA (siempre disponible) -->
+                  <a
+                    href="/productorFinca"
+                    id="link-productor"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                  >
+                    <span class="material-symbols-outlined">
+                      agriculture
+                    </span>
 
-                {!hasFinca && (
-                  <span id="badge-expediente" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                    Completar Finca
-                  </span>
-                )}
-              </a>
+                    <span>1. Productor y Finca</span>
 
-              <!-- INFORMACIÓN AGROAMBIENTAL -->
-              <a
-                href={infoAgroUrl}
-                id="link-infoagro"
-                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
-              >
-                <span class="material-symbols-outlined">
-                  eco
-                </span>
+                    {hasFinca && (
+                      <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                    )}
+                  </a>
 
-                <span>Información Agroambiental</span>
+                  <!-- 2. INFORMACIÓN AGROAMBIENTAL -->
+                  {pasoAgroDesbloqueado ? (
+                    <a
+                      href={infoAgroUrl}
+                      id="link-infoagro"
+                      class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                    >
+                      <span class="material-symbols-outlined">
+                        eco
+                      </span>
 
-                {!hasExpediente && (
-                  <span id="badge-infoagro" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                    {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
-                  </span>
-                )}
-              </a>
+                      <span>2. Información Agroambiental</span>
 
-              <!-- SATELITAL -->
-              <a
-                href={satelitalUrl}
-                id="link-satelital"
-                class={`flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition ${hasExpediente ? 'enabled-link' : 'disabled-link'}`}
-              >
-                <span class="material-symbols-outlined">
-                  satellite_alt
-                </span>
+                      {progress?.agroambiental && (
+                        <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                      )}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      id="link-infoagro-locked"
+                      class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg opacity-45 cursor-not-allowed"
+                      data-locked-step="Productor y Finca"
+                      title="Completa primero el paso 'Productor y Finca'"
+                    >
+                      <span class="material-symbols-outlined">
+                        eco
+                      </span>
 
-                <span>Reporte Satelital</span>
+                      <span>2. Información Agroambiental</span>
 
-                {!hasExpediente && (
-                  <span id="badge-satelital" class="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded-full">
-                    {hasFinca ? 'Crear Expediente' : 'Completar Finca'}
-                  </span>
-                )}
-              </a>
+                      <span class="material-symbols-outlined ml-auto text-sm">lock</span>
+                    </button>
+                  )}
+
+                  <!-- 3. SATELITAL -->
+                  {pasoSatelitalDesbloqueado ? (
+                    <a
+                      href={satelitalUrl}
+                      id="link-satelital"
+                      class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                    >
+                      <span class="material-symbols-outlined">
+                        satellite_alt
+                      </span>
+
+                      <span>3. Satelital</span>
+
+                      {progress?.satelital && (
+                        <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                      )}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      id="link-satelital-locked"
+                      class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg opacity-45 cursor-not-allowed"
+                      data-locked-step="Información Agroambiental"
+                      title="Completa primero el paso 'Información Agroambiental'"
+                    >
+                      <span class="material-symbols-outlined">
+                        satellite_alt
+                      </span>
+
+                      <span>3. Satelital</span>
+
+                      <span class="material-symbols-outlined ml-auto text-sm">lock</span>
+                    </button>
+                  )}
+
+                  <!-- 4. EXPEDIENTE -->
+                  {pasoExpedienteDesbloqueado ? (
+                    <a
+                      href={expedientesUrl}
+                      id="link-expediente"
+                      class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                    >
+                      <span class="material-symbols-outlined">
+                        folder_open
+                      </span>
+
+                      <span>4. Expediente</span>
+
+                      {progress?.expediente && (
+                        <span class="material-symbols-outlined text-green-600 ml-auto text-sm">check_circle</span>
+                      )}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      id="link-expediente-locked"
+                      class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg opacity-45 cursor-not-allowed"
+                      data-locked-step="Satelital"
+                      title="Completa primero el paso 'Satelital'"
+                    >
+                      <span class="material-symbols-outlined">
+                        folder_open
+                      </span>
+
+                      <span>4. Expediente</span>
+
+                      <span class="material-symbols-outlined ml-auto text-sm">lock</span>
+                    </button>
+                  )}
+
+                  <!-- 5. CALENDARIO -->
+                  <a
+                    href={calendarioUrl}
+                    id="link-calendario"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                  >
+                    <span class="material-symbols-outlined">
+                      calendar_month
+                    </span>
+
+                    <span>Calendario</span>
+                  </a>
+
+                  <!-- 6. LEDGER DE LABORES -->
+                  <a
+                    href={ledgerUrl}
+                    id="link-ledger"
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+                  >
+                    <span class="material-symbols-outlined">
+                      receipt_long
+                    </span>
+
+                    <span>Ledger de Labores</span>
+                  </a>
+                </>
+              )}
             </>
           )
         }
 
-        <!-- SOLO ADMINISTRADOR -->
+        {/* 🔥 MÓDULO DE ACOPIO - SOLO ADMINISTRADOR */}
         {
           isAdmin && (
             <>
               <p
-                class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant"
+                class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant border-t border-outline-variant mt-4 pt-4"
+              >
+                Acopio y Trazabilidad
+              </p>
+
+              <!-- MUESTRAS -->
+              <a
+                href={acopioMuestrasUrl}
+                id="link-acopio-muestras"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  science
+                </span>
+                <span>Muestras</span>
+              </a>
+
+              <!-- LABORATORIO -->
+              <a
+                href={acopioLaboratorioUrl}
+                id="link-acopio-laboratorio"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  biotech
+                </span>
+                <span>Laboratorio</span>
+              </a>
+
+              <!-- ÓRDENES DE COMPRA -->
+              <a
+                href={acopioComprasUrl}
+                id="link-acopio-compras"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  shopping_cart
+                </span>
+                <span>Órdenes de Compra</span>
+              </a>
+
+              <!-- BODEGA -->
+              <a
+                href={acopioBodegaUrl}
+                id="link-acopio-bodega"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  warehouse
+                </span>
+                <span>Bodega</span>
+              </a>
+
+              <!-- DESPACHOS -->
+              <a
+                href={acopioDespachosUrl}
+                id="link-acopio-despachos"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  local_shipping
+                </span>
+                <span>Despachos</span>
+              </a>
+
+              <!-- CERTIFICADOS -->
+              <a
+                href={acopioCertificadosUrl}
+                id="link-acopio-certificados"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  verified
+                </span>
+                <span>Certificados</span>
+              </a>
+
+              <p
+                class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant border-t border-outline-variant mt-4 pt-4"
               >
                 Administración
               </p>
@@ -275,7 +493,46 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
                 </span>
 
                 <span>Variables Dinámicas</span>
-              </a>   
+              </a>
+
+              <!-- AUDITORÍA SATELITAL -->
+              <a
+                href={auditoriaSatelitalUrl}
+                id="link-auditoria-satelital"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  satellite
+                </span>
+
+                <span>Auditoría Satelital</span>
+              </a>
+
+              <!-- CALENDARIO PARA ADMIN -->
+              <a
+                href={calendarioUrl}
+                id="link-calendario-admin"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  calendar_month
+                </span>
+
+                <span>Calendario</span>
+              </a>
+
+              <!-- LEDGER DE LABORES PARA ADMIN -->
+              <a
+                href={ledgerUrl}
+                id="link-ledger-admin"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class="material-symbols-outlined">
+                  receipt_long
+                </span>
+
+                <span>Ledger de Labores</span>
+              </a>
             </>
           )
         }
@@ -357,21 +614,42 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
 
   <div id="toast-container"></div>
 
-  <script>
-    // Cliente script sin importaciones de TypeScript
-    document.addEventListener('DOMContentLoaded', () => {
+  <script define:vars={{ esInvestigadorStr, puedeVerInfoAgroStr, isAdminStr }}>
+  // Datos inyectados desde el servidor como variables
+  const ES_INVESTIGADOR = esInvestigadorStr;
+  const PUEDE_VER_INFO_AGRO = puedeVerInfoAgroStr;
+  const IS_ADMIN = isAdminStr;
+
+  document.addEventListener('DOMContentLoaded', () => {
       
       function getCookie(name) {
         const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
         return match ? decodeURIComponent(match[1]) : "";
       }
 
-      const token = getCookie('token');
       const linkProductor = document.getElementById('link-productor');
       const linkExpediente = document.getElementById('link-expediente');
       const linkInfoAgro = document.getElementById('link-infoagro');
       const linkSatelital = document.getElementById('link-satelital');
+      const linkCalendario = document.getElementById('link-calendario');
+      const linkCalendarioAdmin = document.getElementById('link-calendario-admin');
+      const linkLedger = document.getElementById('link-ledger');
+      const linkLedgerAdmin = document.getElementById('link-ledger-admin');
+      const linkAuditoria = document.getElementById('link-auditoria-satelital');
       const btnVolver = document.getElementById('btn-volver');
+
+      // 🔥 Enlaces del módulo de acopio
+      const linkAcopioMuestras = document.getElementById('link-acopio-muestras');
+      const linkAcopioLaboratorio = document.getElementById('link-acopio-laboratorio');
+      const linkAcopioCompras = document.getElementById('link-acopio-compras');
+      const linkAcopioBodega = document.getElementById('link-acopio-bodega');
+      const linkAcopioDespachos = document.getElementById('link-acopio-despachos');
+      const linkAcopioCertificados = document.getElementById('link-acopio-certificados');
+
+      // Convertir strings a booleanos
+      const esInvestigador = ES_INVESTIGADOR === 'true';
+      const puedeVerInfoAgro = PUEDE_VER_INFO_AGRO === 'true';
+      const isAdmin = IS_ADMIN === 'true';
 
       function showToast(message, timeout = 3500) {
         const container = document.getElementById('toast-container');
@@ -395,6 +673,34 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         }
       }
 
+      // 🔥 Botones de pasos bloqueados: al hacer click, avisamos qué falta
+      document.querySelectorAll('[data-locked-step]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const pasoFaltante = btn.getAttribute('data-locked-step');
+          showToast(`🔒 Debes completar primero: ${pasoFaltante}`);
+        });
+      });
+
+      // 🔥 Si el middleware nos redirigió por intentar saltarse un paso,
+      // avisamos con un toast al cargar la página.
+      const params = new URLSearchParams(window.location.search);
+      const bloqueado = params.get('bloqueado');
+      if (bloqueado) {
+        const NOMBRES_PASO = {
+          finca: 'Productor y Finca',
+          agroambiental: 'Información Agroambiental',
+          satelital: 'Satelital',
+          expediente: 'Expediente',
+        };
+        const nombre = NOMBRES_PASO[bloqueado] || bloqueado;
+        showToast(`🔒 Debes completar los pasos anteriores antes de acceder a "${nombre}"`);
+
+        // Limpiar el parámetro de la URL sin recargar la página
+        params.delete('bloqueado');
+        const nuevaUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+        window.history.replaceState({}, '', nuevaUrl);
+      }
+
       // Recargar la página cuando se guarda algo
       window.addEventListener('fincaSaved', () => {
         showToast('✅ Finca guardada correctamente');
@@ -411,40 +717,9 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
         setTimeout(() => location.reload(), 1000);
       });
 
-      // Manejar clics en enlaces deshabilitados
-      if (linkExpediente) {
-        linkExpediente.addEventListener('click', (ev) => {
-          if (linkExpediente.classList.contains('disabled-link')) {
-            ev.preventDefault();
-            showToast('⚠️ Completa Productor y Finca primero');
-          }
-        });
-      }
-
-      if (linkInfoAgro) {
-        linkInfoAgro.addEventListener('click', (ev) => {
-          if (linkInfoAgro.classList.contains('disabled-link')) {
-            ev.preventDefault();
-            const badge = document.getElementById('badge-infoagro');
-            const msg = badge && badge.textContent === 'Crear Expediente' 
-              ? '⚠️ Crea un expediente primero' 
-              : '⚠️ Completa Productor y Finca primero';
-            showToast(msg);
-          }
-        });
-      }
-
-      if (linkSatelital) {
-        linkSatelital.addEventListener('click', (ev) => {
-          if (linkSatelital.classList.contains('disabled-link')) {
-            ev.preventDefault();
-            const badge = document.getElementById('badge-satelital');
-            const msg = badge && badge.textContent === 'Crear Expediente' 
-              ? '⚠️ Crea un expediente primero' 
-              : '⚠️ Completa Productor y Finca primero';
-            showToast(msg);
-          }
-        });
+      // Para administradores, mostrar mensaje de bienvenida
+      if (isAdmin) {
+        console.log('👑 Administrador: Todos los enlaces están disponibles');
       }
     });
   </script>

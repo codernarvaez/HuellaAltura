@@ -1,5 +1,45 @@
 ---
 import DashboardLayout from "../layouts/LayoutVariable.astro";
+import { AuthService } from "../services/auth.service.ts";
+
+// Obtener token de las cookies
+const token = Astro.cookies.get("token")?.value;
+
+let userData = null;
+let userRole = null;
+let error = null;
+let isLoading = true;
+
+if (token) {
+  try {
+    userData = await AuthService.getMe(token);
+    userRole = userData?.role?.name || '';
+    console.log("✅ Usuario cargado:", userData);
+    console.log("🎭 Rol del usuario:", userRole);
+    isLoading = false;
+  } catch (e: unknown) {
+    error = (e instanceof Error ? e.message : String(e));
+    console.error("❌ Error cargando datos del usuario:", e);
+    isLoading = false;
+  }
+} else {
+  isLoading = false;
+  error = "No hay sesión activa";
+}
+
+// 🔥 DETERMINAR ROLES PERMITIDOS
+// Solo TÉCNICO_DE_CAMPO y ADMIN pueden editar
+const puedeEditar = userRole === 'TECNICO_DE_CAMPO' || 
+                    userRole === 'ADMIN' || 
+                    userRole === 'SUPER_ADMIN' || 
+                    userRole === 'TENANT_ADMIN';
+
+const esProductor = userRole === 'PRODUCTOR';
+const esSoloLectura = !puedeEditar && !esProductor;
+
+console.log("🔍 puedeEditar:", puedeEditar);
+console.log("🔍 esProductor:", esProductor);
+console.log("🔍 esSoloLectura:", esSoloLectura);
 ---
 
 <DashboardLayout title="Información Agroambiental">
@@ -14,6 +54,30 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
       <p class="text-on-surface-variant mt-2 max-w-3xl">
         Registro de variables ambientales complementarias asociadas a la finca.
       </p>
+      
+      <!-- Mensaje según rol -->
+      {esProductor && (
+        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
+          <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
+          <strong>Modo solo lectura:</strong> Como PRODUCTOR, solo puedes visualizar la información agroambiental. 
+          Para registrar o modificar datos, contacta a un TÉCNICO DE CAMPO o ADMINISTRADOR.
+        </div>
+      )}
+      
+      {esSoloLectura && (
+        <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-700">
+          <span class="material-symbols-outlined text-sm align-middle mr-1">lock</span>
+          <strong>Sin permisos de edición:</strong> Tu rol no tiene permisos para modificar esta información. 
+          Solo TÉCNICO DE CAMPO y ADMINISTRADOR pueden registrar o modificar datos.
+        </div>
+      )}
+      
+      {puedeEditar && (
+        <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+          <span class="material-symbols-outlined text-sm align-middle mr-1">edit</span>
+          <strong>Modo edición:</strong> Como <strong>{userRole}</strong>, puedes registrar y modificar la información agroambiental.
+        </div>
+      )}
     </section>
 
     <!-- FORMULARIO AGROAMBIENTAL -->
@@ -40,27 +104,35 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
             <span class="material-symbols-outlined text-sm">arrow_back</span>
             Volver
           </button>
-          <!-- BOTÓN GUARDAR (ÚNICO) -->
-          <button
-            id="guardar-infoagro"
-            class="px-4 py-2 bg-primary text-white rounded-xl hover:opacity-90 transition flex items-center gap-2"
-          >
-            <span class="material-symbols-outlined text-sm">save</span>
-            Guardar
-          </button>
-          <button
-            id="limpiar-infoagro"
-            class="px-4 py-2 bg-surface text-on-surface-variant border border-outline-variant rounded-xl hover:bg-surface-container-high transition flex items-center gap-2"
-          >
-            <span class="material-symbols-outlined text-sm">clear</span>
-            Limpiar
-          </button>
+          
+          <!-- BOTÓN GUARDAR - SOLO PARA TÉCNICO DE CAMPO Y ADMIN -->
+          {puedeEditar && (
+            <button
+              id="guardar-infoagro"
+              class="px-4 py-2 bg-primary text-white rounded-xl hover:opacity-90 transition flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-sm">save</span>
+              Guardar
+            </button>
+          )}
+          
+          <!-- BOTÓN LIMPIAR - SOLO PARA TÉCNICO DE CAMPO Y ADMIN -->
+          {puedeEditar && (
+            <button
+              id="limpiar-infoagro"
+              class="px-4 py-2 bg-surface text-on-surface-variant border border-outline-variant rounded-xl hover:bg-surface-container-high transition flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-sm">clear</span>
+              Limpiar
+            </button>
+          )}
         </div>
       </div>
 
       <div class="p-6">
         <p class="text-on-surface-variant mb-6">
           Complete la información agroambiental de la finca. Los campos marcados con <span class="text-error">*</span> son obligatorios.
+          {!puedeEditar && " (Solo lectura)"}
         </p>
 
         <form id="infoagro-form">
@@ -75,7 +147,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -89,7 +162,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -98,18 +172,28 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
               <label class="block mb-2 text-sm font-medium text-on-surface-variant">
                 Uso de Suelo <span class="text-error">*</span>
               </label>
-              <select
-                id="uso_suelo"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
-              >
-                <option value="">Seleccionar uso de suelo</option>
-                <option value="AGRICOLA">Agrícola</option>
-                <option value="FORESTAL">Forestal</option>
-                <option value="PASTOREO">Pastoreo</option>
-                <option value="MIXTO">Mixto</option>
-                <option value="CONSERVACION">Conservación</option>
-                <option value="OTRO">Otro</option>
-              </select>
+              {!puedeEditar ? (
+                <input
+                  id="uso_suelo_text"
+                  type="text"
+                  readonly
+                  placeholder="No especificado"
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface"
+                />
+              ) : (
+                <select
+                  id="uso_suelo"
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">Seleccionar uso de suelo</option>
+                  <option value="AGRICOLA">Agrícola</option>
+                  <option value="FORESTAL">Forestal</option>
+                  <option value="PASTOREO">Pastoreo</option>
+                  <option value="MIXTO">Mixto</option>
+                  <option value="CONSERVACION">Conservación</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              )}
             </div>
 
             <!-- Cobertura Forestal -->
@@ -117,18 +201,28 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
               <label class="block mb-2 text-sm font-medium text-on-surface-variant">
                 Cobertura Forestal <span class="text-error">*</span>
               </label>
-              <select
-                id="cobertura_forestal"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
-              >
-                <option value="">Seleccionar cobertura forestal</option>
-                <option value="BOSQUE_NATIVO">Bosque Nativo</option>
-                <option value="BOSQUE_PLANTADO">Bosque Plantado</option>
-                <option value="PASTIZAL">Pastizal</option>
-                <option value="CULTIVOS">Cultivos</option>
-                <option value="VEGETACION_SECUNDARIA">Vegetación Secundaria</option>
-                <option value="OTRO">Otro</option>
-              </select>
+              {!puedeEditar ? (
+                <input
+                  id="cobertura_forestal_text"
+                  type="text"
+                  readonly
+                  placeholder="No especificado"
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface"
+                />
+              ) : (
+                <select
+                  id="cobertura_forestal"
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">Seleccionar cobertura forestal</option>
+                  <option value="BOSQUE_NATIVO">Bosque Nativo</option>
+                  <option value="BOSQUE_PLANTADO">Bosque Plantado</option>
+                  <option value="PASTIZAL">Pastizal</option>
+                  <option value="CULTIVOS">Cultivos</option>
+                  <option value="VEGETACION_SECUNDARIA">Vegetación Secundaria</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              )}
             </div>
 
             <!-- Sistema de Producción -->
@@ -136,18 +230,28 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
               <label class="block mb-2 text-sm font-medium text-on-surface-variant">
                 Sistema de Producción <span class="text-error">*</span>
               </label>
-              <select
-                id="sistema_produccion"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
-              >
-                <option value="">Seleccionar sistema de producción</option>
-                <option value="ORGANICO">Orgánico</option>
-                <option value="CONVENCIONAL">Convencional</option>
-                <option value="AGROFORESTAL">Agroforestal</option>
-                <option value="SILVOPASTORIL">Silvopastoril</option>
-                <option value="TRADICIONAL">Tradicional</option>
-                <option value="OTRO">Otro</option>
-              </select>
+              {!puedeEditar ? (
+                <input
+                  id="sistema_produccion_text"
+                  type="text"
+                  readonly
+                  placeholder="No especificado"
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface"
+                />
+              ) : (
+                <select
+                  id="sistema_produccion"
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">Seleccionar sistema de producción</option>
+                  <option value="ORGANICO">Orgánico</option>
+                  <option value="CONVENCIONAL">Convencional</option>
+                  <option value="AGROFORESTAL">Agroforestal</option>
+                  <option value="SILVOPASTORIL">Silvopastoril</option>
+                  <option value="TRADICIONAL">Tradicional</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              )}
             </div>
 
             <!-- Biomasa Árboles -->
@@ -160,7 +264,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -174,7 +279,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -188,7 +294,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -202,7 +309,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                readonly={!puedeEditar}
+                class="w-full h-14 px-4 rounded-xl border border-outline-variant text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -242,76 +350,35 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
           <!-- Mensaje de estado -->
           <div id="infoagro-message" class="mt-6 hidden text-sm"></div>
 
-          <!-- ❌ ELIMINADO: Botón de acción duplicado -->
-          <!-- <div class="mt-6 flex gap-3 border-t border-outline-variant pt-6">
-            <button type="submit" ...>Guardar Información Agroambiental</button>
-          </div> -->
+          <!-- BOTÓN SIGUIENTE - IR A SATELITAL -->
+          <div id="siguiente-container" class="mt-6 pt-4 border-t border-outline-variant hidden">
+            <div class="flex items-center justify-between">
+              <div class="text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-sm align-middle mr-1">check_circle</span>
+                Datos agroambientales cargados correctamente
+              </div>
+              <a
+                id="ir-satelital"
+                href="#"
+                class="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition flex items-center gap-2"
+              >
+                <span class="material-symbols-outlined text-sm">satellite_alt</span>
+                Ir a Reporte Satelital
+                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+              </a>
+            </div>
+          </div>
+
         </form>
       </div>
     </section>
 
-    <!-- PUNTO GEOGRÁFICO -->
-    <section
-      class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden"
-    >
-      <div
-        class="px-6 py-4 border-b border-outline-variant flex items-center gap-3"
-      >
-        <span class="material-symbols-outlined text-primary">
-          location_on
-        </span>
-        <h2 class="text-xl font-semibold text-primary">
-          Linderos / Punto Geográfico
-        </h2>
-      </div>
-
-      <div class="p-6">
-        <div
-          class="h-[450px] rounded-xl overflow-hidden border border-outline-variant mb-6 bg-surface-container-low flex items-center justify-center"
-        >
-          <div class="text-center text-on-surface-variant">
-            <span class="material-symbols-outlined text-6xl">map</span>
-            <p class="mt-2">Mapa interactivo próximamente</p>
-            <p class="text-sm mt-1">Coordenadas de la finca cargadas automáticamente</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-              Latitud (WGS84)
-            </label>
-            <input
-              id="finca-latitud"
-              type="text"
-              readonly
-              placeholder="Cargando..."
-              class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
-            />
-          </div>
-          <div>
-            <label class="block mb-2 text-sm font-medium text-on-surface-variant">
-              Longitud (WGS84)
-            </label>
-            <input
-              id="finca-longitud"
-              type="text"
-              readonly
-              placeholder="Cargando..."
-              class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-surface-container-low"
-            />
-          </div>
-        </div>
-      </div>
-    </section>
   </div>
 </DashboardLayout>
 
 <script type="module">
   import { FincaService } from "/src/services/finca.service.ts";
   import { AgroambientalService } from "/src/services/InfoAgroambiental.ts";
-
-  console.log('🔍 [INFOAGRO] Iniciando script...');
 
   // DOM Elements
   const form = document.getElementById("infoagro-form");
@@ -321,26 +388,19 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
   const guardarBtn = document.getElementById("guardar-infoagro");
   const limpiarBtn = document.getElementById("limpiar-infoagro");
   const volverBtn = document.getElementById("volver-btn");
-  const latitudInput = document.getElementById("finca-latitud");
-  const longitudInput = document.getElementById("finca-longitud");
-
-  console.log('🔍 [INFOAGRO] Elementos encontrados:', {
-    form: !!form,
-    messageEl: !!messageEl,
-    guardarBtn: !!guardarBtn,
-    limpiarBtn: !!limpiarBtn,
-    volverBtn: !!volverBtn,
-    latitudInput: !!latitudInput,
-    longitudInput: !!longitudInput
-  });
+  const siguienteContainer = document.getElementById("siguiente-container");
+  const irSatelital = document.getElementById("ir-satelital");
 
   // Form fields
   const fields = {
     indice_shannon: document.getElementById("indice_shannon"),
     indice_simpson: document.getElementById("indice_simpson"),
     uso_suelo: document.getElementById("uso_suelo"),
+    uso_suelo_text: document.getElementById("uso_suelo_text"),
     cobertura_forestal: document.getElementById("cobertura_forestal"),
+    cobertura_forestal_text: document.getElementById("cobertura_forestal_text"),
     sistema_produccion: document.getElementById("sistema_produccion"),
+    sistema_produccion_text: document.getElementById("sistema_produccion_text"),
     biomasa_arboles: document.getElementById("biomasa_arboles"),
     biomasa_cafe: document.getElementById("biomasa_cafe"),
     hojarasca_mantillo: document.getElementById("hojarasca_mantillo"),
@@ -357,11 +417,60 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
   const urlParams = new URLSearchParams(window.location.search);
   const fincaId = urlParams.get("finca_id");
 
-  console.log('🔍 [INFOAGRO] token:', token ? '✅ Presente' : '❌ Ausente');
-  console.log('🔍 [INFOAGRO] fincaId:', fincaId);
+  // 🔥 DETERMINAR SI EL USUARIO PUEDE EDITAR (desde el servidor)
+  const puedeEditar = window.PUEDE_EDITAR === true || false;
+  const esProductor = window.ES_PRODUCTOR === true || false;
 
   // Variable para almacenar el dato_id si existe
   let datoId = null;
+  let datosCargados = false;
+
+  // Mapeo de valores para mostrar en modo solo lectura
+  const mapUsoSuelo = {
+    'AGRICOLA': 'Agrícola',
+    'FORESTAL': 'Forestal',
+    'PASTOREO': 'Pastoreo',
+    'MIXTO': 'Mixto',
+    'CONSERVACION': 'Conservación',
+    'OTRO': 'Otro'
+  };
+
+  const mapCoberturaForestal = {
+    'BOSQUE_NATIVO': 'Bosque Nativo',
+    'BOSQUE_PLANTADO': 'Bosque Plantado',
+    'PASTIZAL': 'Pastizal',
+    'CULTIVOS': 'Cultivos',
+    'VEGETACION_SECUNDARIA': 'Vegetación Secundaria',
+    'OTRO': 'Otro'
+  };
+
+  const mapSistemaProduccion = {
+    'ORGANICO': 'Orgánico',
+    'CONVENCIONAL': 'Convencional',
+    'AGROFORESTAL': 'Agroforestal',
+    'SILVOPASTORIL': 'Silvopastoril',
+    'TRADICIONAL': 'Tradicional',
+    'OTRO': 'Otro'
+  };
+
+  // Función para mostrar el botón "Siguiente" con el dato_id
+  function mostrarBotonSiguiente(mostrar, idAgroambiental = null) {
+    if (siguienteContainer) {
+      if (mostrar && fincaId) {
+        siguienteContainer.classList.remove('hidden');
+        let url = `/satelital?finca_id=${fincaId}`;
+        if (idAgroambiental) {
+          url += `&dato_id=${idAgroambiental}`;
+        }
+        if (irSatelital) {
+          irSatelital.href = url;
+          console.log('🔗 URL Satelital:', url);
+        }
+      } else {
+        siguienteContainer.classList.add('hidden');
+      }
+    }
+  }
 
   // Calcular Total Stock de Carbono
   function calcularTotalStock() {
@@ -375,13 +484,11 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     if (fields.total_stock_carbono) {
       fields.total_stock_carbono.value = total.toFixed(2);
     }
-    console.log('🔍 [INFOAGRO] Total Stock Carbono calculado:', total);
     return total;
   }
 
   // Mostrar mensaje
   function showMessage(text, isError = false) {
-    console.log('📢 [INFOAGRO] showMessage:', text, 'isError:', isError);
     if (!messageEl) return;
     messageEl.textContent = text;
     messageEl.classList.remove('hidden', 'text-error', 'text-success');
@@ -395,11 +502,10 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     }
   }
 
-  // Limpiar formulario
+  // Limpiar formulario (solo para usuarios con permiso)
   function limpiarFormulario() {
-    console.log('🧹 [INFOAGRO] Limpiando formulario');
     Object.values(fields).forEach(field => {
-      if (field && field.tagName === 'INPUT') {
+      if (field && field.tagName === 'INPUT' && !field.readOnly) {
         field.value = '';
       } else if (field && field.tagName === 'SELECT') {
         field.value = '';
@@ -428,38 +534,49 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 
   // Cargar variables dinámicas y datos existentes
   async function loadExistingData() {
-    console.log('🔍 [INFOAGRO] loadExistingData - fincaId:', fincaId, 'token:', !!token);
-    
     if (!fincaId || !token) {
-      console.warn('⚠️ [INFOAGRO] No hay fincaId o token, omitiendo carga');
       return;
     }
 
     try {
-      console.log('🔍 [INFOAGRO] Llamando a AgroambientalService.getByFinca...');
       const datos = await AgroambientalService.getByFinca(fincaId, token);
-      console.log('📋 [INFOAGRO] Datos agroambientales existentes:', datos);
       
+      console.log('📥 Datos agroambientales obtenidos:', datos);
+
       if (datos && datos.length > 0) {
         const dato = datos[0];
         datoId = dato.id;
-        console.log('✅ [INFOAGRO] Registro existente encontrado, datoId:', datoId);
+        datosCargados = true;
         
         // Llenar campos con datos existentes
         if (fields.indice_shannon) fields.indice_shannon.value = dato.indice_shannon ?? '';
         if (fields.indice_simpson) fields.indice_simpson.value = dato.indice_simpson ?? '';
-        if (fields.uso_suelo) fields.uso_suelo.value = dato.uso_suelo ?? '';
-        if (fields.cobertura_forestal) fields.cobertura_forestal.value = dato.cobertura_forestal ?? '';
-        if (fields.sistema_produccion) fields.sistema_produccion.value = dato.sistema_produccion ?? '';
         if (fields.biomasa_arboles) fields.biomasa_arboles.value = dato.biomasa_arboles ?? '';
         if (fields.biomasa_cafe) fields.biomasa_cafe.value = dato.biomasa_cafe ?? '';
         if (fields.hojarasca_mantillo) fields.hojarasca_mantillo.value = dato.hojarasca_mantillo ?? '';
         if (fields.carbono_organico_suelo) fields.carbono_organico_suelo.value = dato.carbono_organico_suelo ?? '';
         
+        // Si NO puede editar, mostrar los valores en texto
+        if (!puedeEditar) {
+          if (fields.uso_suelo_text) {
+            fields.uso_suelo_text.value = mapUsoSuelo[dato.uso_suelo] || dato.uso_suelo || 'No especificado';
+          }
+          if (fields.cobertura_forestal_text) {
+            fields.cobertura_forestal_text.value = mapCoberturaForestal[dato.cobertura_forestal] || dato.cobertura_forestal || 'No especificado';
+          }
+          if (fields.sistema_produccion_text) {
+            fields.sistema_produccion_text.value = mapSistemaProduccion[dato.sistema_produccion] || dato.sistema_produccion || 'No especificado';
+          }
+        } else {
+          // Si puede editar, seleccionar los valores en los selects
+          if (fields.uso_suelo) fields.uso_suelo.value = dato.uso_suelo ?? '';
+          if (fields.cobertura_forestal) fields.cobertura_forestal.value = dato.cobertura_forestal ?? '';
+          if (fields.sistema_produccion) fields.sistema_produccion.value = dato.sistema_produccion ?? '';
+        }
+        
         calcularTotalStock();
 
         if (dato.variables && dato.variables.length > 0) {
-          console.log('📋 [INFOAGRO] Variables dinámicas encontradas:', dato.variables.length);
           dynamicVariablesContainer.classList.remove('hidden');
           dynamicVariablesEl.innerHTML = dato.variables
             .map((v) => `
@@ -473,7 +590,8 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
                   name="variables[${v.nombre}]"
                   value="${v.valor || ''}"
                   placeholder="${v.nombre}"
-                  class="w-full h-14 px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
+                  ${!puedeEditar ? 'readonly' : ''}
+                  class="w-full h-14 px-4 rounded-xl border border-outline-variant ${!puedeEditar ? 'bg-surface-container-low' : 'bg-white'} text-on-surface focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
             `)
@@ -483,58 +601,44 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
           dynamicVariablesEl.innerHTML = '';
         }
         
-        showMessage('✅ Datos cargados correctamente. Puedes modificarlos y guardar.', false);
-        setTimeout(hideMessage, 3000);
+        // Mostrar el botón "Siguiente" con el dato_id
+        mostrarBotonSiguiente(true, datoId);
+        
+        if (puedeEditar) {
+          showMessage('✅ Datos cargados correctamente. Puedes modificarlos y guardar.', false);
+          setTimeout(hideMessage, 3000);
+        }
       } else {
-        console.log('ℹ️ [INFOAGRO] No hay datos agroambientales para esta finca. Creando nuevos.');
+        datosCargados = false;
         dynamicVariablesContainer.classList.add('hidden');
         dynamicVariablesEl.innerHTML = '';
+        if (!puedeEditar) {
+          if (fields.uso_suelo_text) fields.uso_suelo_text.value = 'No especificado';
+          if (fields.cobertura_forestal_text) fields.cobertura_forestal_text.value = 'No especificado';
+          if (fields.sistema_produccion_text) fields.sistema_produccion_text.value = 'No especificado';
+        }
+        mostrarBotonSiguiente(false);
       }
     } catch (error) {
-      console.error('❌ [INFOAGRO] Error en loadExistingData:', error);
+      console.error('❌ Error cargando datos:', error);
+      datosCargados = false;
       dynamicVariablesContainer.classList.add('hidden');
       dynamicVariablesEl.innerHTML = '';
+      if (!puedeEditar) {
+        if (fields.uso_suelo_text) fields.uso_suelo_text.value = 'Error al cargar';
+        if (fields.cobertura_forestal_text) fields.cobertura_forestal_text.value = 'Error al cargar';
+        if (fields.sistema_produccion_text) fields.sistema_produccion_text.value = 'Error al cargar';
+      }
+      mostrarBotonSiguiente(false);
     }
   }
 
-  // Cargar datos de la finca (solo coordenadas)
-  async function loadFincaData() {
-    console.log('🔍 [INFOAGRO] loadFincaData - fincaId:', fincaId);
-    
-    if (!fincaId) {
-      console.warn('⚠️ [INFOAGRO] No hay finca_id');
-      return;
-    }
-
-    if (!token) {
-      console.warn('⚠️ [INFOAGRO] No hay token');
-      return;
-    }
-
-    try {
-      console.log('🔍 [INFOAGRO] Llamando a FincaService.getById...');
-      const finca = await FincaService.getById(fincaId, token);
-      console.log('📋 [INFOAGRO] Finca cargada:', finca);
-      
-      if (latitudInput) {
-        latitudInput.value = finca.latitud?.toString() || 'No disponible';
-      }
-      if (longitudInput) {
-        longitudInput.value = finca.longitud?.toString() || 'No disponible';
-      }
-    } catch (error) {
-      console.error('❌ [INFOAGRO] Error cargando finca:', error);
-      if (latitudInput) latitudInput.value = 'Error al cargar';
-      if (longitudInput) longitudInput.value = 'Error al cargar';
-    }
-  }
-
-  // Guardar datos agroambientales
+  // Guardar datos agroambientales (solo para usuarios con permiso)
   async function guardarInfoAgro() {
-    console.log('💾 [INFOAGRO] guardarInfoAgro - Iniciando...');
-    console.log('🔍 [INFOAGRO] token:', token ? '✅ Presente' : '❌ Ausente');
-    console.log('🔍 [INFOAGRO] fincaId:', fincaId);
-    console.log('🔍 [INFOAGRO] datoId:', datoId);
+    if (!puedeEditar) {
+      showMessage('❌ No tienes permisos para modificar esta información.', true);
+      return;
+    }
 
     if (!token) {
       showMessage('❌ No se encontró token de autenticación.', true);
@@ -571,30 +675,28 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
       variables: getDynamicVariables()
     };
 
-    console.log('📤 [INFOAGRO] Enviando payload:', JSON.stringify(payload, null, 2));
+    console.log('📤 [INFOAGRO] Guardando payload:', payload);
 
     try {
       showMessage('💾 Guardando información agroambiental...', false);
       
       let result;
       if (datoId) {
-        console.log('🔍 [INFOAGRO] Actualizando registro existente con datoId:', datoId);
-        // Actualizar existente (solo pasar el payload sin finca_id ni variables)
         const updatePayload = { ...payload };
         delete updatePayload.finca_id;
         delete updatePayload.variables;
         
-        console.log('📤 [INFOAGRO] Update Payload:', JSON.stringify(updatePayload, null, 2));
         result = await AgroambientalService.update(datoId, updatePayload, token);
-        console.log('✅ [INFOAGRO] Datos actualizados:', result);
+        console.log('✅ [INFOAGRO] Actualizado:', result);
         showMessage('✅ Información agroambiental actualizada correctamente.', false);
       } else {
-        console.log('🔍 [INFOAGRO] Creando nuevo registro...');
         result = await AgroambientalService.create(payload, token);
-        console.log('✅ [INFOAGRO] Datos creados:', result);
         datoId = result.id;
+        console.log('✅ [INFOAGRO] Creado:', result);
         showMessage('✅ Información agroambiental creada correctamente.', false);
       }
+      
+      mostrarBotonSiguiente(true, datoId);
       
       setTimeout(hideMessage, 3000);
 
@@ -607,27 +709,21 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
   // --- EVENTO VOLVER ---
   if (volverBtn) {
     volverBtn.addEventListener('click', () => {
-      console.log('🔙 [INFOAGRO] Click en Volver');
       window.location.href = '/productorFinca';
     });
   }
 
-  // --- EVENTO GUARDAR ---
-  if (guardarBtn) {
-    console.log('✅ [INFOAGRO] guardarBtn encontrado, añadiendo event listener');
+  // --- EVENTO GUARDAR (solo para usuarios con permiso) ---
+  if (guardarBtn && puedeEditar) {
     guardarBtn.addEventListener('click', (e) => {
-      console.log('🖊️ [INFOAGRO] Click en Guardar (btn)');
       e.preventDefault();
       guardarInfoAgro();
     });
-  } else {
-    console.warn('⚠️ [INFOAGRO] guardarBtn NO encontrado');
   }
 
-  // --- EVENTO LIMPIAR ---
-  if (limpiarBtn) {
+  // --- EVENTO LIMPIAR (solo para usuarios con permiso) ---
+  if (limpiarBtn && puedeEditar) {
     limpiarBtn.addEventListener('click', () => {
-      console.log('🧹 [INFOAGRO] Click en Limpiar');
       if (confirm('¿Estás seguro de que quieres limpiar todos los campos?')) {
         limpiarFormulario();
         showMessage('🧹 Formulario limpiado', false);
@@ -635,9 +731,6 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
       }
     });
   }
-
-  // --- EVENTO SUBMIT (FORM) - ELIMINADO para evitar duplicados ---
-  // Ya no hay evento submit porque el botón de guardar está en el header
 
   // Recalcular total stock al cambiar campos relevantes
   const camposStock = ['biomasa_arboles', 'biomasa_cafe', 'hojarasca_mantillo', 'carbono_organico_suelo'];
@@ -650,12 +743,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
   });
 
   // Inicializar
-  console.log('🚀 [INFOAGRO] Inicializando...');
-  console.log('🔍 [INFOAGRO] finca_id recibido:', fincaId);
-  
-  // Cargar coordenadas de la finca
-  loadFincaData();
-  
-  // Cargar datos existentes si los hay
+  console.log('🚀 [INFOAGRO] Inicializando página...');
+  console.log('🔍 puedeEditar:', puedeEditar);
   loadExistingData();
 </script>
