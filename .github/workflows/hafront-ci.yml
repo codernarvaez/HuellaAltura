@@ -29,10 +29,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -47,7 +47,7 @@ jobs:
           named-caches-hash: ${{ hashFiles('HAFront/package.json', 'pants.toml', 'HAFront/BUILD') }}
 
       - name: Run HAFront CI via Pants
-        run: pants run HAFront:ci
+        run: "pants run HAFront:ci"
         env:
           CI: true
           PUBLIC_SITE_URL: http://127.0.0.1:4321
@@ -56,7 +56,7 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY || 'public-anon-key-ci' }}
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: hafront-dist
           path: HAFront/dist
