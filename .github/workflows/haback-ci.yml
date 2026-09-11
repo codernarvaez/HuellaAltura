@@ -93,7 +93,7 @@ jobs:
       - name: exped-service CI
         run: bash ./HABack/exped-service/pants_ci.sh
         env:
-          DATABASE_URL: "file:./.test_geoguard.db"
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
           SECRET_KEY: ci-test-secret
           INTERNAL_API_KEY: ci-test-internal
           SESSION_VALIDATION_ENABLED: "false"

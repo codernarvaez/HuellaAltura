@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-export DATABASE_URL="${DATABASE_URL:-file:./.test_geoguard.db}"
+export DATABASE_URL="${DATABASE_URL:-postgresql://test:test@127.0.0.1:5432/test}"
 export SECRET_KEY="${SECRET_KEY:-ci-test-secret}"
 export INTERNAL_API_KEY="${INTERNAL_API_KEY:-ci-test-internal}"
 export SESSION_VALIDATION_ENABLED="${SESSION_VALIDATION_ENABLED:-false}"
