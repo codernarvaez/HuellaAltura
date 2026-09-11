@@ -6,6 +6,6 @@
     "ci": "./pants_ci.sh"
   },
   "devDependencies": {
-    "prisma": "^5.22.0"
+    "prisma": "5.17.0"
   }
 }

@@ -66,10 +66,6 @@ jobs:
             HABack/auth-service/requirements*.txt
             HABack/exped-service/requirements*.txt
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-
       - name: Setup Pants
         uses: pantsbuild/actions/init-pants@v10
         with:
@@ -81,8 +77,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r HABack/auth-service/requirements-dev.txt
           pip install -r HABack/exped-service/requirements-dev.txt
-          npm install --prefix HABack/auth-service --no-save prisma@5.22.0
-          npm install --prefix HABack/exped-service --no-save prisma@5.22.0
 
       - name: Pants list HABack targets
         run: "pants list HABack::"
