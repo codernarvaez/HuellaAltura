@@ -87,20 +87,20 @@ jobs:
           npm install --prefix HABack/auth-service --no-save prisma@5.22.0
           npm install --prefix HABack/exped-service --no-save prisma@5.22.0
 
-      - name: Pants — list HABack targets
-        run: pants list HABack::
+      - name: Pants list HABack targets
+        run: "pants list HABack::"
 
       # Auth tests mock Prisma I/O; generate still needs a parseable DATABASE_URL.
-      - name: Pants — auth-service CI
-        run: pants run HABack/auth-service:ci
+      - name: Pants auth-service CI
+        run: "pants run HABack/auth-service:ci"
         env:
           DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
           SECRET_KEY: ci-test-secret
           INTERNAL_API_KEY: ci-test-internal
 
       # Exped uses SQLite file URL for isolated CI (no Postgres service required).
-      - name: Pants — exped-service CI
-        run: pants run HABack/exped-service:ci
+      - name: Pants exped-service CI
+        run: "pants run HABack/exped-service:ci"
         env:
           DATABASE_URL: file:./HABack/exped-service/.test_geoguard.db
           SECRET_KEY: ci-test-secret
