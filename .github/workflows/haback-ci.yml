@@ -51,12 +51,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [pip-audit-auth, pip-audit-exped]
-    env:
-      # Prefer service-specific secrets; fall back to a shared Neon test branch URL.
-      # Never use NEON_PROD_DB_URL / production DATABASE_URL here.
-      NEON_TEST_DB_URL_AUTH: ${{ secrets.NEON_TEST_DB_URL_AUTH || secrets.NEON_TEST_DB_URL || secrets.NEON_TEST_DATABASE_URL }}
-      NEON_TEST_DB_URL_EXPED: ${{ secrets.NEON_TEST_DB_URL_EXPED || secrets.NEON_TEST_DB_URL || secrets.NEON_TEST_DATABASE_URL }}
-
     steps:
       - uses: actions/checkout@v5
 
@@ -68,18 +62,14 @@ jobs:
             HABack/auth-service/requirements*.txt
             HABack/exped-service/requirements*.txt
 
-      - name: Require Neon test database secrets
+      - name: Require Neon test database secret
+        env:
+          NEON_TEST_DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
         run: |
-          missing=0
-          if [ -z "${NEON_TEST_DB_URL_AUTH}" ]; then
-            echo "::error::Missing secret NEON_TEST_DB_URL_AUTH (or NEON_TEST_DB_URL / NEON_TEST_DATABASE_URL)"
-            missing=1
+          if [ -z "${NEON_TEST_DATABASE_URL}" ]; then
+            echo "::error::Missing GitHub secret NEON_TEST_DATABASE_URL"
+            exit 1
           fi
-          if [ -z "${NEON_TEST_DB_URL_EXPED}" ]; then
-            echo "::error::Missing secret NEON_TEST_DB_URL_EXPED (or NEON_TEST_DB_URL / NEON_TEST_DATABASE_URL)"
-            missing=1
-          fi
-          exit "$missing"
 
       - name: Setup Pants
         uses: pantsbuild/actions/init-pants@v10
@@ -96,12 +86,12 @@ jobs:
       - name: Pants list HABack targets
         run: "pants list HABack::"
 
-      # Run CI scripts on the host PATH (Pants sandbox hides host tooling).
-      # DATABASE_URL is the Neon *test* branch only — never production.
+      # Host PATH: Pants sandbox hides ruff/pytest/prisma.
+      # NEON_TEST_DATABASE_URL only — never DATABASE_URL / NEON_PROD_* on PRs.
       - name: auth-service CI
         run: bash ./HABack/auth-service/pants_ci.sh
         env:
-          DATABASE_URL: ${{ env.NEON_TEST_DB_URL_AUTH }}
+          DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
           SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'ci-test-secret' }}
           INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
           PRISMA_DB_PUSH: "1"
@@ -109,7 +99,7 @@ jobs:
       - name: exped-service CI
         run: bash ./HABack/exped-service/pants_ci.sh
         env:
-          DATABASE_URL: ${{ env.NEON_TEST_DB_URL_EXPED }}
+          DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
           SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'ci-test-secret' }}
           INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
           SESSION_VALIDATION_ENABLED: "false"
@@ -157,11 +147,6 @@ jobs:
           fi
           if [ -z "${NEON_PROD_DB_URL_EXPED}" ]; then
             echo "::error::Missing secret NEON_PROD_DB_URL_EXPED (or NEON_PROD_DB_URL / DATABASE_URL)"
-            missing=1
-          fi
-          # Refuse if prod URL accidentally equals a known test secret name injection.
-          if [ "${NEON_PROD_DB_URL_AUTH}" = "${{ secrets.NEON_TEST_DB_URL }}" ] && [ -n "${{ secrets.NEON_TEST_DB_URL }}" ]; then
-            echo "::error::NEON_PROD_DB_URL_AUTH must not equal NEON_TEST_DB_URL"
             missing=1
           fi
           exit "$missing"

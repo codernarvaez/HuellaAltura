@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # Pants-friendly CI for exped-service (Prisma + ruff + pytest + compileall).
+# DATABASE_URL must be injected (GitHub secret NEON_TEST_DATABASE_URL). Never echo it.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  if [[ "${CI:-}" == "true" ]]; then
-    echo "ERROR: DATABASE_URL is required in CI (inject Neon test branch URL)." >&2
-    exit 1
-  fi
-  export DATABASE_URL="postgresql://test:test@127.0.0.1:5432/test"
+  echo "ERROR: DATABASE_URL is not set. Inject secrets.NEON_TEST_DATABASE_URL (Neon test branch only)." >&2
+  exit 1
 fi
+
+case "${DATABASE_URL}" in
+  *sslmode=*) ;;
+  *\?*) DATABASE_URL="${DATABASE_URL}&sslmode=require" ;;
+  *) DATABASE_URL="${DATABASE_URL}?sslmode=require" ;;
+esac
+export DATABASE_URL
 
 export SECRET_KEY="${SECRET_KEY:-ci-test-secret}"
 export INTERNAL_API_KEY="${INTERNAL_API_KEY:-ci-test-internal}"
@@ -23,7 +28,7 @@ echo "==> [exped-service] prisma generate"
 python -m prisma generate
 
 if [[ "${PRISMA_DB_PUSH:-0}" == "1" ]]; then
-  echo "==> [exped-service] prisma db push (test schema sync)"
+  echo "==> [exped-service] prisma db push"
   python -m prisma db push
 fi
 
