@@ -96,6 +96,8 @@ jobs:
           INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
           PRISMA_DB_PUSH: "1"
 
+      # Do not prisma db push here: auth and exped schemas cannot share one Neon URL.
+      # Set NEON_TEST_DATABASE_URL_EXPED to a second Neon database to enable schema sync.
       - name: exped-service CI
         run: bash ./HABack/exped-service/pants_ci.sh
         env:
@@ -103,7 +105,7 @@ jobs:
           SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'ci-test-secret' }}
           INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
           SESSION_VALIDATION_ENABLED: "false"
-          PRISMA_DB_PUSH: "1"
+          PRISMA_DB_PUSH: "0"
 
   # -------------------------------------------------------------------------
   # Production schema deploy (Neon main branch)

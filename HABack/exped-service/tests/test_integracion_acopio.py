@@ -12,8 +12,9 @@ import uuid
 
 import pytest
 
-TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://postgres@localhost:5432/geoguard_test")
-os.environ["DATABASE_URL"] = TEST_DB_URL
+TEST_DB_URL = os.environ.get("TEST_DATABASE_URL") or ""
+if TEST_DB_URL:
+    os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ["SESSION_VALIDATION_ENABLED"] = "false"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-ci")
 
@@ -26,6 +27,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 def _hay_bd() -> bool:
     try:
+        if not TEST_DB_URL:
+            return False
         if not db.is_connected():
             db.connect()
         db.muestra.count()

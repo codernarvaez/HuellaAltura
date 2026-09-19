@@ -10,8 +10,8 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-ci")
 os.environ.setdefault("INTERNAL_API_KEY", "test-internal-key")
 os.environ.setdefault("SESSION_VALIDATION_ENABLED", "false")
 
-from app.database import db  # noqa: E402
 from app.main import app  # noqa: E402
+from prisma import Prisma
 
 
 @pytest.fixture
@@ -20,10 +20,11 @@ def client():
 
     Lifespan always calls db.connect(); mock it so /health and OpenAPI tests
     work in CI without Postgres (integration suites bring their own client).
+    Prisma 0.15 client methods are read-only on the instance, so patch the class.
     """
     with (
-        patch.object(db, "connect"),
-        patch.object(db, "disconnect"),
+        patch.object(Prisma, "connect"),
+        patch.object(Prisma, "disconnect"),
     ):
         with TestClient(app) as test_client:
             yield test_client

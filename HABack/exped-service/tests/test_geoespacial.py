@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 import pytest
 from app.main import app
@@ -10,7 +11,10 @@ from app.routers.geoespacial import (
     parse_kml,
 )
 from fastapi.testclient import TestClient
+from prisma import Prisma
 
+patch.object(Prisma, "connect").start()
+patch.object(Prisma, "disconnect").start()
 client = TestClient(app)
 
 
