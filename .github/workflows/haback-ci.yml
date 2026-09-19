@@ -46,14 +46,16 @@ jobs:
           python -m pip install --upgrade pip pip-audit
           pip-audit -r HABack/exped-service/requirements.txt --strict --desc on
 
-  # Note: GitHub Dependency review requires Dependency graph (Advanced Security /
-  # public-repo graph). This repo uses pip-audit above instead.
-
   pants:
     name: Pants CI (HABack)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [pip-audit-auth, pip-audit-exped]
+    env:
+      # Prefer service-specific secrets; fall back to a shared Neon test branch URL.
+      # Never use NEON_PROD_DB_URL / production DATABASE_URL here.
+      NEON_TEST_DB_URL_AUTH: ${{ secrets.NEON_TEST_DB_URL_AUTH || secrets.NEON_TEST_DB_URL || secrets.NEON_TEST_DATABASE_URL }}
+      NEON_TEST_DB_URL_EXPED: ${{ secrets.NEON_TEST_DB_URL_EXPED || secrets.NEON_TEST_DB_URL || secrets.NEON_TEST_DATABASE_URL }}
 
     steps:
       - uses: actions/checkout@v5
@@ -65,6 +67,19 @@ jobs:
           cache-dependency-path: |
             HABack/auth-service/requirements*.txt
             HABack/exped-service/requirements*.txt
+
+      - name: Require Neon test database secrets
+        run: |
+          missing=0
+          if [ -z "${NEON_TEST_DB_URL_AUTH}" ]; then
+            echo "::error::Missing secret NEON_TEST_DB_URL_AUTH (or NEON_TEST_DB_URL / NEON_TEST_DATABASE_URL)"
+            missing=1
+          fi
+          if [ -z "${NEON_TEST_DB_URL_EXPED}" ]; then
+            echo "::error::Missing secret NEON_TEST_DB_URL_EXPED (or NEON_TEST_DB_URL / NEON_TEST_DATABASE_URL)"
+            missing=1
+          fi
+          exit "$missing"
 
       - name: Setup Pants
         uses: pantsbuild/actions/init-pants@v10
@@ -81,19 +96,97 @@ jobs:
       - name: Pants list HABack targets
         run: "pants list HABack::"
 
-      # Run CI scripts directly so ruff/pytest/prisma from PATH are available.
-      # (pants run sandboxes the process and often hides host tooling.)
+      # Run CI scripts on the host PATH (Pants sandbox hides host tooling).
+      # DATABASE_URL is the Neon *test* branch only — never production.
       - name: auth-service CI
         run: bash ./HABack/auth-service/pants_ci.sh
         env:
-          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
-          SECRET_KEY: ci-test-secret
-          INTERNAL_API_KEY: ci-test-internal
+          DATABASE_URL: ${{ env.NEON_TEST_DB_URL_AUTH }}
+          SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'ci-test-secret' }}
+          INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
+          PRISMA_DB_PUSH: "1"
 
       - name: exped-service CI
         run: bash ./HABack/exped-service/pants_ci.sh
         env:
-          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
-          SECRET_KEY: ci-test-secret
-          INTERNAL_API_KEY: ci-test-internal
+          DATABASE_URL: ${{ env.NEON_TEST_DB_URL_EXPED }}
+          SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'ci-test-secret' }}
+          INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
           SESSION_VALIDATION_ENABLED: "false"
+          PRISMA_DB_PUSH: "1"
+
+  # -------------------------------------------------------------------------
+  # Production schema deploy (Neon main branch)
+  # -------------------------------------------------------------------------
+  # Runs only on push to main/master after Pants CI is green.
+  # Uses NEON_PROD_DB_URL_* — never the test URL. Optional GitHub Environment
+  # "production" enables required reviewers / wait timers in repo settings.
+  neon-migrate-prod:
+    name: Neon schema deploy (production)
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: [pants]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    concurrency:
+      group: haback-neon-prod-migrate
+      cancel-in-progress: false
+    env:
+      NEON_PROD_DB_URL_AUTH: ${{ secrets.NEON_PROD_DB_URL_AUTH || secrets.NEON_PROD_DB_URL || secrets.DATABASE_URL }}
+      NEON_PROD_DB_URL_EXPED: ${{ secrets.NEON_PROD_DB_URL_EXPED || secrets.NEON_PROD_DB_URL || secrets.DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            HABack/auth-service/requirements*.txt
+            HABack/exped-service/requirements*.txt
+
+      - name: Require Neon production database secrets
+        run: |
+          missing=0
+          if [ -z "${NEON_PROD_DB_URL_AUTH}" ]; then
+            echo "::error::Missing secret NEON_PROD_DB_URL_AUTH (or NEON_PROD_DB_URL / DATABASE_URL)"
+            missing=1
+          fi
+          if [ -z "${NEON_PROD_DB_URL_EXPED}" ]; then
+            echo "::error::Missing secret NEON_PROD_DB_URL_EXPED (or NEON_PROD_DB_URL / DATABASE_URL)"
+            missing=1
+          fi
+          # Refuse if prod URL accidentally equals a known test secret name injection.
+          if [ "${NEON_PROD_DB_URL_AUTH}" = "${{ secrets.NEON_TEST_DB_URL }}" ] && [ -n "${{ secrets.NEON_TEST_DB_URL }}" ]; then
+            echo "::error::NEON_PROD_DB_URL_AUTH must not equal NEON_TEST_DB_URL"
+            missing=1
+          fi
+          exit "$missing"
+
+      - name: Install Prisma Python clients
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r HABack/auth-service/requirements.txt
+          pip install -r HABack/exped-service/requirements.txt
+
+      - name: auth-service prisma generate + db push (production)
+        working-directory: HABack/auth-service
+        env:
+          DATABASE_URL: ${{ env.NEON_PROD_DB_URL_AUTH }}
+        run: |
+          set -euo pipefail
+          python -m prisma generate
+          # No --accept-data-loss on production. Fail closed if destructive.
+          python -m prisma db push
+
+      - name: exped-service prisma generate + db push (production)
+        working-directory: HABack/exped-service
+        env:
+          DATABASE_URL: ${{ env.NEON_PROD_DB_URL_EXPED }}
+        run: |
+          set -euo pipefail
+          python -m prisma generate
+          python -m prisma db push
