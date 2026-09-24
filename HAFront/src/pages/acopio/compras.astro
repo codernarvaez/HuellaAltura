@@ -254,7 +254,6 @@ const ordenPorMuestraStr = JSON.stringify(ordenPorMuestra).replace(/</g, '\\u003
                             </div>
 
                             {yaProcesada ? (
-                                <!-- ✅ YA TIENE ORDEN DE COMPRA -->
                                 <div class="estado-analisis-wrap mt-3 border-t border-slate-100 pt-3">
                                     <div class="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-2 py-1.5">
                                         <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-on-surface-variant"></i>
@@ -267,7 +266,6 @@ const ordenPorMuestraStr = JSON.stringify(ordenPorMuestra).replace(/</g, '\\u003
                                     </p>
                                 </div>
                             ) : (
-                                <!-- Estado de análisis (solo si aún no tiene orden) -->
                                 <div class="estado-analisis-wrap mt-3 border-t border-slate-100 pt-3">
                                     <div class="flex items-center gap-2 text-xs">
                                         <span class="text-on-surface-variant">🔬 Físico:</span>

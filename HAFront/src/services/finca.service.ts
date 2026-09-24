@@ -84,6 +84,24 @@ function authHeaders(token?: string) {
   return headers;
 }
 
+async function readJson(res: Response): Promise<any> {
+  const raw = await res.text();
+  const trimmed = raw.trim();
+  if (!trimmed) return {};
+  if (trimmed.startsWith("<!") || trimmed.startsWith("<html")) {
+    throw new Error(
+      `exped-service devolvió HTML (${res.status}). Suele ser cold start en Render: espera ~30–60 s y recarga.`,
+    );
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    throw new Error(
+      `exped-service respondió ${res.status} con cuerpo no JSON: ${trimmed.slice(0, 160)}`,
+    );
+  }
+}
+
 function handleResponse<T>(res: Response, data: any): T {
   if (!res.ok) {
     const errorMsg = data.detail 
@@ -115,7 +133,7 @@ export class FincaService {
       headers: authHeaders(token) 
     });
     
-    const data = await res.json();
+    const data = await readJson(res);
     console.log('📡 list Response:', data);
     return handleResponse(res, data);
   }
@@ -129,7 +147,7 @@ export class FincaService {
       headers: authHeaders(token) 
     });
     
-    const data = await res.json();
+    const data = await readJson(res);
     console.log('📡 getByUsuarioId Response:', data);
     return handleResponse(res, data);
   }

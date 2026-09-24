@@ -6,6 +6,29 @@
     "HAFront",
     "HAMobile"
   ],
+  "overrides": {
+    "ws": "8.21.3",
+    "postcss": "8.5.28",
+    "nanoid": "3.3.19",
+    "js-yaml": "4.3.2",
+    "smol-toml": "1.9.0",
+    "svgo": "4.1.0",
+    "sharp": "0.35.4",
+    "devalue": "5.9.1",
+    "fast-uri": "3.1.8",
+    "esbuild": "0.28.1",
+    "brace-expansion": "2.1.7",
+    "shell-quote": "1.10.0",
+    "image-size": "2.0.4",
+    "@xmldom/xmldom": "0.9.12",
+    "browserslist": "4.29.1",
+    "dompurify": "3.4.16",
+    "yaml": "2.8.3",
+    "uuid": "11.1.1",
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  },
   "scripts": {
     "build": "npm run build:hafront && npm run build:hamobile",
     "build:hafront": "npm -w hafront run build",
@@ -31,5 +54,8 @@
     "dev:hamobile": "npm -w hamobile run dev",
     "preview:hafront": "npm -w hafront run preview",
     "pants:list": "pants list ::"
+  },
+  "dependencies": {
+    "js-yaml": "4.3.2"
   }
 }
