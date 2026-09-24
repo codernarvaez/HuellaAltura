@@ -15,7 +15,7 @@ ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD")
 # Cuentas demo por rol (una por cada rol EUDR/acopio). Activar con SEED_DEMO_USERS=1.
 SEED_DEMO_USERS = os.getenv("SEED_DEMO_USERS", "").lower() in {"1", "true", "yes"}
 SEED_DEMO_PASSWORD = os.getenv("SEED_DEMO_PASSWORD")
-SEED_DEMO_DOMAIN = os.getenv("SEED_DEMO_DOMAIN", "demo.huellaaltura.local")
+SEED_DEMO_DOMAIN = os.getenv("SEED_DEMO_DOMAIN", "demo.huellaaltura.com")
 
 ROLES_DATA = [
     {
