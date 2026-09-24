@@ -68,21 +68,42 @@ export class AuthService {
       body: JSON.stringify(credentials),
     });
 
-    const data = await response.json();
+    const raw = await response.text();
+    let data: Record<string, unknown> = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      if (response.status === 429 || /too many requests/i.test(raw)) {
+        throw new Error(
+          "El servidor o la base de datos están limitando peticiones (429). Espera 30–60 s e inténtalo de nuevo.",
+        );
+      }
+      if (response.status >= 500 || /internal\s*server\s*error/i.test(raw)) {
+        throw new Error(
+          "auth-service falló al consultar la base (posible schema desfasado). Revisa DATABASE_URL y prisma db push.",
+        );
+      }
+      throw new Error(
+        raw?.trim()
+          ? `auth-service respondió ${response.status}: ${raw.trim().slice(0, 180)}`
+          : `auth-service respondió ${response.status} sin cuerpo`,
+      );
+    }
 
     if (!response.ok) {
-  const detail = data.detail;
-  if (typeof detail === "string") {
-    throw new Error(detail);
-  } else if (Array.isArray(detail)) {
-    // Error 422: validación de FastAPI
-    const msgs = detail.map((e: any) => e.msg || JSON.stringify(e)).join(", ");
-    throw new Error(`Datos inválidos: ${msgs}`);
-  }
-  throw new Error(JSON.stringify(detail) || "Error al iniciar sesión");
-}
+      const detail = data.detail;
+      if (typeof detail === "string") {
+        throw new Error(detail);
+      } else if (Array.isArray(detail)) {
+        const msgs = detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join(", ");
+        throw new Error(`Datos inválidos: ${msgs}`);
+      }
+      throw new Error(
+        (typeof detail === "string" ? detail : JSON.stringify(detail)) || "Error al iniciar sesión",
+      );
+    }
 
-    return data;
+    return data as unknown as LoginResponse;
   }
 
   static async loginWithFirebase(idToken: string): Promise<LoginResponse> {

@@ -19,12 +19,20 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (e) {
     console.error("Login error:", e);
-    return new Response(JSON.stringify({
-      message: "Error de autenticación",
-      detail: e instanceof Error ? e.message : String(e)
-    }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    const detail = e instanceof Error ? e.message : String(e);
+    const upstream =
+      /auth-service falló|schema desfasado|429|limitando peticiones|respondió 5\d\d/i.test(
+        detail,
+      );
+    return new Response(
+      JSON.stringify({
+        message: upstream ? "Error del servidor de autenticación" : "Error de autenticación",
+        detail,
+      }),
+      {
+        status: upstream ? 502 : 401,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 };
