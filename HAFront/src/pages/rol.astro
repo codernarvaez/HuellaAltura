@@ -10,19 +10,18 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
     <section class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
 
       <div>
-        <h1 class="text-3xl font-bold text-primary">
-          Gestión de Roles
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Administración</p>
+        <h1 class="mt-1 font-display text-3xl text-primary md:text-4xl">
+          Gestión de roles
         </h1>
-
-        <p class="text-on-surface-variant mt-2 max-w-3xl">
-          Define y administra los niveles de acceso para el personal de
-          Huella de Altura.
+        <p class="mt-2 max-w-3xl text-on-surface-variant">
+          Define y administra los niveles de acceso para el personal de Huella de Altura.
         </p>
       </div>
 
       <button
         id="new-role-button"
-        class="bg-primary text-white px-5 py-3 rounded-xl flex items-center gap-2 hover:opacity-90 transition"
+        class="ha-btn-primary"
         type="button"
       >
         <span class="material-symbols-outlined">

@@ -22,7 +22,6 @@ import Footer from "../components/Footer.astro";
 </Layout>
 
 <script is:inline>
-  // Scroll reveal
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -35,7 +34,7 @@ import Footer from "../components/Footer.astro";
     { threshold: 0.1 }
   );
 
-  document.querySelectorAll("section").forEach((section) => {
+  document.querySelectorAll("main > section:not(#inicio)").forEach((section) => {
     section.classList.add("transition-all", "duration-700", "opacity-0", "translate-y-10");
     observer.observe(section);
   });

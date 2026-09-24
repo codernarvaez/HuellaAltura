@@ -12,6 +12,11 @@ from prisma import Prisma
 ADMIN_EMAIL = os.getenv("SEED_ADMIN_EMAIL")
 ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD")
 
+# Cuentas demo por rol (una por cada rol EUDR/acopio). Activar con SEED_DEMO_USERS=1.
+SEED_DEMO_USERS = os.getenv("SEED_DEMO_USERS", "").lower() in {"1", "true", "yes"}
+SEED_DEMO_PASSWORD = os.getenv("SEED_DEMO_PASSWORD")
+SEED_DEMO_DOMAIN = os.getenv("SEED_DEMO_DOMAIN", "demo.huellaaltura.local")
+
 ROLES_DATA = [
     {
         "name": SUPER_ADMIN,
@@ -54,6 +59,10 @@ ROLES_DATA = [
         "description": "Opera el ingreso a bodega por código QR, el pesaje y el proceso de trilla.",
     },
 ]
+
+
+def _demo_email(role_name: str) -> str:
+    return f"{role_name.lower()}@{SEED_DEMO_DOMAIN}"
 
 
 async def main():
@@ -114,6 +123,41 @@ async def main():
             )
         else:
             print(f"Administrador {ADMIN_EMAIL} sincronizado con la contraseña del entorno.")
+
+    if SEED_DEMO_USERS:
+        if not SEED_DEMO_PASSWORD:
+            print(
+                "SEED_DEMO_USERS activo pero falta SEED_DEMO_PASSWORD; se omiten cuentas demo.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"Sincronizando cuentas demo por rol (@{SEED_DEMO_DOMAIN})...")
+            hashed_demo = get_password_hash(SEED_DEMO_PASSWORD)
+            created: list[str] = []
+            for role_name in EUDR_ROLES:
+                role = await db.role.find_unique(where={"name": role_name})
+                if not role:
+                    print(f"  · rol {role_name} no encontrado; se omite", file=sys.stderr)
+                    continue
+                email = _demo_email(role_name)
+                await db.user.upsert(
+                    where={"email": email},
+                    data={
+                        "create": {
+                            "email": email,
+                            "password_hash": hashed_demo,
+                            "role_id": role.id,
+                        },
+                        "update": {
+                            "password_hash": hashed_demo,
+                            "role_id": role.id,
+                        },
+                    },
+                )
+                created.append(f"{email} → {role_name}")
+            print("Cuentas demo listas (misma contraseña SEED_DEMO_PASSWORD):")
+            for line in created:
+                print(f"  · {line}")
 
     await db.disconnect()
     print(f"Seed completado. Roles activos: {', '.join(EUDR_ROLES)}")

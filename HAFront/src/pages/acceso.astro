@@ -4,8 +4,6 @@ import { AUTH_API_URL } from "../services/Api_Base";
 import { isAdminRole } from "../services/roles";
 export const prerender = false;
 
-// Si ya hay sesión válida (el middleware ya la validó contra el backend),
-// no tiene sentido mostrarle el login de nuevo.
 if (Astro.locals.user) {
   const isAdmin = isAdminRole(Astro.locals.user.role?.name);
   return Astro.redirect(isAdmin ? "/expedientes" : "/productorFinca");
@@ -20,195 +18,173 @@ const firebaseConfigured = Boolean(
 );
 ---
 
-<Layout title="Acceso a la Plataforma — Huella de Altura">
-  <header class="border-b border-outline-variant/50 bg-white/90 backdrop-blur-xl">
-    <nav class="max-w-container-max mx-auto px-6 flex justify-between items-center h-20">
-      <a class="text-headline-md font-display tracking-tighter text-primary flex items-center" href="/">
-        <span class="material-symbols-outlined mr-2 text-primary" style="font-variation-settings: 'FILL' 1;">landscape</span>
-        Huella de Altura
-      </a>
-      <a class="text-on-surface-variant font-label-md text-label-md hover:text-secondary transition-colors" href="/">
-        Volver al inicio
-      </a>
-    </nav>
-  </header>
+<Layout title="Acceso — Huella de Altura">
+  <div class="min-h-screen grid lg:grid-cols-2">
+    <!-- Panel de marca -->
+    <aside class="relative hidden lg:flex flex-col justify-between p-12 ha-atmosphere-dark ha-grain text-white overflow-hidden">
+      <div class="relative z-10">
+        <a href="/" class="inline-flex items-center gap-2 text-white/95">
+          <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">landscape</span>
+          <span class="font-display text-2xl tracking-tight">Huella de Altura</span>
+        </a>
+      </div>
 
-  <main class="min-h-[calc(100vh-5rem)] bg-surface-container-low flex items-center justify-center px-6 py-12">
-    <div class="w-full max-w-md">
-      <div class="text-center mb-8">
-        <span class="inline-block px-4 py-1 bg-secondary-container text-on-secondary-container text-label-sm font-label-sm rounded-full mb-4">
-          Plataforma Agrotech
-        </span>
-        <h1 class="font-headline-lg text-headline-lg text-primary">Acceso a la Plataforma</h1>
-        <p class="text-on-surface-variant mt-2">
-          Regístrate o inicia sesión para digitalizar y certificar tu producción.
+      <div class="relative z-10 max-w-md ha-fade-up">
+        <p class="text-sm uppercase tracking-[0.2em] text-secondary-container/90 mb-4">Certificación EUDR</p>
+        <h1 class="font-display text-4xl xl:text-5xl leading-[1.08] text-white mb-5">
+          Origen verificado desde la finca hasta el mercado.
+        </h1>
+        <p class="text-white/75 text-lg leading-relaxed">
+          Digitaliza productor, finca y trazabilidad con una plataforma pensada para café de altura y cumplimiento internacional.
         </p>
       </div>
 
-      {error === "auth" && (
-        <div class="mb-6 rounded-xl border border-error/30 bg-error-container px-4 py-3 text-sm text-on-error-container">
-          No se pudo verificar tu sesión. Inicia sesión de nuevo.
+      <div class="relative z-10 flex gap-8 text-sm text-white/65 ha-fade-up-delay">
+        <div>
+          <p class="font-display text-2xl text-white">EUDR</p>
+          <p>Listo para due diligence</p>
         </div>
-      )}
-
-      <div id="auth-alert" class="hidden mb-6 rounded-xl border px-4 py-3 text-sm" role="alert"></div>
-
-      <div class="bg-white border border-outline-variant rounded-2xl shadow-xl p-8 space-y-6">
-        <div class="grid grid-cols-2 gap-2 p-1 bg-surface-container rounded-xl">
-          <button
-            type="button"
-            id="tab-register"
-            class="auth-tab rounded-lg px-4 py-2 font-label-md text-label-md transition-all bg-primary text-on-primary"
-          >
-            Registrarse
-          </button>
-          <button
-            type="button"
-            id="tab-login"
-            class="auth-tab rounded-lg px-4 py-2 font-label-md text-label-md transition-all text-on-surface-variant hover:text-primary"
-          >
-            Iniciar sesión
-          </button>
+        <div>
+          <p class="font-display text-2xl text-white">Geo</p>
+          <p>Polígonos y satélite</p>
         </div>
-
-        <div class="space-y-3">
-          <button
-            type="button"
-            id="btn-google"
-            class="w-full flex items-center justify-center gap-3 border border-outline-variant rounded-xl px-4 py-3 font-label-md text-label-md hover:bg-surface-container-low transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!firebaseConfigured}
-            title={firebaseConfigured ? "Continuar con Google" : "Configura Firebase en HAFront/.env"}
-          >
-            <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"></path>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
-            </svg>
-            Continuar con Google
-          </button>
-
-          <button
-            type="button"
-            id="btn-metamask"
-            class="w-full flex items-center justify-center gap-3 border border-outline-variant rounded-xl px-4 py-3 font-label-md text-label-md opacity-50 cursor-not-allowed"
-            disabled
-            title="Próximamente"
-          >
-            <span class="material-symbols-outlined text-secondary">account_balance_wallet</span>
-            Continuar con MetaMask
-          </button>
+        <div>
+          <p class="font-display text-2xl text-white">Acopio</p>
+          <p>Calidad y despacho</p>
         </div>
-
-        <div class="relative">
-          <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-outline-variant/50"></div>
-          </div>
-          <div class="relative flex justify-center">
-            <span class="bg-white px-3 text-label-sm text-on-surface-variant">o con email</span>
-          </div>
-        </div>
-
-        <form id="auth-form" class="space-y-4">
-          <!-- Campos solo para registro -->
-          <div id="fields-register" class="space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-              <div class="space-y-2">
-                <label class="block text-label-md font-label-md text-primary" for="first-name">Nombre</label>
-                <input
-                  id="first-name"
-                  name="firstName"
-                  type="text"
-                  autocomplete="given-name"
-                  class="w-full bg-surface-container-low border border-outline-variant px-4 py-3 rounded-xl text-body-md focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
-                  placeholder="Ej. Juan"
-                />
-              </div>
-              <div class="space-y-2">
-                <label class="block text-label-md font-label-md text-primary" for="last-name">Apellido</label>
-                <input
-                  id="last-name"
-                  name="lastName"
-                  type="text"
-                  autocomplete="family-name"
-                  class="w-full bg-surface-container-low border border-outline-variant px-4 py-3 rounded-xl text-body-md focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
-                  placeholder="Ej. Pérez"
-                />
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <label class="block text-label-md font-label-md text-primary" for="cedula">Cédula</label>
-              <input
-                id="cedula"
-                name="cedula"
-                type="text"
-                inputmode="numeric"
-                maxlength="10"
-                class="w-full bg-surface-container-low border border-outline-variant px-4 py-3 rounded-xl text-body-md focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
-                placeholder="Ej. 1712345678"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <label class="block text-label-md font-label-md text-primary" for="phone">Número de teléfono</label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                autocomplete="tel"
-                class="w-full bg-surface-container-low border border-outline-variant px-4 py-3 rounded-xl text-body-md focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
-                placeholder="Ej. 0991234567"
-              />
-            </div>
-          </div>
-
-          <!-- Campos comunes -->
-          <div class="space-y-2">
-            <label class="block text-label-md font-label-md text-primary" for="email">Correo electrónico</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autocomplete="email"
-              class="w-full bg-surface-container-low border border-outline-variant px-4 py-3 rounded-xl text-body-md focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
-              placeholder="tu@empresa.com"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <label class="block text-label-md font-label-md text-primary" for="password">Contraseña</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minlength="8"
-              autocomplete="current-password"
-              class="w-full bg-surface-container-low border border-outline-variant px-4 py-3 rounded-xl text-body-md focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
-              placeholder="Mínimo 8 caracteres"
-            />
-          </div>
-
-          <button
-            type="submit"
-            id="btn-email"
-            class="w-full bg-primary text-on-primary px-6 py-3 rounded-xl font-label-md text-label-md hover:bg-primary-container transition-all shadow-sm disabled:opacity-50"
-          >
-            Crear cuenta
-          </button>
-        </form>
-
-        <p class="text-center text-label-sm text-on-surface-variant">
-          Al continuar aceptas nuestros
-          <a class="text-secondary underline hover:text-primary" href="/legal/terminos">Términos de Uso</a>,
-          la <a class="text-secondary underline hover:text-primary" href="/legal/privacidad">Política de Privacidad</a>
-          y la <a class="text-secondary underline hover:text-primary" href="/legal/cookies">Política de Cookies</a>.
-        </p>
       </div>
-    </div>
-  </main>
+
+      <img
+        src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1400&q=80"
+        alt="Cultivo de café en altura"
+        class="absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-luminosity"
+      />
+    </aside>
+
+    <!-- Formulario -->
+    <main class="ha-atmosphere flex flex-col min-h-screen">
+      <header class="flex items-center justify-between px-6 sm:px-10 py-5">
+        <a href="/" class="lg:hidden inline-flex items-center gap-2 text-primary font-display text-xl">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">landscape</span>
+          Huella de Altura
+        </a>
+        <a href="/" class="ml-auto text-sm text-on-surface-variant hover:text-primary transition-colors">
+          Volver al inicio
+        </a>
+      </header>
+
+      <div class="flex-1 flex items-center justify-center px-6 sm:px-10 pb-12">
+        <div class="w-full max-w-md ha-fade-up">
+          <div class="mb-8">
+            <p class="text-sm font-medium text-secondary mb-2 tracking-wide">Plataforma Agrotech</p>
+            <h2 class="font-display text-3xl text-primary leading-tight">Acceso a la plataforma</h2>
+            <p class="mt-2 text-on-surface-variant">
+              Regístrate o inicia sesión para digitalizar y certificar tu producción.
+            </p>
+          </div>
+
+          {error === "auth" && (
+            <div class="mb-5 rounded-xl border border-error/25 bg-error-container px-4 py-3 text-sm text-on-error-container">
+              No se pudo verificar tu sesión. Inicia sesión de nuevo.
+            </div>
+          )}
+
+          <div id="auth-alert" class="hidden mb-5 rounded-xl border px-4 py-3 text-sm" role="alert"></div>
+
+          <div class="rounded-2xl border border-outline-variant/80 bg-white/80 backdrop-blur-sm p-6 sm:p-8 shadow-[0_24px_60px_-30px_rgba(26,34,28,0.35)] space-y-6">
+            <div class="grid grid-cols-2 gap-1 p-1 bg-surface-container rounded-xl">
+              <button
+                type="button"
+                id="tab-register"
+                class="auth-tab rounded-lg px-4 py-2.5 text-sm font-semibold transition-all bg-primary text-on-primary"
+              >
+                Registrarse
+              </button>
+              <button
+                type="button"
+                id="tab-login"
+                class="auth-tab rounded-lg px-4 py-2.5 text-sm font-semibold transition-all text-on-surface-variant hover:text-primary"
+              >
+                Iniciar sesión
+              </button>
+            </div>
+
+            <div class="space-y-3">
+              <button
+                type="button"
+                id="btn-google"
+                class="ha-btn-ghost w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!firebaseConfigured}
+                title={firebaseConfigured ? "Continuar con Google" : "Configura Firebase en HAFront/.env"}
+              >
+                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"></path>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+                </svg>
+                Continuar con Google
+              </button>
+            </div>
+
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-outline-variant/60"></div>
+              </div>
+              <div class="relative flex justify-center">
+                <span class="bg-white px-3 text-xs uppercase tracking-wider text-on-surface-variant">o con email</span>
+              </div>
+            </div>
+
+            <form id="auth-form" class="space-y-4">
+              <div id="fields-register" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1.5">
+                    <label class="block text-sm font-medium text-primary" for="first-name">Nombre</label>
+                    <input id="first-name" name="firstName" type="text" autocomplete="given-name" class="ha-input" placeholder="Ej. Juan" />
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="block text-sm font-medium text-primary" for="last-name">Apellido</label>
+                    <input id="last-name" name="lastName" type="text" autocomplete="family-name" class="ha-input" placeholder="Ej. Pérez" />
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-sm font-medium text-primary" for="cedula">Cédula</label>
+                  <input id="cedula" name="cedula" type="text" inputmode="numeric" maxlength="10" class="ha-input" placeholder="Ej. 1712345678" />
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-sm font-medium text-primary" for="phone">Teléfono</label>
+                  <input id="phone" name="phone" type="tel" autocomplete="tel" class="ha-input" placeholder="Ej. 0991234567" />
+                </div>
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-sm font-medium text-primary" for="email">Correo electrónico</label>
+                <input id="email" name="email" type="email" required autocomplete="email" class="ha-input" placeholder="tu@empresa.com" />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-sm font-medium text-primary" for="password">Contraseña</label>
+                <input id="password" name="password" type="password" required minlength="8" autocomplete="current-password" class="ha-input" placeholder="Mínimo 8 caracteres" />
+              </div>
+
+              <button type="submit" id="btn-email" class="ha-btn-primary w-full disabled:opacity-50">
+                Crear cuenta
+              </button>
+            </form>
+
+            <p class="text-center text-xs leading-relaxed text-on-surface-variant">
+              Al continuar aceptas nuestros
+              <a class="text-secondary underline underline-offset-2 hover:text-primary" href="/legal/terminos">Términos</a>,
+              <a class="text-secondary underline underline-offset-2 hover:text-primary" href="/legal/privacidad">Privacidad</a>
+              y
+              <a class="text-secondary underline underline-offset-2 hover:text-primary" href="/legal/cookies">Cookies</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
 
   <script define:vars={{ firebaseConfigured, AUTH_API_URL }} is:inline>
     const tabRegister = document.getElementById("tab-register");
@@ -221,9 +197,9 @@ const firebaseConfigured = Boolean(
 
     function showAlert(message, type = "error") {
       alertBox.textContent = message;
-      alertBox.classList.remove("hidden", "border-error/30", "bg-error-container", "text-on-error-container", "border-primary/30", "bg-primary-fixed", "text-on-primary-fixed-variant");
+      alertBox.classList.remove("hidden", "border-error/30", "bg-error-container", "text-on-error-container", "border-primary/30", "bg-primary-container", "text-on-primary");
       if (type === "success") {
-        alertBox.classList.add("border-primary/30", "bg-primary-fixed", "text-on-primary-fixed-variant");
+        alertBox.classList.add("border-primary/30", "bg-primary-container", "text-on-primary");
       } else {
         alertBox.classList.add("border-error/30", "bg-error-container", "text-on-error-container");
       }
@@ -362,7 +338,6 @@ const firebaseConfigured = Boolean(
           const meRes = await fetch("/api/auth/me");
           const me = await meRes.json().catch(() => ({}));
           const roleName = (me?.role?.name ?? "").toUpperCase();
-          console.log("Usuario autenticado:", me?.email, "Rol:", roleName);
           const isAdmin = ["ADMIN", "ADMINISTRADOR", "SUPER_ADMIN"].includes(roleName);
 
           window.location.href = isAdmin ? "/acopio/muestras" : "/productorFinca";

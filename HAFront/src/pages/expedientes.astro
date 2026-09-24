@@ -165,15 +165,16 @@ const fincaIdFilter = urlParams.get("finca_id");
   <div class="space-y-6">
 
     <!-- HEADER -->
-    <section class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <section class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
       <div>
-        <h1 class="text-3xl font-bold text-on-surface">
-          Expedientes y Trazabilidad Guardada
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Módulo 4</p>
+        <h1 class="mt-1 font-display text-3xl text-primary md:text-4xl">
+          Expedientes y trazabilidad
         </h1>
-        <p class="text-on-surface-variant mt-2 max-w-3xl">
+        <p class="mt-2 max-w-3xl text-on-surface-variant">
           {esProductor
-            ? 'Visualización de tus expedientes de trazabilidad para la gestión de diligencia debida EUDR.'
-            : 'Listado de expedientes de productores y fincas registrados para la gestión de diligencia debida EUDR.'}
+            ? 'Visualización de tus expedientes de trazabilidad para la diligencia debida EUDR.'
+            : 'Listado de expedientes de productores y fincas para la diligencia debida EUDR.'}
         </p>
       </div>
     </section>

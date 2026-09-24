@@ -72,14 +72,13 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
     <!-- HEADER -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
-                🚢 Despachos y Exportación
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Acopio</p>
+            <h1 class="mt-1 font-display text-3xl text-primary md:text-4xl">
+              Despachos
             </h1>
-            <p class="mt-1 text-sm text-slate-500 max-w-3xl">
-                Registro de despacho de café, gestión de exportaciones y generación de certificados de trazabilidad.
-            </p>
+            <p class="mt-2 text-on-surface-variant max-w-2xl">Salidas y logística de despacho.</p>
             <div class="mt-2 flex flex-wrap items-center gap-2">
-                <span class="text-xs font-medium text-slate-500">Tu rol:</span>
+                <span class="text-xs font-medium text-on-surface-variant">Tu rol:</span>
                 <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
                     {userRole || 'No definido'}
                 </span>
@@ -119,7 +118,7 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
     {isLoading && (
         <div class="text-center py-12">
             <span class="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
-            <p class="mt-2 text-slate-500">Cargando datos...</p>
+            <p class="mt-2 text-on-surface-variant">Cargando datos...</p>
         </div>
     )}
 
@@ -146,7 +145,7 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
                         🚢 Registrar Despacho
                     </button>
                     <button 
-                        class="tab-btn py-3 px-1 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition"
+                        class="tab-btn py-3 px-1 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-slate-700 transition"
                         data-tab="historial"
                     >
                         📋 Historial de Despachos
@@ -159,10 +158,10 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
             <!-- ============================================================ -->
             <div id="tab-despacho" class="tab-content space-y-6">
                 <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-slate-900 mb-4">
+                    <h2 class="text-lg font-semibold text-primary mb-4">
                         🚢 Registrar Despacho
                     </h2>
-                    <p class="text-sm text-slate-500 mb-4">
+                    <p class="text-sm text-on-surface-variant mb-4">
                         Selecciona café disponible en bodega para registrar su salida/exportación.
                     </p>
 
@@ -189,7 +188,7 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
                                         class="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow"
                                     >
                                         <div class="flex justify-between items-start">
-                                            <h4 class="font-semibold text-slate-900 text-sm">
+                                            <h4 class="font-semibold text-primary text-sm">
                                                 Lote #{item.id.substring(0, 8)}
                                             </h4>
                                             <span class={`
@@ -202,25 +201,25 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
                                         </div>
                                         <div class="mt-3 space-y-1 text-sm">
                                             <div class="flex justify-between">
-                                                <span class="text-slate-500">Código QR:</span>
+                                                <span class="text-on-surface-variant">Código QR:</span>
                                                 <span class="font-mono text-xs text-slate-700">{item.codigoQR || 'N/A'}</span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-slate-500">Ingreso:</span>
+                                                <span class="text-on-surface-variant">Ingreso:</span>
                                                 <span class="font-medium text-slate-700">{item.pesoIngresoKg} kg</span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-slate-500">Salida:</span>
+                                                <span class="text-on-surface-variant">Salida:</span>
                                                 <span class="font-medium text-slate-700">{item.pesoSalidaKg || 0} kg</span>
                                             </div>
                                             <div class="flex justify-between border-t border-slate-100 pt-1">
-                                                <span class="text-slate-500 font-medium">Disponible:</span>
+                                                <span class="text-on-surface-variant font-medium">Disponible:</span>
                                                 <span class="font-bold text-emerald-600">{saldo.toFixed(2)} kg</span>
                                             </div>
                                         </div>
                                         {saldo > 0 ? (
                                             <button 
-                                                class="btn-despachar mt-4 w-full text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg transition font-medium flex items-center justify-center gap-2"
+                                                class="btn-despachar mt-4 w-full text-sm bg-primary hover:bg-primary-container text-on-primary px-4 py-2 rounded-lg transition font-medium flex items-center justify-center gap-2"
                                                 data-inventario-id={item.id}
                                                 data-saldo={saldo}
                                             >
@@ -245,10 +244,10 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
             <!-- ============================================================ -->
             <div id="tab-historial" class="tab-content hidden space-y-6">
                 <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-slate-900 mb-4">
+                    <h2 class="text-lg font-semibold text-primary mb-4">
                         📋 Historial de Despachos
                     </h2>
-                    <p class="text-sm text-slate-500 mb-4">
+                    <p class="text-sm text-on-surface-variant mb-4">
                         Registro de todos los despachos realizados.
                     </p>
 
@@ -256,7 +255,7 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
                         <div class="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center">
                             <span class="material-symbols-outlined text-slate-400 text-4xl">inbox</span>
                             <p class="mt-2 font-semibold text-slate-700">No hay despachos registrados</p>
-                            <p class="text-sm text-slate-500 mt-1">
+                            <p class="text-sm text-on-surface-variant mt-1">
                                 Los despachos aparecerán aquí cuando se registren.
                             </p>
                         </div>
@@ -309,7 +308,7 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
                 <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-600">
                     <i data-lucide="truck" class="w-5 h-5"></i>
                 </div>
-                <h2 class="text-xl font-bold text-slate-900">Registrar Despacho</h2>
+                <h2 class="text-xl font-bold text-primary">Registrar Despacho</h2>
             </div>
             <button id="btn-cerrar-despacho" class="text-slate-400 hover:text-slate-600 transition">
                 <i data-lucide="x" class="w-5 h-5"></i>
@@ -321,11 +320,11 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
 
             <div class="bg-slate-50 rounded-xl p-4 space-y-2">
                 <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Lote:</span>
+                    <span class="text-on-surface-variant">Lote:</span>
                     <span id="despacho-inventario" class="font-medium text-slate-700">-</span>
                 </div>
                 <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Disponible:</span>
+                    <span class="text-on-surface-variant">Disponible:</span>
                     <span id="despacho-disponible" class="font-medium text-slate-700">-</span>
                 </div>
             </div>
@@ -441,10 +440,10 @@ const puedeDespacharStr = puedeDespachar ? 'true' : 'false';
             tab.addEventListener('click', function() {
                 tabs.forEach(t => {
                     t.classList.remove('border-emerald-600', 'text-emerald-600');
-                    t.classList.add('border-transparent', 'text-slate-500');
+                    t.classList.add('border-transparent', 'text-on-surface-variant');
                 });
                 
-                this.classList.remove('border-transparent', 'text-slate-500');
+                this.classList.remove('border-transparent', 'text-on-surface-variant');
                 this.classList.add('border-emerald-600', 'text-emerald-600');
                 
                 Object.values(contents).forEach(c => c?.classList.add('hidden'));

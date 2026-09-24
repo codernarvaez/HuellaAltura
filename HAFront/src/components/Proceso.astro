@@ -2,36 +2,35 @@
 const pasos = [
   {
     numero: "01",
-    titulo: "Digital Enrollment",
-    descripcion: "Carga de datos maestros de la finca y georreferenciación de parcelas bajo estándares internacionales de Agrotech.",
-    borde: "border-b md:border-b-0 md:border-r",
+    titulo: "Registro digital",
+    descripcion: "Datos de finca, productor y georreferenciación bajo estándares EUDR.",
   },
   {
     numero: "02",
-    titulo: "Geospatial Monitoring",
-    descripcion: "Seguimiento satelital y de IoT en tiempo real para validar prácticas sostenibles y evitar riesgos en la producción.",
-    borde: "border-b md:border-b-0 md:border-r",
+    titulo: "Monitoreo geoespacial",
+    descripcion: "Validación satelital y agroambiental para reducir riesgos de deforestación.",
   },
   {
     numero: "03",
-    titulo: "Blockchain Certification",
-    descripcion: "Emisión de certificados inmutables y QR de trazabilidad que acompañan al producto hasta el consumidor final.",
-    borde: "",
+    titulo: "Certificación",
+    descripcion: "Expediente auditable y certificados listos para due diligence comercial.",
   },
 ];
 ---
-<section class="py-section-py-desktop max-w-container-max mx-auto px-6">
-  <div class="text-center mb-12">
-    <span class="text-label-md font-label-md text-secondary uppercase tracking-widest">NUESTRA RUTA TECNOLÓGICA</span>
-    <h2 class="font-headline-lg text-headline-lg text-primary mt-4">De la tierra al bloque</h2>
-  </div>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-0 border border-outline-variant rounded-2xl overflow-hidden shadow-sm">
-    {pasos.map((p) => (
-      <div class={`p-10 ${p.borde} border-outline-variant group hover:bg-surface-container transition-colors`}>
-        <div class="text-display text-outline-variant font-display mb-6 group-hover:text-primary transition-colors">{p.numero}</div>
-        <h3 class="font-headline-md text-headline-md text-primary mb-4">{p.titulo}</h3>
-        <p class="text-on-surface-variant">{p.descripcion}</p>
-      </div>
-    ))}
+<section class="bg-background py-16 md:py-24">
+  <div class="mx-auto max-w-container-max px-6">
+    <div class="mb-12 text-center">
+      <span class="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">Ruta tecnológica</span>
+      <h2 class="font-display mt-3 text-3xl text-primary md:text-4xl">De la tierra al expediente</h2>
+    </div>
+    <div class="grid grid-cols-1 overflow-hidden rounded-2xl border border-outline-variant md:grid-cols-3">
+      {pasos.map((p, i) => (
+        <div class={`bg-white/70 p-8 md:p-10 ${i < pasos.length - 1 ? "border-b border-outline-variant md:border-b-0 md:border-r" : ""}`}>
+          <div class="font-display mb-5 text-4xl text-outline-variant">{p.numero}</div>
+          <h3 class="font-display mb-3 text-xl text-primary">{p.titulo}</h3>
+          <p class="text-on-surface-variant leading-relaxed">{p.descripcion}</p>
+        </div>
+      ))}
+    </div>
   </div>
 </section>

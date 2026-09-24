@@ -48,34 +48,29 @@ console.log("🔍 esSoloLectura:", esSoloLectura);
 
     <!-- HEADER -->
     <section>
-      <h1 class="text-3xl font-bold text-primary">
-        Información Agroambiental
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Módulo 2</p>
+      <h1 class="mt-1 font-display text-3xl text-primary md:text-4xl">
+        Información agroambiental
       </h1>
-      <p class="text-on-surface-variant mt-2 max-w-3xl">
+      <p class="mt-2 max-w-3xl text-on-surface-variant">
         Registro de variables ambientales complementarias asociadas a la finca.
       </p>
       
-      <!-- Mensaje según rol -->
       {esProductor && (
-        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
-          <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
-          <strong>Modo solo lectura:</strong> Como PRODUCTOR, solo puedes visualizar la información agroambiental. 
-          Para registrar o modificar datos, contacta a un TÉCNICO DE CAMPO o ADMINISTRADOR.
+        <div class="ha-callout ha-callout-info mt-4">
+          <strong>Modo solo lectura:</strong> como PRODUCTOR puedes visualizar la información. Para registrar o modificar datos, contacta a un técnico de campo o administrador.
         </div>
       )}
       
       {esSoloLectura && (
-        <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-700">
-          <span class="material-symbols-outlined text-sm align-middle mr-1">lock</span>
-          <strong>Sin permisos de edición:</strong> Tu rol no tiene permisos para modificar esta información. 
-          Solo TÉCNICO DE CAMPO y ADMINISTRADOR pueden registrar o modificar datos.
+        <div class="ha-callout ha-callout-warn mt-4">
+          <strong>Sin permisos de edición:</strong> tu rol no puede modificar esta información.
         </div>
       )}
       
       {puedeEditar && (
-        <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
-          <span class="material-symbols-outlined text-sm align-middle mr-1">edit</span>
-          <strong>Modo edición:</strong> Como <strong>{userRole}</strong>, puedes registrar y modificar la información agroambiental.
+        <div class="ha-callout ha-callout-info mt-4">
+          <strong>Modo edición:</strong> como <strong>{userRole}</strong> puedes registrar y modificar la información agroambiental.
         </div>
       )}
     </section>

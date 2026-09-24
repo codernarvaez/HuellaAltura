@@ -1,5 +1,6 @@
 ---
 import CookieConsent from "../components/CookieConsent.astro";
+import "../styles/global.css";
 
 interface Props {
   title?: string;
@@ -12,169 +13,14 @@ const { title = "Huella de Altura" } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
-    <script is:inline src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/style.css" rel="stylesheet" />
-    <script is:inline id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              "on-secondary-fixed-variant": "#5d4201",
-              "tertiary-fixed": "#ffdad8",
-              "surface-container": "#e9edff",
-              "on-tertiary-fixed-variant": "#743233",
-              "surface-container-highest": "#dce2f7",
-              "surface-container-high": "#e1e8fd",
-              "on-secondary": "#ffffff",
-              "inverse-surface": "#293040",
-              "surface-dim": "#d3daef",
-              "secondary": "#775a19",
-              "on-error": "#ffffff",
-              "on-surface-variant": "#404942",
-              "primary-fixed": "#a9f3c5",
-              "error": "#ba1a1a",
-              "tertiary-container": "#803b3c",
-              "surface-variant": "#dce2f7",
-              "surface-container-low": "#f1f3ff",
-              "on-primary-container": "#8ad2a7",
-              "outline": "#707971",
-              "surface-bright": "#f9f9ff",
-              "on-primary-fixed-variant": "#005232",
-              "secondary-fixed-dim": "#e9c176",
-              "on-secondary-fixed": "#261900",
-              "tertiary-fixed-dim": "#ffb3b2",
-              "on-primary-fixed": "#002111",
-              "surface-tint": "#226b47",
-              "outline-variant": "#bfc9c0",
-              "primary-fixed-dim": "#8ed6aa",
-              "inverse-on-surface": "#edf0ff",
-              "on-surface": "#141b2b",
-              "surface": "#f9f9ff",
-              "primary": "#004328",
-              "primary-container": "#0d5c3a",
-              "background": "#f9f9ff",
-              "on-tertiary-container": "#ffaeac",
-              "on-tertiary-fixed": "#3c070b",
-              "on-tertiary": "#ffffff",
-              "on-secondary-container": "#785a1a",
-              "secondary-container": "#fed488",
-              "on-primary": "#ffffff",
-              "inverse-primary": "#8ed6aa",
-              "secondary-fixed": "#ffdea5",
-              "surface-container-lowest": "#ffffff",
-              "tertiary": "#632527",
-              "on-background": "#141b2b",
-              "error-container": "#ffdad6",
-              "on-error-container": "#93000a",
-            },
-            borderRadius: {
-              DEFAULT: "0.125rem",
-              lg: "0.25rem",
-              xl: "0.5rem",
-              full: "0.75rem",
-            },
-            spacing: {
-              xl: "64px",
-              base: "4px",
-              "margin-mobile": "16px",
-              lg: "40px",
-              gutter: "24px",
-              md: "24px",
-              sm: "16px",
-              xs: "8px",
-              "margin-desktop": "48px",
-              "section-py-mobile": "4rem",
-              "section-py-desktop": "6rem",
-              "container-max": "1280px",
-            },
-            fontFamily: {
-              "body-lg": ["Geist"],
-              "headline-md": ["Geist"],
-              "label-sm": ["Geist"],
-              "body-md": ["Geist"],
-              "headline-lg-mobile": ["Geist"],
-              "headline-lg": ["Geist"],
-              "label-md": ["Geist"],
-              display: ["Geist"],
-            },
-            fontSize: {
-              "body-lg": ["18px", { lineHeight: "1.6", fontWeight: "400" }],
-              "headline-md": ["24px", { lineHeight: "1.3", fontWeight: "500" }],
-              "label-sm": ["12px", { lineHeight: "1.2", fontWeight: "600" }],
-              "body-md": ["16px", { lineHeight: "1.5", fontWeight: "400" }],
-              "headline-lg-mobile": ["24px", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "600" }],
-              "headline-lg": ["32px", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "600" }],
-              "label-md": ["14px", { lineHeight: "1.2", letterSpacing: "0.02em", fontWeight: "500" }],
-              display: ["48px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "600" }],
-            },
-          },
-        },
-      };
-    </script>
-    <style>
-      .material-symbols-outlined {
-        font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
-      }
-      details summary::-webkit-details-marker {
-        display: none;
-      }
-      .perspective-lg {
-        perspective: 1000px;
-      }
-      .hover-lift {
-        transition: transform 0.3s ease, border-color 0.3s ease;
-      }
-      .hover-lift:hover {
-        transform: translateY(-4px) scale(1.01);
-      }
-      .a4-container {
-      width: 210mm;
-      min-height: 297mm;
-      padding: 20mm;
-      margin: 2rem auto;
-      background: white;
-      box-shadow:
-        0 10px 25px -5px rgba(0, 0, 0, 0.1),
-        0 8px 10px -6px rgba(0, 0, 0, 0.1);
-      position: relative;
-      overflow: hidden;
-    }
-    .watermark {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-45deg);
-      font-size: 8rem;
-      color: rgba(13, 92, 58, 0.03);
-      pointer-events: none;
-      white-space: nowrap;
-      z-index: 0;
-      font-weight: 800;
-    }
-    .document-border {
-      position: absolute;
-      inset: 10mm;
-      border: 2px solid #004328;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .barcode {
-      background: repeating-linear-gradient(
-        90deg, #141b2b, #141b2b 2px, transparent 2px, transparent 4px
-      );
-      height: 40px;
-      width: 180px;
-    }
-    @media print {
-      body { background: white; margin: 0; }
-      .a4-container { box-shadow: none; margin: 0; }
-      .no-print { display: none; }
-    }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body class="bg-surface font-body-md text-on-surface antialiased">
+  <body class="bg-background font-sans text-on-surface antialiased">
     <slot />
     <CookieConsent />
   </body>

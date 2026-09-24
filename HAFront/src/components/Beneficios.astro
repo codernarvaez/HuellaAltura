@@ -2,41 +2,35 @@
 const beneficios = [
   {
     icon: "verified_user",
-    bg: "bg-primary-fixed",
-    text: "text-on-primary-fixed-variant",
-    titulo: "Garantía de Origen",
+    titulo: "Garantía de origen",
     descripcion: "Elimine el fraude alimentario y asegure que su producto premium mantenga su identidad en toda la cadena.",
   },
   {
     icon: "language",
-    bg: "bg-secondary-container",
-    text: "text-on-secondary-container",
-    titulo: "Acceso a Mercados",
-    descripcion: "Cumpla con las normativas de la UE y EE.UU. sobre deforestación y sostenibilidad de forma automatizada.",
+    titulo: "Acceso a mercados",
+    descripcion: "Cumpla con las normativas de la UE sobre deforestación y sostenibilidad de forma digital y auditable.",
   },
   {
     icon: "monitoring",
-    bg: "bg-tertiary-fixed",
-    text: "text-on-tertiary-fixed-variant",
-    titulo: "Eficiencia Operativa",
-    descripcion: "Reduzca tiempos de auditoría y gestión de certificados mediante nuestra infraestructura digital integrada.",
+    titulo: "Eficiencia operativa",
+    descripcion: "Reduzca tiempos de auditoría y gestión de certificados con una infraestructura integrada.",
   },
 ];
 ---
-<section class="bg-surface-container-low py-section-py-desktop" id="beneficios">
-  <div class="max-w-container-max mx-auto px-6 text-center mb-12">
-    <span class="text-label-md font-label-md text-secondary uppercase tracking-widest">Desafíos del Agro Moderno</span>
-    <h2 class="font-headline-lg text-headline-lg text-primary mt-4">Transparencia que genera valor real</h2>
+<section class="ha-atmosphere py-16 md:py-24" id="beneficios">
+  <div class="mx-auto mb-12 max-w-container-max px-6 text-center">
+    <span class="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">Desafíos del agro moderno</span>
+    <h2 class="font-display mt-3 text-3xl text-primary md:text-4xl">Transparencia que genera valor real</h2>
   </div>
-  <div class="max-w-container-max mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+  <div class="mx-auto grid max-w-container-max grid-cols-1 gap-6 px-6 md:grid-cols-3">
     {beneficios.map((b) => (
-      <div class="bg-white border border-outline-variant p-8 rounded-2xl hover-lift shadow-sm">
-        <div class={`w-14 h-14 ${b.bg} ${b.text} rounded-xl flex items-center justify-center mb-6`}>
-          <span class="material-symbols-outlined text-3xl">{b.icon}</span>
+      <article class="rounded-2xl border border-outline-variant/80 bg-white/80 p-8 shadow-[0_18px_40px_-28px_rgba(26,34,28,0.35)] backdrop-blur-sm hover-lift">
+        <div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-on-primary">
+          <span class="material-symbols-outlined text-2xl">{b.icon}</span>
         </div>
-        <h3 class="font-headline-md text-headline-md text-primary mb-4">{b.titulo}</h3>
-        <p class="text-on-surface-variant leading-relaxed">{b.descripcion}</p>
-      </div>
+        <h3 class="font-display text-xl text-primary mb-3">{b.titulo}</h3>
+        <p class="leading-relaxed text-on-surface-variant">{b.descripcion}</p>
+      </article>
     ))}
   </div>
 </section>
