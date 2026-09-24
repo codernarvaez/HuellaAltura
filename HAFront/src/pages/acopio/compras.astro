@@ -4,6 +4,7 @@ import DashboardLayout from "../../layouts/LayoutVariable.astro";
 import { AuthService } from "../../services/auth.service.ts";
 import { AcopioService } from "../../services/acopio.service.ts";
 import { FincaService } from "../../services/finca.service.ts";
+import { API_URL } from "../../services/Api_Base.ts";
 
 // Obtener token y datos del usuario
 const token = Astro.cookies.get("token")?.value;
@@ -101,7 +102,6 @@ const puedeAprobarComprasStr = puedeAprobarCompras ? 'true' : 'false';
 // 🔧 Se escapa "<" para poder incrustar este JSON dentro de un <script is:inline> sin
 // riesgo de que una secuencia como "</script" corte la etiqueta antes de tiempo.
 const ordenPorMuestraStr = JSON.stringify(ordenPorMuestra).replace(/</g, '\\u003c');
-const API_URL = "https://geoguard-exped1.onrender.com";
 ---
 
 <DashboardLayout title="Órdenes de Compra - Acopio">
@@ -503,8 +503,9 @@ const API_URL = "https://geoguard-exped1.onrender.com";
      que usa "import", necesita ser un módulo, y define:vars + import no
      son compatibles en el mismo <script is:inline> (por eso salía
      "Cannot use import statement outside a module"). -->
-<script define:vars={{ ordenPorMuestraStr }} is:inline>
+<script define:vars={{ ordenPorMuestraStr, API_URL }} is:inline>
     window.__ORDEN_POR_MUESTRA__ = JSON.parse(ordenPorMuestraStr || '{}');
+    window.__EXPED_API_URL = API_URL;
 </script>
 
 <script is:inline>
@@ -514,7 +515,7 @@ const API_URL = "https://geoguard-exped1.onrender.com";
 
     console.log("🛒 Página de Órdenes de Compra cargada");
 
-    const API_URL = "https://geoguard-exped1.onrender.com";
+    const API_URL = window.__EXPED_API_URL;
     let muestraSeleccionada = null;
 
     // 🔧 FIX #2: guard para evitar doble envío del formulario (doble click,

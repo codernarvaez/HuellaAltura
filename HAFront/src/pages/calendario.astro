@@ -4,6 +4,7 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 import { AuthService } from "../services/auth.service.ts";
 import { FincaService } from "../services/finca.service.ts";
 import { LaboresService } from "../services/labores.service.ts";
+import { API_URL } from "../services/Api_Base.ts";
 
 // Obtener token de las cookies
 const token = Astro.cookies.get("token")?.value;
@@ -796,7 +797,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
     puedeAprobar: puedeAprobarStr,
     fincasDisponibles: fincasDisponiblesStr,
     esAdmin: esAdminStr,
-    API_URL: 'https://geoguard-exped1.onrender.com'
+    API_URL
 }} is:inline>
     console.log("🏠 Finca ID:", fincaId);
     console.log("📋 Calendario Data:", calendarioData);

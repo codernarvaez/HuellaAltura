@@ -2,6 +2,7 @@
 import DashboardLayout from "../layouts/LayoutVariable.astro";
 import { AuthService } from "../services/auth.service.ts";
 import { FincaService } from "../services/finca.service.ts";
+import { API_URL, AUTH_API_URL } from "../services/Api_Base.ts";
 
 // Obtener token de las cookies
 const token = Astro.cookies.get("token")?.value;
@@ -10,6 +11,7 @@ let userData = null;
 let fincas: any[] = [];
 let fincaSeleccionada = null;
 let error = null;
+let fincasError: string | null = null;
 let isLoading = true;
 
 if (token) {
@@ -28,6 +30,7 @@ if (token) {
       } catch (e: unknown) {
         console.error('❌ Error obteniendo fincas:', e);
         fincas = [];
+        fincasError = "No se pudo conectar con el servicio de fincas (puerto 8031). El formulario sigue disponible, pero guardar la finca requiere ese servicio.";
       }
     }
     isLoading = false;
@@ -214,8 +217,12 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
   fincasEscaped,
   fincaSeleccionadaEscaped,
   poligonoDataEscaped,
-  error
+  error,
+  API_URL,
+  AUTH_API_URL
 }} is:inline>
+  window.__EXPED_API_URL = API_URL;
+  window.__AUTH_API_URL = AUTH_API_URL;
   window.USUARIO_ID = usuarioId;
   window.FINCA_SELECCIONADA_ID = fincaSeleccionadaId;
   window.USER_DATA = JSON.parse(userDataEscaped);
@@ -238,16 +245,13 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
         Formulario dinámico de recopilación de datos de origen requeridos por el reglamento EUDR.
       </p>
     </div>
-    <div class="flex items-center gap-2">
-      <button
-        id="editar-productor"
-        class="flex items-center justify-center gap-2 px-4 h-12 bg-surface text-primary border border-outline rounded-xl hover:opacity-90 transition"
-      >
-        <span class="material-symbols-outlined">person</span>
-        Editar Productor
-      </button>
-    </div>
   </div>
+
+  {fincasError && (
+    <p class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      {fincasError}
+    </p>
+  )}
 
   <!-- PRODUCTOR AUTENTICADO -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 items-end">
@@ -272,37 +276,36 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
       <span class="material-symbols-outlined text-primary">person</span>
       <h2 class="text-xl font-semibold">Información del Productor</h2>
       <div class="ml-auto flex gap-2">
-        <button id="guardar-productor" class="hidden px-3 py-1 bg-primary text-white rounded">Guardar</button>
-        <button id="cancelar-productor" class="hidden px-3 py-1 bg-surface text-primary border rounded">Cancelar</button>
+        <button id="guardar-productor" type="button" class="px-3 py-1 bg-primary text-white rounded">Guardar</button>
       </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
         <label class="block mb-2 text-sm font-medium text-on-surface-variant">Nombre Completo *</label>
-        <input id="productor-nombre" type="text" readonly
+        <input id="productor-nombre" type="text"
           value={userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : ''}
           placeholder="Nombre del productor"
-          class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl" />
+          class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl" />
       </div>
       <div>
         <label class="block mb-2 text-sm font-medium text-on-surface-variant">Cédula de Identidad / ID *</label>
-        <input id="productor-cedula" type="text" readonly value={userData?.identifier || ''}
-          placeholder="Número de identificación" class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl" />
+        <input id="productor-cedula" type="text" value={userData?.identifier || ''}
+          placeholder="Número de identificación" class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl" />
       </div>
       <div>
         <label class="block mb-2 text-sm font-medium text-on-surface-variant">Organización / Asociación</label>
-        <input id="productor-organizacion" type="text" readonly value={userData?.organizacion || ''}
-          placeholder="Nombre de la organización" class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl" />
+        <input id="productor-organizacion" type="text" value={userData?.organizacion || ''}
+          placeholder="Nombre de la organización" class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl" />
       </div>
       <div>
         <label class="block mb-2 text-sm font-medium text-on-surface-variant">Celular de Contacto</label>
-        <input id="productor-celular" type="text" readonly value={userData?.phone_number || ''}
-          placeholder="Número de celular" class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl" />
+        <input id="productor-celular" type="text" value={userData?.phone_number || ''}
+          placeholder="Número de celular" class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl" />
       </div>
       <div>
         <label class="block mb-2 text-sm font-medium text-on-surface-variant">Género</label>
-        <select id="productor-genero" disabled class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl">
+        <select id="productor-genero" class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl">
           <option value="">Seleccionar género</option>
           <option value="MASCULINO" selected={userData?.genero === 'MASCULINO'}>Masculino</option>
           <option value="FEMENINO" selected={userData?.genero === 'FEMENINO'}>Femenino</option>
@@ -310,18 +313,18 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
       </div>
       <div>
         <label class="block mb-2 text-sm font-medium text-on-surface-variant">Edad</label>
-        <input id="productor-edad" type="number" readonly value={userData?.edad || ''}
-          placeholder="Edad del productor" class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl" />
+        <input id="productor-edad" type="number" value={userData?.edad || ''}
+          placeholder="Edad del productor" class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl" />
       </div>
       <div>
         <label class="block mb-2 text-sm font-medium text-on-surface-variant">Nivel Educativo</label>
-        <select id="productor-nivel" disabled class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl">
+        <select id="productor-nivel" class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl">
           <option value="">Seleccionar nivel</option>
           <option value="NINGUNO" selected={userData?.nivel_educativo === 'NINGUNO'}>Ninguno</option>
           <option value="PRIMARIA" selected={userData?.nivel_educativo === 'PRIMARIA'}>Primaria</option>
           <option value="SECUNDARIA" selected={userData?.nivel_educativo === 'SECUNDARIA'}>Secundaria</option>
           <option value="SUPERIOR" selected={userData?.nivel_educativo === 'SUPERIOR'}>Superior</option>
-          <option value="POSGRADO" selected={userData?.nivel_educativo === 'POSGRADO'}>Posgrado</option>
+          <option value="POSTGRADO" selected={userData?.nivel_educativo === 'POSTGRADO'}>Posgrado</option>
         </select>
       </div>
     </div>
@@ -628,12 +631,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
 </div>
 
-</DashboardLayout>
-
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- Script único, inline, con el mapa dinámico adaptado del segundo código -->
 <script is:inline>
 (function () {
   'use strict';
@@ -658,9 +656,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
   // ---------- refs ----------
   const authNameDisplay = document.getElementById('productor-auth-name-display');
-  const editarProductorBtn = document.getElementById('editar-productor');
   const guardarProductorBtn = document.getElementById('guardar-productor');
-  const cancelarProductorBtn = document.getElementById('cancelar-productor');
 
   const fincaSelector = document.getElementById('finca-selector');
   const btnCargarFinca = document.getElementById('btn-cargar-finca');
@@ -700,42 +696,27 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     }
   }
 
-  editarProductorBtn?.addEventListener('click', () => {
-    document.querySelectorAll('#productor-nombre, #productor-cedula, #productor-organizacion, #productor-celular, #productor-edad')
-      .forEach(el => {
-        el.removeAttribute('readonly');
-        el.classList.remove('bg-surface');
-        el.classList.add('bg-white');
-      });
-    document.getElementById('productor-genero')?.removeAttribute('disabled');
-    document.getElementById('productor-nivel')?.removeAttribute('disabled');
-    editarProductorBtn.classList.add('hidden');
-    guardarProductorBtn?.classList.remove('hidden');
-    cancelarProductorBtn?.classList.remove('hidden');
-    notify('✏️ Modo edición activado', 'warning');
-  });
-
-  cancelarProductorBtn?.addEventListener('click', () => location.reload());
-
   guardarProductorBtn?.addEventListener('click', async () => {
     const nombreCompleto = document.getElementById('productor-nombre')?.value || '';
-    const partes = nombreCompleto.trim().split(' ');
+    const partes = nombreCompleto.trim().split(/\s+/).filter(Boolean);
+    const vacio = (valor) => {
+      const texto = (valor || '').trim();
+      return texto || null;
+    };
     const payload = {
-      first_name: partes[0] || '',
-      last_name: partes.slice(1).join(' ') || '',
-      identifier: document.getElementById('productor-cedula')?.value || '',
-      organizacion: document.getElementById('productor-organizacion')?.value || '',
-      phone_number: document.getElementById('productor-celular')?.value || '',
-      genero: document.getElementById('productor-genero')?.value || '',
-      edad: parseInt(document.getElementById('productor-edad')?.value) || null,
-      nivel_educativo: document.getElementById('productor-nivel')?.value || ''
+      first_name: partes[0] || null,
+      last_name: partes.slice(1).join(' ') || null,
+      identifier: vacio(document.getElementById('productor-cedula')?.value),
+      phone_number: vacio(document.getElementById('productor-celular')?.value),
+      genero: vacio(document.getElementById('productor-genero')?.value),
+      edad: parseInt(document.getElementById('productor-edad')?.value, 10) || null,
+      nivel_educativo: vacio(document.getElementById('productor-nivel')?.value)
     };
 
     try {
       notify('⏳ Guardando cambios...', 'warning');
-      const { API_URL } = await import('../services/Api_Base.ts');
       const token = getToken();
-      const response = await fetch(`${API_URL}/api/v1/productores/${USUARIO_ID}`, {
+      const response = await fetch(`${window.__AUTH_API_URL}/api/auth/me`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
@@ -966,7 +947,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
     try {
       notify('⏳ Guardando finca...', 'warning');
-      const { FincaService } = await import('../services/finca.service.ts');
+      const { FincaService } = await import('/src/services/finca.service.ts');
       let result;
       if (fincaActualId) {
         result = await FincaService.update(fincaActualId, payload, token);
@@ -1139,7 +1120,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     resultadoCarga.classList.add('hidden');
 
     try {
-      const { GeoespacialService } = await import('../services/geoespacial.service.ts');
+      const { GeoespacialService } = await import('/src/services/geoespacial.service.ts');
       const token = getToken();
       const data = await GeoespacialService.cargarArchivo(archivoSeleccionado, token);
       cargaProgreso.classList.add('hidden');
@@ -1192,7 +1173,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
   async function abrirArchivo(doc, modo) {
     try {
-      const resUrl = await fetch(`https://geoguard-exped1.onrender.com/api/v1/documentos/${doc.id}/descarga`, {
+      const resUrl = await fetch(`${window.__EXPED_API_URL}/api/v1/documentos/${doc.id}/descarga`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       if (!resUrl.ok) throw new Error(`El servidor respondió ${resUrl.status}. No se pudo obtener el enlace seguro.`);
@@ -1222,7 +1203,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
   async function cargarListaDocumentos() {
     if (!documentosLista || !fincaActualId) return;
     try {
-      const { FincaService } = await import('../services/finca.service.ts');
+      const { FincaService } = await import('/src/services/finca.service.ts');
       const token = getToken();
       const documentos = await FincaService.listarDocumentos(fincaActualId, token);
 
@@ -1271,7 +1252,7 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
     if (docSubirBtn instanceof HTMLButtonElement) docSubirBtn.disabled = true;
 
     try {
-      const { FincaService } = await import('../services/finca.service.ts');
+      const { FincaService } = await import('/src/services/finca.service.ts');
       const token = getToken();
       const result = await FincaService.subirDocumento(fincaActualId, tipo, archivo, token);
 
@@ -1308,3 +1289,4 @@ const poligonoDataEscaped = poligonoDataStr.replace(/</g, '\\u003c').replace(/>/
 
 })();
 </script>
+</DashboardLayout>

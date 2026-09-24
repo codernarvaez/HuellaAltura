@@ -1,0 +1,13 @@
+{
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Huella de Altura",
+        "supportEmail": "jaimedavidmendoza1506@gmail.com",
+        "authorizedRedirectUris": ["http://127.0.0.1"]
+      }
+    },
+    "authorizedDomains": ["localhost", "127.0.0.1"]
+  }
+}

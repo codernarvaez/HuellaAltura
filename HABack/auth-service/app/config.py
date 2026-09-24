@@ -27,7 +27,10 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_from_email: str | None = None
     smtp_tls: bool = True
-    frontend_url: str = "https://stgc-front.onrender.com"
+    frontend_url: str = "http://127.0.0.1:4321"
+
+    # Proyecto Firebase (Agrobamba). Solo se usa para verificar ID tokens.
+    firebase_project_id: str = "agrobamba-cia-ltda"
 
     debug: bool = False
 

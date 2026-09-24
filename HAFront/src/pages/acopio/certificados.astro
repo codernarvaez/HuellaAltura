@@ -3,6 +3,7 @@
 import DashboardLayout from "../../layouts/LayoutVariable.astro";
 import { AuthService } from "../../services/auth.service.ts";
 import { AcopioService } from "../../services/acopio.service.ts";
+import { API_URL } from "../../services/Api_Base.ts";
 
 // Obtener token y datos del usuario
 const token = Astro.cookies.get("token")?.value;
@@ -52,7 +53,6 @@ const puedeVerCertificados = userRole === 'SUPER_ADMIN' ||
 const lotesDespachadosStr = JSON.stringify(lotesDespachados);
 const userRoleStr = userRole;
 const puedeVerCertificadosStr = puedeVerCertificados ? 'true' : 'false';
-const API_URL = "https://geoguard-exped1.onrender.com";
 ---
 
 <DashboardLayout title="Certificados - Acopio">
@@ -376,13 +376,16 @@ const API_URL = "https://geoguard-exped1.onrender.com";
 
 <script is:inline src="https://unpkg.com/lucide@latest"></script>
 
+<script define:vars={{ API_URL }} is:inline>
+    window.__EXPED_API_URL = API_URL;
+</script>
 <script is:inline>
     import { AuthService } from "/src/services/auth.service.ts";
     import { AcopioService } from "/src/services/acopio.service.ts";
 
     console.log("📄 Página de Certificados cargada");
 
-    const API_URL = "https://geoguard-exped1.onrender.com";
+    const API_URL = window.__EXPED_API_URL;
     let inventarioIdSeleccionado = null;
     let certificadoData = null;
 

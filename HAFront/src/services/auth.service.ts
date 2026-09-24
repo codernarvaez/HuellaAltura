@@ -1,5 +1,4 @@
-//import { API_URL } from "./Api_Base";
-const API_URL = "https://huellaaltura.onrender.com";
+import { AUTH_API_URL as API_URL } from "./Api_Base";
 
 export interface LoginRequest {
   email: string;
@@ -83,6 +82,27 @@ export class AuthService {
   throw new Error(JSON.stringify(detail) || "Error al iniciar sesión");
 }
 
+    return data;
+  }
+
+  static async loginWithFirebase(idToken: string): Promise<LoginResponse> {
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}/api/auth/firebase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: idToken }),
+      });
+    } catch {
+      throw new Error(
+        `auth-service no responde en ${API_URL}. Revisa HABack/auth-service/.env (DATABASE_URL, SECRET_KEY) y que el proceso esté en el puerto 8000.`,
+      );
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = data.detail;
+      throw new Error(typeof detail === "string" ? detail : "No se pudo validar la sesión de Firebase");
+    }
     return data;
   }
 

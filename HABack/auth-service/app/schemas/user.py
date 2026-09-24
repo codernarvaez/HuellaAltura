@@ -49,6 +49,18 @@ class UserCreate(UserBase):
     status: UserStatus | None = UserStatus.ACTIVO
 
 
+class ProfileUpdate(BaseModel):
+    """Datos que el usuario autenticado puede editar en su propio perfil."""
+
+    first_name: str | None = None
+    last_name: str | None = None
+    identifier: str | None = None
+    phone_number: str | None = None
+    edad: int | None = None
+    genero: Genero | None = None
+    nivel_educativo: NivelEducativo | None = None
+
+
 class UserOut(UserBase):
     id: str
     role: RoleOut
@@ -71,6 +83,10 @@ class UserLogin(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={"example": {"email": "admin@finca.com", "password": "tu_contraseña_segura"}}
     )
+
+
+class FirebaseLogin(BaseModel):
+    id_token: str
 
 
 class Token(BaseModel):

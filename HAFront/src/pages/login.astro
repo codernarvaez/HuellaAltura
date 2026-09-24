@@ -7,6 +7,12 @@
   const configured = Boolean(
     import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_SUPABASE_ANON_KEY
   );
+  const firebaseConfigured = Boolean(
+    import.meta.env.PUBLIC_FIREBASE_API_KEY &&
+      import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN &&
+      import.meta.env.PUBLIC_FIREBASE_PROJECT_ID &&
+      import.meta.env.PUBLIC_FIREBASE_APP_ID
+  );
   const siteUrl = import.meta.env.PUBLIC_SITE_URL ?? Astro.url.origin;
 
   if (configured) {
@@ -47,9 +53,9 @@
           </div>
 
           <!-- Alertas -->
-          {!configured && (
+          {!firebaseConfigured && (
             <div class="rounded-xl border border-secondary/30 bg-secondary-container/30 px-4 py-3 text-sm text-on-secondary-container">
-              Configura Supabase en <code class="font-mono">HAFront/.env</code> para activar autenticación.
+              Configura Firebase en <code class="font-mono">HAFront/.env</code> para iniciar sesión con email o Google.
             </div>
           )}
           {error === "supabase" && (
@@ -78,7 +84,7 @@
             <div class="space-y-3">
               <button type="button" id="btn-google"
                 class="w-full flex items-center justify-center gap-3 border border-outline-variant rounded-xl px-4 py-3 font-label-md text-label-md hover:bg-surface-container-low transition-all disabled:opacity-50"
-                disabled={!configured}>
+                disabled={!firebaseConfigured}>
                 <svg class="h-5 w-5" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -153,7 +159,7 @@
 
               <button type="submit" id="btn-email"
                 class="w-full py-4 bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md rounded-xl transition-all flex items-center justify-center gap-2 group active:scale-[0.98] disabled:opacity-50"
-                disabled={!configured}>
+                disabled={!firebaseConfigured}>
                 <span>Crear cuenta</span>
                 <span class="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
               </button>
@@ -213,7 +219,7 @@
     </main>
   </Layout>
 
-  <script define:vars={{ configured, siteUrl }} is:inline>
+  <script define:vars={{ configured, firebaseConfigured, siteUrl }} is:inline>
     // Toggle password
     const toggle = document.getElementById("toggle-password");
     const passwordInput = document.getElementById("password");
@@ -261,24 +267,41 @@
     tabRegister?.addEventListener("click", () => setMode("register"));
     tabLogin?.addEventListener("click", () => setMode("login"));
 
-    async function getSupabase() {
-      const { createClient } = await import("../lib/supabase/client.ts");
-      return createClient();
-    }
+    const btnGoogle = document.getElementById("btn-google");
+    let signInWithGoogle = null;
+    let openPlatformSession = null;
+    if (firebaseConfigured && btnGoogle) {
+      btnGoogle.disabled = true;
+      Promise.all([
+        import("/src/lib/firebase-auth.ts"),
+        import("/src/lib/firebase-session.ts"),
+      ]).then(([authApi, session]) => {
+        signInWithGoogle = authApi.signInWithGoogle;
+        openPlatformSession = session.openPlatformSession;
+        btnGoogle.disabled = false;
+      }).catch((error) => {
+        showAlert(error instanceof Error ? error.message : "No se pudo cargar Firebase.");
+      });
 
-    document.getElementById("btn-google")?.addEventListener("click", async () => {
-      if (!configured) return;
-      try {
-        const supabase = await getSupabase();
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: { redirectTo: `${siteUrl}/auth/callback` },
-        });
-        if (error) showAlert(error.message);
-      } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Error con Google Auth.");
-      }
-    });
+      btnGoogle.addEventListener("click", async () => {
+        if (!signInWithGoogle || !openPlatformSession) return;
+        try {
+          btnGoogle.disabled = true;
+          const user = await signInWithGoogle();
+          await openPlatformSession(user);
+        } catch (error) {
+          const code = error && error.code;
+          if (code === "auth/popup-closed-by-user") return;
+          if (code === "auth/popup-blocked") {
+            showAlert("El navegador bloqueó la ventana de Google. Permite ventanas emergentes para este sitio y pulsa Continuar con Google otra vez.");
+            return;
+          }
+          showAlert(error instanceof Error ? error.message : "Error con Google Auth.");
+        } finally {
+          btnGoogle.disabled = false;
+        }
+      });
+    }
 
     document.getElementById("btn-metamask")?.addEventListener("click", async () => {
       if (!configured) return;
@@ -312,26 +335,22 @@
 
     authForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (!configured) return;
+      if (!firebaseConfigured) return;
       const formData = new FormData(authForm);
       const email = String(formData.get("email") ?? "");
       const password = String(formData.get("password") ?? "");
       const fullName = String(formData.get("fullName") ?? "");
       try {
         btnEmail.disabled = true;
-        const supabase = await getSupabase();
+        const authApi = await import("/src/lib/firebase-auth.ts");
         if (mode === "register") {
-          const { error } = await supabase.auth.signUp({
-            email, password,
-            options: { data: { full_name: fullName }, emailRedirectTo: `${siteUrl}/auth/callback` },
-          });
-          if (error) { showAlert(error.message); return; }
-          showAlert("Revisa tu correo para confirmar la cuenta.", "success");
+          await authApi.signUpWithEmail(email, password, fullName);
+          showAlert("Cuenta creada. Confirma el correo e inicia sesión.", "success");
           return;
         }
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) { showAlert(error.message); return; }
-        window.location.href = "/dashboard";
+        const firebaseUser = await authApi.signInWithEmail(email, password);
+        const { openPlatformSession } = await import("/src/lib/firebase-session.ts");
+        await openPlatformSession(firebaseUser);
       } catch (e) {
         showAlert(e instanceof Error ? e.message : "Error de autenticación.");
       } finally {

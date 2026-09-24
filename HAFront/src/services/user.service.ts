@@ -1,4 +1,4 @@
-const API_URL = "https://huellaaltura.onrender.com";
+import { AUTH_API_URL as API_URL } from "./Api_Base";
 const USERS_BASE = `${API_URL}/api/users`;
 const AUTH_BASE = `${API_URL}/api/auth`;
 

@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import timedelta
 from typing import Annotated
 
@@ -13,10 +14,13 @@ from app.dependencies import (
     get_current_user,
     get_optional_current_user,
 )
+from app.firebase_auth import FirebaseTokenError, verify_firebase_id_token
 from app.limiter import limiter
 from app.schemas.user import (
+    FirebaseLogin,
     PasswordResetConfirm,
     PasswordResetRequest,
+    ProfileUpdate,
     Token,
     UserCreate,
     UserLogin,
@@ -35,6 +39,28 @@ from app.utils.email import send_password_reset_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=endpoints.AUTH_PREFIX, tags=["Autenticación"])
+
+
+def _split_display_name(name: str | None) -> tuple[str | None, str | None]:
+    if not name or not name.strip():
+        return None, None
+    parts = name.strip().split(None, 1)
+    if len(parts) == 1:
+        return parts[0], None
+    return parts[0], parts[1]
+
+
+async def _issue_session(db: Prisma, user: User) -> Token:
+    if user.status != "ACTIVO":
+        raise HTTPException(status_code=403, detail=f"Cuenta {user.status}")
+
+    new_session_token = generate_session_token()
+    await db.user.update(where={"id": user.id}, data={"session_token": new_session_token})
+    access_token = create_access_token(
+        data={"sub": user.id, "role": user.role.name, "session_token": new_session_token},
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    return Token(access_token=access_token, token_type="bearer")
 
 
 @router.post(
@@ -135,14 +161,60 @@ async def login(request: Request, login_data: UserLogin, db: Annotated[Prisma, D
     if user.status != "ACTIVO":
         raise HTTPException(status_code=403, detail=f"Cuenta {user.status}")
 
-    new_session_token = generate_session_token()
-    await db.user.update(where={"id": user.id}, data={"session_token": new_session_token})
+    return await _issue_session(db, user)
 
-    access_token = create_access_token(
-        data={"sub": user.id, "role": user.role.name, "session_token": new_session_token},
-        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+
+@router.post(
+    endpoints.AUTH_FIREBASE,
+    response_model=Token,
+    summary="Iniciar sesión con Firebase",
+    description=(
+        "Verifica un ID token de Firebase Authentication del proyecto configurado "
+        "y devuelve el JWT de la plataforma. Si el correo no existe, crea un PRODUCTOR."
+    ),
+)
+@limiter.limit("10/minute")
+async def login_with_firebase(
+    request: Request,
+    body: FirebaseLogin,
+    db: Annotated[Prisma, Depends(get_db)],
+):
+    try:
+        claims = verify_firebase_id_token(body.id_token)
+    except FirebaseTokenError as exc:
+        message = str(exc)
+        status_code = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if message.startswith("No se pudieron obtener")
+            else status.HTTP_401_UNAUTHORIZED
+        )
+        raise HTTPException(status_code=status_code, detail=message) from None
+
+    if not claims.get("email_verified"):
+        raise HTTPException(status_code=403, detail="Confirma el correo antes de continuar")
+
+    email = str(claims["email"]).lower()
+    user = await db.user.find_unique(where={"email": email}, include={"role": True})
+    if user:
+        return await _issue_session(db, user)
+
+    role = await db.role.find_unique(where={"name": roles.PRODUCTOR})
+    if not role:
+        raise HTTPException(status_code=500, detail="El rol PRODUCTOR no existe")
+
+    first_name, last_name = _split_display_name(claims.get("name") if isinstance(claims.get("name"), str) else None)
+    user = await db.user.create(
+        data={
+            "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "password_hash": get_password_hash(secrets.token_urlsafe(32)),
+            "role_id": role.id,
+            "status": "ACTIVO",
+        },
+        include={"role": True},
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return await _issue_session(db, user)
 
 
 @router.get(
@@ -153,6 +225,52 @@ async def login(request: Request, login_data: UserLogin, db: Annotated[Prisma, D
 )
 async def get_me(current_user: Annotated[UserOut, Depends(get_current_user)]):
     return current_user
+
+
+@router.patch(
+    endpoints.AUTH_ME,
+    response_model=UserOut,
+    summary="Actualizar perfil propio",
+    description="El usuario autenticado actualiza su nombre, cédula, teléfono y datos del módulo de productor.",
+)
+async def update_me(
+    data: ProfileUpdate,
+    db: Annotated[Prisma, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    cambios = data.model_dump(exclude_unset=True)
+    if not cambios:
+        raise HTTPException(status_code=400, detail="No hay datos para actualizar")
+
+    update_data: dict = {}
+    if "first_name" in cambios:
+        update_data["first_name"] = (cambios["first_name"] or "").strip() or None
+    if "last_name" in cambios:
+        update_data["last_name"] = (cambios["last_name"] or "").strip() or None
+    if "phone_number" in cambios:
+        phone = (cambios["phone_number"] or "").strip() or None
+        if phone:
+            existente = await db.user.find_first(where={"phone_number": phone, "NOT": {"id": current_user.id}})
+            if existente:
+                raise HTTPException(status_code=400, detail="Ese teléfono ya está registrado")
+        update_data["phone_number"] = phone
+    if "identifier" in cambios:
+        identifier = (cambios["identifier"] or "").strip() or None
+        if identifier:
+            existente = await db.user.find_first(where={"identifier": identifier, "NOT": {"id": current_user.id}})
+            if existente:
+                raise HTTPException(status_code=400, detail="Esa cédula ya está registrada")
+        update_data["identifier"] = identifier
+    if "edad" in cambios:
+        update_data["edad"] = cambios["edad"]
+    if "genero" in cambios:
+        genero = cambios["genero"]
+        update_data["genero"] = getattr(genero, "name", genero) if genero is not None else None
+    if "nivel_educativo" in cambios:
+        nivel = cambios["nivel_educativo"]
+        update_data["nivel_educativo"] = getattr(nivel, "name", nivel) if nivel is not None else None
+
+    return await db.user.update(where={"id": current_user.id}, data=update_data, include={"role": True})
 
 
 @router.post(

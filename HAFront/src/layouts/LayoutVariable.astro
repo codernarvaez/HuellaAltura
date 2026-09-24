@@ -166,7 +166,7 @@ const isAdminStr = isAdmin ? 'true' : 'false';
   </header>
 
   <!-- WRAPPER -->
-  <div class="flex pt-16 h-screen">
+  <div class="flex pt-16 h-screen min-h-0 overflow-hidden">
 
     <!-- SIDEBAR -->
     <aside
@@ -569,7 +569,7 @@ const isAdminStr = isAdmin ? 'true' : 'false';
     </aside>
 
     <!-- CONTENIDO -->
-    <main class="ml-72 flex-1 overflow-y-auto p-8">
+    <main class="ml-72 min-h-0 min-w-0 flex-1 overflow-y-auto p-8">
       <div class="max-w-7xl mx-auto">
         <slot />
       </div>

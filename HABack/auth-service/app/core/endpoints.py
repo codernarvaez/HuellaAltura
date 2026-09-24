@@ -9,6 +9,7 @@ AUTH_PREFIX = "/auth"
 # Auth Endpoints
 AUTH_REGISTER = "/register"
 AUTH_LOGIN = "/login"
+AUTH_FIREBASE = "/firebase"
 AUTH_ME = "/me"
 AUTH_RECOVERY = "/password-recovery"
 AUTH_RESET = "/reset-password"

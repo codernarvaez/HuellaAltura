@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Orígenes permitidos por CORS, separados por comas.
     cors_origins: str = (
-        "http://localhost:4321,http://localhost:4322,http://localhost:3000,https://huella-altura-frontend.onrender.com"
+        "http://localhost:4321,http://localhost:4322,http://localhost:3000,http://127.0.0.1:4321"
     )
 
     @property

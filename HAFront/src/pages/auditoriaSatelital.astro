@@ -4,6 +4,7 @@ import Layout from "../layouts/LayoutVariable.astro";
 import { FincaService } from "../services/finca.service.ts";
 import { AuthService } from "../services/auth.service.ts";
 import { ExpedienteService } from "../services/expediente.service.ts";
+import { API_URL } from "../services/Api_Base.ts";
 
 // Obtener token de las cookies
 const token = Astro.cookies.get("token")?.value;
@@ -161,6 +162,9 @@ const esAdminStr = esAdmin ? 'true' : 'false';
 </style>
 
 <!-- Script 1: Inyección de datos -->
+<script define:vars={{ API_URL }} is:inline>
+  window.__EXPED_API_URL = API_URL;
+</script>
 <script is:inline>
   window.__FINCA_DATA__ = {fincasPendientesJSON};
   window.__ES_ADMIN__ = {esAdminStr};
@@ -181,7 +185,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
   }
 
   const token = getCookie('token');
-  const API_URL = "https://geoguard-exped1.onrender.com";
+  const API_URL = window.__EXPED_API_URL;
 
   // ============================================================
   // FUNCIONES API

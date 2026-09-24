@@ -4,10 +4,9 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "/src/*": ["src/*"],
-      "@/*": ["src/*"]
+      "/src/*": ["./src/*"],
+      "@/*": ["./src/*"]
     }
   },
   "include": [".astro/types.d.ts", "**/*"],
