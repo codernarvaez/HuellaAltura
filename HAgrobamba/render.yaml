@@ -1,20 +1,15 @@
-# Static site — landing Agrobamba (Vue 3 + Vite)
-# Aplicar vía Dashboard: https://dashboard.render.com/blueprint/new?repo=https://github.com/codernarvaez/LoxadevCoffe
+# Web Service — landing Agrobamba (Vue 3 + Vite → serve dist)
+# Crear en Dashboard: New → Web Service (no hace falta Apply Blueprint).
 services:
   - type: web
     name: agrobamba-landing
-    runtime: static
+    runtime: node
     plan: free
     rootDir: HAgrobamba/frontend
     buildCommand: npm ci && npm run build
-    staticPublishPath: dist
+    startCommand: npm start
+    healthCheckPath: /
     autoDeploy: true
-    routes:
-      # SPA / anchors: cualquier ruta desconocida → index.html
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      - path: /assets/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable
+    envVars:
+      - key: NODE_ENV
+        value: production
