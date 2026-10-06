@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huella-altura/finca/v1",
+  "title": "Versión de una finca anclada en OriginRegistry (sin datos personales)",
+  "type": "object",
+  "required": ["fincaId", "version", "tenant", "areaTotalHa", "geoHash", "schema"],
+  "additionalProperties": false,
+  "properties": {
+    "fincaId": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "tenant": { "type": "string" },
+    "eudrId": { "type": "string" },
+    "provincia": { "type": "string" },
+    "canton": { "type": "string" },
+    "parroquia": { "type": "string" },
+    "areaTotalHa": { "type": "number", "exclusiveMinimum": 0 },
+    "areaCultivadaHa": { "type": "number", "minimum": 0 },
+    "geoHash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+    "geojson": {
+      "description": "Solo si el productor dio consentimiento para publicar el polígono.",
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "type": "string" } }
+    },
+    "schema": { "const": "huella-altura/finca/v1" }
+  }
+}

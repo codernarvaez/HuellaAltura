@@ -1,0 +1,13 @@
+node_modules/
+.env
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+gasReporterOutput.json
+.openzeppelin/unknown-31337.json
+deployments/31337.json
+
+# La raíz ignora lib/ (Python); aquí scripts/lib es código del módulo.
+!scripts/lib/
