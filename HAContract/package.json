@@ -16,6 +16,10 @@
     "demo:local": "hardhat run scripts/demoFlow.ts --network localhost",
     "demo:amoy": "hardhat run scripts/demoFlow.ts --network amoy",
     "roles:amoy": "hardhat run scripts/grantRoles.ts --network amoy",
+    "accounts:local": "hardhat run scripts/setupRoles.ts --network localhost",
+    "accounts:amoy": "hardhat run scripts/setupRoles.ts --network amoy",
+    "demo:roles:local": "DEMO_SIGNERS=roles hardhat run scripts/demoFlow.ts --network localhost",
+    "demo:roles:amoy": "DEMO_SIGNERS=roles hardhat run scripts/demoFlow.ts --network amoy",
     "upgrade:amoy": "hardhat run scripts/upgrade.ts --network amoy",
     "verify:amoy": "hardhat run scripts/verify.ts --network amoy"
   },

@@ -72,6 +72,20 @@ CONTRACT=TraceabilityController npm run upgrade:amoy
 RELAYER_ADDRESS=0x… npm run roles:amoy
 ```
 
+### Una cuenta por rol
+
+Para probar cada fase firmada por su actor (en vez del relayer):
+
+```bash
+npm run accounts:local      # da cada rol a las cuentas públicas de Hardhat #1–#6 y las lista con su clave
+npm run demo:roles:local    # el mismo flujo, firmado por relayer, auditor, agricultor, beneficio, catador y exportador
+```
+
+En Amoy, crea seis cuentas de prueba en Rabby, pon sus claves en `RELAYER_PRIVATE_KEY`,
+`AUDITOR_PRIVATE_KEY`, `FARMER_PRIVATE_KEY`, `PROCESSOR_PRIVATE_KEY`, `GRADER_PRIVATE_KEY` y
+`EXPORTER_PRIVATE_KEY` y ejecuta `npm run accounts:amoy` (concede los roles y envía `ROLE_FUND_POL`
+a cada cuenta desde el desplegador) y luego `npm run demo:roles:amoy`.
+
 `deploy:amoy` también escribe `.openzeppelin/` con el layout de storage de cada implementación:
 hay que subirlo al repo junto con `deployments/80002.json`, porque los upgrades lo necesitan.
 

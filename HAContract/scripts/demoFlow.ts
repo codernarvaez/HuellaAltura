@@ -3,12 +3,15 @@ import type { ContractTransactionResponse, LogDescription } from "ethers";
 import { attach, grantRelayer } from "./lib/contracts";
 import { documentHash } from "./lib/documents";
 import { gatewayUrl, pinDocument, pinFile, type Pinned } from "./lib/ipfs";
+import { roleSigners, type RoleKey } from "./lib/roles";
 
 // Flujo completo de la Fase 2 del plan sobre un despliegue existente, en modo relayer
 // (PLAN §3.6): una sola cuenta firma y los custodios son direcciones custodiales.
 //   finca → auditoría → DDS → cosecha → custodia → beneficio → secado → trilla → cata
 //   → custodia → split en sacos → merge → exportación, y luego el linaje hasta la finca.
 // Opcional: DEMO_PHOTO=ruta/foto.jpg para adjuntar una foto real del lote.
+// DEMO_SIGNERS=roles: cada fase la firma la cuenta de su rol (ver setupRoles.ts) y los
+// custodios son las cuentas del agricultor, el beneficio y el exportador.
 
 const LOCAL = network.name === "hardhat" || network.name === "localhost";
 const FORMS = ["CHERRY", "PARCHMENT", "GREEN"] as const;
@@ -23,7 +26,7 @@ function show(label: string, p: Pinned) {
 async function send(label: string, tx: Promise<ContractTransactionResponse>) {
   const sent = await tx;
   const rc = await sent.wait();
-  console.log(`  ✓ ${label} · tx ${sent.hash}`);
+  console.log(`  ✓ ${label} · firmó ${sent.from} · tx ${sent.hash}`);
   return rc!;
 }
 
@@ -33,13 +36,26 @@ async function main() {
   const parse = (logs: readonly { topics: readonly string[]; data: string }[], name: string): LogDescription =>
     logs.map((l) => controller.interface.parseLog(l)).find((l) => l?.name === name)!;
 
-  console.log(`Red ${network.name} (chainId ${chainId}) · relayer ${relayer.address}`);
-  await grantRelayer(origin, controller, relayer.address);
+  const roles = process.env.DEMO_SIGNERS === "roles" ? await roleSigners() : undefined;
+  const as = (k: RoleKey) => roles?.[k] ?? relayer;
+  const reg = (k: RoleKey) => origin.connect(as(k));
+  const ctl = (k: RoleKey) => controller.connect(as(k));
 
-  // Direcciones custodiales (el sistema las genera; no necesitan POL ni firmar).
-  const productor = ethers.Wallet.createRandom().address;
-  const beneficio = ethers.Wallet.createRandom().address;
-  const exportador = ethers.Wallet.createRandom().address;
+  if (roles) {
+    console.log(`Red ${network.name} (chainId ${chainId}) · cada fase la firma su rol`);
+    if (!(await controller.hasRole(await controller.FARMER_ROLE(), roles.farmer.address))) {
+      throw new Error("Las cuentas por rol no tienen sus roles: ejecuta antes npm run accounts:<red>");
+    }
+  } else {
+    console.log(`Red ${network.name} (chainId ${chainId}) · relayer ${relayer.address}`);
+    await grantRelayer(origin, controller, relayer.address);
+  }
+
+  // Custodios: en modo relayer son direcciones custodiales (no necesitan POL ni firmar);
+  // en modo roles, las cuentas del agricultor, el beneficio y el exportador.
+  const productor = roles?.farmer.address ?? ethers.Wallet.createRandom().address;
+  const beneficio = roles?.processor.address ?? ethers.Wallet.createRandom().address;
+  const exportador = roles?.exporter.address ?? ethers.Wallet.createRandom().address;
   console.log(`Custodios: productor ${productor} · beneficio ${beneficio} · exportador ${exportador}`);
 
   const now = Math.floor(Date.now() / 1000);
@@ -60,13 +76,13 @@ async function main() {
     LOCAL,
   );
   show("finca", fincaDoc);
-  await send("registerFinca", origin.registerFinca(fincaId, ethers.id(tenant), geoHash, 250, fincaDoc.cid));
+  await send("registerFinca", reg("relayer").registerFinca(fincaId, ethers.id(tenant), geoHash, 250, fincaDoc.cid));
 
   // 2. Auditoría GEE aprobada (el informe queda en Postgres; on-chain solo su hash).
   console.log("2. Auditoría de deforestación");
   const fechaCorte = Math.floor(Date.UTC(2020, 11, 31) / 1000);
   const auditHash = documentHash({ fincaId, resultado: "APROBADO", fuente: "GEE", fechaCorte: day(fechaCorte) });
-  await send("anchorAudit", origin.anchorAudit(fincaId, auditHash, true, fechaCorte));
+  await send("anchorAudit", reg("auditor").anchorAudit(fincaId, auditHash, true, fechaCorte));
 
   // 3. Certificado DDS.
   console.log("3. Certificado DDS");
@@ -93,7 +109,7 @@ async function main() {
     LOCAL,
   );
   show("dds", ddsDoc);
-  const ddsRc = await send("issueDDS", origin.issueDDS(fincaId, productor, expires, ddsDoc.cid));
+  const ddsRc = await send("issueDDS", reg("auditor").issueDDS(fincaId, productor, expires, ddsDoc.cid));
   const certId = ddsRc.logs
     .map((l) => origin.interface.parseLog(l))
     .find((l) => l?.name === "DDSIssued")!.args.certId as bigint;
@@ -148,7 +164,7 @@ async function main() {
   let doc = await lotDoc("cosecha", 0, 0, 500_000, [], { madurez: "RIPE" });
   let rc = await send(
     "registerHarvest",
-    controller.registerHarvest(fincaId, productor, 500_000, ethers.encodeBytes32String("Typica"), 0, harvestDate, doc.cid),
+    ctl("farmer").registerHarvest(fincaId, productor, 500_000, ethers.encodeBytes32String("Typica"), 0, harvestDate, doc.cid),
   );
   const cherryId = parse(rc.logs, "HarvestRegistered").args.lotId as bigint;
   console.log(`    lote cereza ${hex(cherryId)}`);
@@ -156,48 +172,48 @@ async function main() {
   console.log("5. Custodia productor → beneficio");
   await send(
     "transferCustody",
-    controller.transferCustody(cherryId, productor, beneficio, 500_000, remision(productor, beneficio, 500_000), ""),
+    ctl("farmer").transferCustody(cherryId, productor, beneficio, 500_000, remision(productor, beneficio, 500_000), ""),
   );
 
   console.log("6. Beneficio húmedo");
   doc = await lotDoc("beneficio", 1, 0, 500_000, [], { proceso: "WASHED", fermentacionHoras: 36, ph: 4.5 });
-  await send("logProcessing", controller.logProcessing(cherryId, 0, 36, 45, doc.hash, doc.cid));
+  await send("logProcessing", ctl("processor").logProcessing(cherryId, 0, 36, 45, doc.hash, doc.cid));
 
   console.log("7. Secado (500 kg cereza → 100 kg pergamino, humedad 11,5 %)");
   doc = await lotDoc("secado", 2, 1, 100_000, [cherryId], { metodo: "PATIO", humedad: 11.5 });
-  rc = await send("logDrying", controller.logDrying(cherryId, beneficio, 100_000, 115, 0, doc.hash, doc.cid));
+  rc = await send("logDrying", ctl("processor").logDrying(cherryId, beneficio, 100_000, 115, 0, doc.hash, doc.cid));
   const parchmentId = parse(rc.logs, "LotTransformed").args.toLotId as bigint;
 
   console.log("8. Trilla (100 kg pergamino → 80 kg verde)");
   doc = await lotDoc("trilla", 3, 2, 80_000, [parchmentId], { factorRendimiento: 0.8 });
-  rc = await send("logHulling", controller.logHulling(parchmentId, beneficio, 80_000, doc.hash, doc.cid));
+  rc = await send("logHulling", ctl("processor").logHulling(parchmentId, beneficio, 80_000, doc.hash, doc.cid));
   const greenId = parse(rc.logs, "LotTransformed").args.toLotId as bigint;
 
   console.log("9. Cata SCA");
   doc = await lotDoc("cata", 4, 2, 80_000, [parchmentId], { scaScore: 86.5, defectos: 3 });
-  await send("addCupping", controller.addCupping(greenId, 86, 3, doc.hash, doc.cid));
+  await send("addCupping", ctl("grader").addCupping(greenId, 86, 3, doc.hash, doc.cid));
 
   console.log("10. Custodia beneficio → exportador");
   await send(
     "transferCustody",
-    controller.transferCustody(greenId, beneficio, exportador, 80_000, remision(beneficio, exportador, 80_000), ""),
+    ctl("processor").transferCustody(greenId, beneficio, exportador, 80_000, remision(beneficio, exportador, 80_000), ""),
   );
 
   console.log("11. Empaque en 2 sacos de 40 kg");
   doc = await lotDoc("sacos", 5, 2, 80_000, [greenId], { sacos: 2, pesoSacoKg: 40 });
-  rc = await send("split", controller.split(greenId, exportador, [40_000, 40_000], doc.cid));
+  rc = await send("split", ctl("exporter").split(greenId, exportador, [40_000, 40_000], doc.cid));
   const sacks = parse(rc.logs, "LotSplit").args.childIds as bigint[];
 
   console.log("12. Lote de exportación (merge)");
   doc = await lotDoc("exportacion", 5, 2, 80_000, [...sacks], { contenedor: "DEMO-CONT-01" });
-  rc = await send("merge", controller.merge([...sacks], exportador, doc.cid));
+  rc = await send("merge", ctl("exporter").merge([...sacks], exportador, doc.cid));
   const exportId = parse(rc.logs, "LotMerged").args.lotId as bigint;
 
   console.log("13. Exportación");
   doc = await lotDoc("exportado", 6, 2, 80_000, [...sacks], { destino: "Hamburgo", referenciaDDS: `TRACES-DEMO-${now}` });
   await send(
     "markExported",
-    controller.markExported(exportId, ethers.id(`TRACES-DEMO-${now}`), doc.hash, doc.cid),
+    ctl("exporter").markExported(exportId, ethers.id(`TRACES-DEMO-${now}`), doc.hash, doc.cid),
   );
 
   // Linaje: del lote exportado hasta la finca y su DDS.

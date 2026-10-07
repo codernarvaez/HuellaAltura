@@ -4,13 +4,8 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
 
 // Nunca se escriben claves en el repo: todo se lee del entorno (.env local o secretos de CI).
-const accounts = [
-  process.env.DEPLOYER_PRIVATE_KEY,
-  process.env.FARMER_PRIVATE_KEY,
-  process.env.PROCESSOR_PRIVATE_KEY,
-  process.env.GRADER_PRIVATE_KEY,
-  process.env.EXPORTER_PRIVATE_KEY,
-].filter((k): k is string => Boolean(k));
+// Las cuentas por rol (FARMER_PRIVATE_KEY…) las carga scripts/lib/roles.ts.
+const accounts = process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [];
 
 const config: HardhatUserConfig = {
   solidity: {
