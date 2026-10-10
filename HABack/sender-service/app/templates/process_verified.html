@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Proceso anclado — {{ app_name }}</title>
+</head>
+<body style="margin:0;padding:0;background:#fefae3;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#2b361c;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fefae3;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width:600px;background:#ffffff;border:2px solid #636b3f;border-radius:15px;padding:40px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 8px;font-size:22px;color:#2b361c;">{{ app_name }}</h1>
+              <h2 style="margin:0 0 16px;color:#636b3f;">Trazabilidad anclada en Polygon</h2>
+              <p style="margin:0 0 12px;line-height:1.6;">
+                El proceso <strong>{{ process_id }}</strong> fue registrado de forma inmutable.
+              </p>
+              <p style="margin:0 0 8px;font-size:13px;word-break:break-all;">
+                <strong>Hash:</strong> {{ content_hash }}
+              </p>
+              <p style="margin:0 0 24px;font-size:13px;word-break:break-all;">
+                <strong>Tx:</strong> {{ tx_hash }}
+              </p>
+              {% if explorer_url %}
+              <table role="presentation" width="100%">
+                <tr>
+                  <td align="center" style="padding:8px 0 20px;">
+                    <a href="{{ explorer_url }}"
+                       style="background:#636b3f;color:#fefae3;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;display:inline-block;">
+                      Ver en Polygonscan
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              {% endif %}
+              <p style="margin:0;font-size:12px;opacity:0.8;">
+                Solo se publicó el hash del proceso; no se enviaron datos personales a la blockchain.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

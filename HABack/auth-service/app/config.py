@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     # Database
     database_url: str
 
-    # Email SMTP Settings
+    # Correos: preferir sender-service (Resend). SMTP queda como fallback de reset.
+    sender_service_url: str = "http://127.0.0.1:8040"
+    sender_timeout_seconds: float = 15.0
+
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
     smtp_user: str | None = None

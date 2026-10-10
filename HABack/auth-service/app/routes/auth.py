@@ -35,7 +35,7 @@ from app.security import (
     verify_password,
     verify_password_reset_token,
 )
-from app.utils.email import send_password_reset_email
+from app.utils.email import send_password_reset_email, send_welcome_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=endpoints.AUTH_PREFIX, tags=["Autenticación"])
@@ -78,6 +78,7 @@ async def register(
     request: Request,
     user_in: UserCreate,
     db: Annotated[Prisma, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
 ):
     try:
@@ -122,7 +123,7 @@ async def register(
         if not role:
             raise HTTPException(status_code=400, detail=f"El rol '{target_role_name}' no existe en el sistema")
 
-        return await db.user.create(
+        user = await db.user.create(
             data={
                 "email": email_lower,
                 "first_name": user_in.first_name,
@@ -138,6 +139,13 @@ async def register(
             },
             include={"role": True},
         )
+        background_tasks.add_task(
+            send_welcome_email,
+            user.email,
+            user.first_name or "Usuario",
+            user.last_name or "",
+        )
+        return user
     except HTTPException:
         raise
     except Exception as e:
@@ -178,6 +186,7 @@ async def login_with_firebase(
     request: Request,
     body: FirebaseLogin,
     db: Annotated[Prisma, Depends(get_db)],
+    background_tasks: BackgroundTasks,
 ):
     try:
         claims = verify_firebase_id_token(body.id_token)
@@ -213,6 +222,12 @@ async def login_with_firebase(
             "status": "ACTIVO",
         },
         include={"role": True},
+    )
+    background_tasks.add_task(
+        send_welcome_email,
+        user.email,
+        user.first_name or "Usuario",
+        user.last_name or "",
     )
     return await _issue_session(db, user)
 
@@ -289,7 +304,12 @@ async def recover_password(
     user = await db.user.find_unique(where={"email": email_lower})
     if user:
         token = create_password_reset_token(email_lower, user.password_hash)
-        background_tasks.add_task(send_password_reset_email, email_lower, token)
+        background_tasks.add_task(
+            send_password_reset_email,
+            email_lower,
+            token,
+            user.first_name or "Usuario",
+        )
     return {"message": "En caso de que el email exista, se ha enviado un enlace de recuperación"}
 
 

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bienvenido a {{ app_name }}</title>
+</head>
+<body style="margin:0;padding:0;background:#fefae3;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#2b361c;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fefae3;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width:600px;background:#ffffff;border:2px solid #636b3f;border-radius:15px;padding:40px;">
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              <h1 style="margin:0;font-size:24px;color:#2b361c;border-bottom:2px solid #d4a369;display:inline-block;padding-bottom:10px;">
+                {{ app_name }}
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <h2 style="margin:0 0 16px;color:#636b3f;">¡Bienvenido, {{ first_name }}!</h2>
+              <p style="margin:0 0 12px;line-height:1.6;">
+                Hola{% if full_name %} {{ full_name }}{% endif %}, tu cuenta en
+                <strong>{{ app_name }}</strong> ya está lista.
+              </p>
+              <p style="margin:0 0 28px;line-height:1.6;">
+                Desde la plataforma podrás digitalizar fincas, trazabilidad y certificación EUDR.
+              </p>
+              <table role="presentation" width="100%">
+                <tr>
+                  <td align="center" style="padding:8px 0 28px;">
+                    <a href="{{ login_url }}"
+                       style="background:#636b3f;color:#fefae3;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;display:inline-block;border:1px solid #2b361c;">
+                      Ir a la plataforma
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0;font-size:13px;color:#b17036;line-height:1.5;">
+                Si no creaste esta cuenta, ignora este mensaje.
+              </p>
+              <hr style="border:0;border-top:1px solid #d4a369;margin:28px 0;" />
+              <p style="margin:0;font-size:12px;text-align:center;opacity:0.8;">
+                {{ app_name }} — correo automático, no responder.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

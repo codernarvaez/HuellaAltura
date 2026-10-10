@@ -1,5 +1,5 @@
 # HuellaAltura monorepo — Pants orquesta todo el árbol de paquetes.
-# HABack   → pants_ci.sh (Python / Prisma)
+# HABack   → pants_ci.sh (Python / Prisma / sender httpx)
 # HAFront  → npm workspace (Astro)
 # HAMobile → npm workspace (Expo)
 

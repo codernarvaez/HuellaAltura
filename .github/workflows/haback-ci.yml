@@ -46,11 +46,37 @@ jobs:
           python -m pip install --upgrade pip pip-audit
           pip-audit -r HABack/exped-service/requirements.txt --strict --desc on
 
+  pip-audit-sender:
+    name: pip-audit (sender-service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Audit sender-service dependencies
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r HABack/sender-service/requirements.txt --strict --desc on
+
+  pip-audit-bcregister:
+    name: pip-audit (bcregister-service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Audit bcregister-service dependencies
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r HABack/bcregister-service/requirements.txt --strict --desc on
+
   pants:
     name: Pants CI (HABack)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [pip-audit-auth, pip-audit-exped]
+    needs: [pip-audit-auth, pip-audit-exped, pip-audit-sender, pip-audit-bcregister]
     steps:
       - uses: actions/checkout@v5
 
@@ -61,6 +87,8 @@ jobs:
           cache-dependency-path: |
             HABack/auth-service/requirements*.txt
             HABack/exped-service/requirements*.txt
+            HABack/sender-service/requirements*.txt
+            HABack/bcregister-service/requirements*.txt
 
       - name: Require Neon test database secret
         env:
@@ -82,6 +110,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r HABack/auth-service/requirements-dev.txt
           pip install -r HABack/exped-service/requirements-dev.txt
+          pip install -r HABack/sender-service/requirements-dev.txt
+          pip install -r HABack/bcregister-service/requirements-dev.txt
 
       - name: Pants list HABack targets
         run: "pants list HABack::"
@@ -107,6 +137,26 @@ jobs:
           INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
           SESSION_VALIDATION_ENABLED: "false"
           PRISMA_DB_PUSH: "0"
+
+      - name: sender-service CI
+        run: bash ./HABack/sender-service/pants_ci.sh
+        env:
+          INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 're_ci_test_key_not_for_prod' }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL || 'CI <onboarding@resend.dev>' }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'http://127.0.0.1:4321' }}
+          ENVIRONMENT: test
+
+      - name: bcregister-service CI
+        run: bash ./HABack/bcregister-service/pants_ci.sh
+        env:
+          INTERNAL_API_KEY: ${{ secrets.CI_INTERNAL_API_KEY || 'ci-test-internal' }}
+          SENDER_SERVICE_URL: http://127.0.0.1:8040
+          ENVIRONMENT: test
+          POLYGON_DRY_RUN: "true"
+          POLYGON_RPC_URL: https://rpc-amoy.polygon.technology
+          POLYGON_CHAIN_ID: "80002"
+          POLYGON_PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
   # -------------------------------------------------------------------------
   # Production schema deploy (Neon main branch)

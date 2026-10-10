@@ -5,20 +5,20 @@ alwaysApply: true
 
 # HABack — arquitectura
 
-Dos microservicios FastAPI + Prisma bajo **HABack**, orquestados con **Pants**. Identidad en **auth-service**; dominio EUDR/acopio en **exped-service**. JWT HS256 compartido (`SECRET_KEY`). S2S con `X-Internal-Api-Key`.
+Cuatro microservicios FastAPI bajo **HABack**, orquestados con **Pants**: identidad en **auth-service**; dominio EUDR/acopio en **exped-service**; correo en **sender-service** (Resend vía httpx); notario en **bcregister-service** (Polygon AsyncWeb3 + Resend opcional). JWT HS256 compartido (`SECRET_KEY`). S2S con `X-Internal-Api-Key`.
 
 Todo el monorepo (HABack, HAFront, HAMobile) usa **Pants**; npm workspaces solo para deps de HAFront/HAMobile.
 
 ## Servicios
 
-| | auth-service | exped-service |
-|---|---|---|
-| Puerto local | 8000 | 8031 |
-| Prisma | **async** | **sync** (`interface = "sync"`) |
-| Prefijo | `/api` | `/api/v1` (excepto acopio) |
-| Docs | `/docs` (ReDoc) | `/docs` ReDoc, `/swagger` |
-| CORS | `allow_origins=["*"]` | `CORS_ORIGINS` allowlist, `credentials=False` |
-| DBs | Postgres propias — **no** hay FK entre servicios |
+| | auth-service | exped-service | sender-service | bcregister-service |
+|---|---|---|---|---|
+| Puerto local | 8000 | 8031 | 8040 | 8050 |
+| Prisma | **async** | **sync** (`interface = "sync"`) | — | — |
+| Prefijo | `/api` | `/api/v1` (excepto acopio) | `/api/v1` | `/api/v1` |
+| Docs | `/docs` (ReDoc) | `/docs` ReDoc, `/swagger` | `/docs` | `/docs` |
+| CORS | `allow_origins=["*"]` | `CORS_ORIGINS` allowlist, `credentials=False` | S2S only | S2S only |
+| DBs / IO | Postgres propia | Postgres propia | Resend | Polygon; correo vía sender (`SENDER_SERVICE_URL`) |
 
 JWT claims: `sub` (user id), `role`, `session_token`. Login rota `session_token` (sesión única). Exped valida sesión en `POST {AUTH_SERVICE_URL}/api/internal/session/validate` si `SESSION_VALIDATION_ENABLED`. Env JWT: `SECRET_KEY` / `JWT_ALGORITHM` (no `ALGORITHM`).
 

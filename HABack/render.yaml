@@ -1,0 +1,143 @@
+# Blueprint IaC — auth + exped + sender + bcregister (Docker / Render Starter 512MB)
+# Dashboard → Blueprint path: HABack/render.yaml
+# Completa sync: false (Neon, Resend, Polygon, FRONTEND_URL, CORS, SMTP opcional).
+
+envVarGroups:
+  - name: huellaaltura-jwt-shared
+    envVars:
+      # Obligatorios e idénticos en auth + exped + sender + bcregister (S2S)
+      - key: SECRET_KEY
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+
+services:
+  # Correo primero: auth depende de su host para SENDER_SERVICE_URL
+  - type: web
+    name: huellaaltura-sender
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./sender-service/Dockerfile
+    dockerContext: ./sender-service
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8040"
+      - key: ENVIRONMENT
+        value: production
+      - key: API_PREFIX
+        value: /api/v1
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: RESEND_REPLY_TO
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - fromGroup: huellaaltura-jwt-shared
+
+  - type: web
+    name: huellaaltura-auth
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./auth-service/Dockerfile
+    dockerContext: ./auth-service
+    healthCheckPath: /docs
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      # Host del sender; auth antepone https:// si falta el esquema
+      - key: SENDER_SERVICE_URL
+        fromService:
+          name: huellaaltura-sender
+          type: web
+          property: host
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - fromGroup: huellaaltura-jwt-shared
+
+  - type: web
+    name: huellaaltura-exped
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./exped-service/Dockerfile
+    dockerContext: ./exped-service
+    healthCheckPath: /docs
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: DATABASE_URL
+        sync: false
+      # URL pública completa, ej. https://huellaaltura-auth.onrender.com
+      - key: AUTH_SERVICE_URL
+        sync: false
+      - key: SESSION_VALIDATION_ENABLED
+        value: "true"
+      - key: CORS_ORIGINS
+        sync: false
+      # URL pública de bcregister, ej. https://huellaaltura-bcregister.onrender.com
+      - key: BCREGISTER_SERVICE_URL
+        fromService:
+          name: huellaaltura-bcregister
+          type: web
+          property: host
+      - fromGroup: huellaaltura-jwt-shared
+
+  - type: web
+    name: huellaaltura-bcregister
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./bcregister-service/Dockerfile
+    dockerContext: ./bcregister-service
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8050"
+      - key: ENVIRONMENT
+        value: production
+      - key: API_PREFIX
+        value: /api/v1
+      # Correos solo vía sender-service (Resend no vive aquí)
+      - key: SENDER_SERVICE_URL
+        fromService:
+          name: huellaaltura-sender
+          type: web
+          property: host
+      - key: POLYGON_RPC_URL
+        sync: false
+      - key: POLYGON_CHAIN_ID
+        value: "80002"
+      - key: POLYGON_PRIVATE_KEY
+        sync: false
+      - key: POLYGON_CONTRACT_ADDRESS
+        sync: false
+      - key: POLYGON_CONFIRMATIONS
+        value: "1"
+      - key: POLYGON_DRY_RUN
+        value: "false"
+      - fromGroup: huellaaltura-jwt-shared

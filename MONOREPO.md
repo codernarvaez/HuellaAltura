@@ -22,6 +22,8 @@ pants run HAFront:ci
 pants run HAMobile:ci
 pants run HABack/auth-service:ci
 pants run HABack/exped-service:ci
+pants run HABack/sender-service:ci
+pants run HABack/bcregister-service:ci
 
 # Atajos npm (workspaces, sin Turbo)
 npm run ci:hafront
