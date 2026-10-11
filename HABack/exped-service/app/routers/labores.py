@@ -83,6 +83,16 @@ def obtener_calendario(
             raise HTTPException(status_code=404, detail="La finca especificada no existe")
 
         labores_db = db.laboragricola.find_many(where={"finca_id": finca_id}, order={"creado_en": "asc"})
+        ejecuciones_db = db.ejecucionlabor.find_many(
+            where={"finca_id": finca_id},
+            include={"insumos": True, "herramientas": True},
+            order={"timestamp": "desc"},
+        )
+        ejecucion_por_labor = {}
+        for ejec in ejecuciones_db:
+            # La más reciente por labor (lista ya viene desc por timestamp)
+            if ejec.labor_id not in ejecucion_por_labor:
+                ejecucion_por_labor[ejec.labor_id] = ejec
 
         meses_orden = [
             "Enero",
@@ -104,21 +114,44 @@ def obtener_calendario(
         for mes in meses_orden:
             labores_del_mes = [labor for labor in labores_db if labor.mes.lower() == mes.lower()]
 
+            labores_payload = []
+            for labor in labores_del_mes:
+                ejec = ejecucion_por_labor.get(labor.id)
+                item = {
+                    "labor_id": labor.id,
+                    "id": labor.id,
+                    "nombre": labor.nombre,
+                    "tipo_proceso": labor.tipo_proceso,
+                    "estado": labor.estado,
+                    "cantidad_proyectada": labor.cantidad_proyectada,
+                }
+                if ejec:
+                    item["ejecucion"] = {
+                        "id": ejec.id,
+                        "persona_desarrollo": ejec.persona_desarrollo,
+                        "nombre_jornalero": ejec.nombre_jornalero,
+                        "edad_jornalero": ejec.edad_jornalero,
+                        "dias_trabajo": ejec.dias_trabajo,
+                        "detalle_aplicacion": ejec.detalle_aplicacion,
+                        "salario": ejec.salario,
+                        "timestamp": ejec.timestamp.isoformat() if ejec.timestamp else None,
+                        "latitud": ejec.latitud,
+                        "longitud": ejec.longitud,
+                        "insumos": [
+                            {"nombre": i.nombre, "cantidad": i.cantidad, "unidad": i.unidad}
+                            for i in (ejec.insumos or [])
+                        ],
+                        "herramientas": [h.nombre for h in (ejec.herramientas or [])],
+                    }
+                else:
+                    item["ejecucion"] = None
+                labores_payload.append(item)
+
             calendario.append(
                 {
                     "mes": mes,
                     "total_labores": len(labores_del_mes),
-                    "labores": [
-                        {
-                            "labor_id": labor.id,
-                            "id": labor.id,
-                            "nombre": labor.nombre,
-                            "tipo_proceso": labor.tipo_proceso,
-                            "estado": labor.estado,
-                            "cantidad_proyectada": labor.cantidad_proyectada,
-                        }
-                        for labor in labores_del_mes
-                    ],
+                    "labores": labores_payload,
                 }
             )
 
@@ -219,6 +252,7 @@ def obtener_ledger(
             ledger.append(
                 {
                     "id_ejecucion": ejec.id,
+                    "labor_id": ejec.labor_id,
                     "fecha": ejec.timestamp,
                     "actividad": ejec.labor.nombre if ejec.labor else "Desconocida",
                     "tipo_proceso": ejec.labor.tipo_proceso if ejec.labor else "Desconocido",

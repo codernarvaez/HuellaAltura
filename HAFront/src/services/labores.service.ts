@@ -86,6 +86,21 @@ export interface MesLabor {
   labores: LaborResumen[];
 }
 
+export interface LaborEjecucionResumen {
+  id: string;
+  persona_desarrollo?: string;
+  nombre_jornalero?: string | null;
+  edad_jornalero?: number | null;
+  dias_trabajo?: number | null;
+  detalle_aplicacion?: string;
+  salario?: number | null;
+  timestamp?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  insumos?: InsumoOut[];
+  herramientas?: string[];
+}
+
 export interface LaborResumen {
   labor_id: string;
   id: string;
@@ -93,6 +108,8 @@ export interface LaborResumen {
   tipo_proceso: string;
   estado: string;
   cantidad_proyectada: string;
+  /** Presente cuando la labor ya fue ejecutada (calendario enriquecido). */
+  ejecucion?: LaborEjecucionResumen | null;
 }
 
 export interface LedgerResponse {

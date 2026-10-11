@@ -750,6 +750,31 @@ const esAdminStr = esAdmin ? 'true' : 'false';
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODAL VER DETALLE DE LABOR (ejecutada / planificada)         -->
+<!-- ============================================================ -->
+<div id="modal-detalle-labor" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+            <div class="flex items-center gap-3">
+                <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-600">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Detalle de labor</h2>
+            </div>
+            <button type="button" id="btn-cerrar-detalle" class="text-slate-400 hover:text-slate-600 transition" aria-label="Cerrar">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div id="detalle-labor-contenido" class="space-y-4 text-sm text-slate-700"></div>
+        <div class="flex gap-3 pt-5 mt-2 border-t border-slate-100">
+            <button type="button" id="btn-cerrar-detalle-footer" class="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
 </DashboardLayout>
 
 <!-- Estilos CSS Inyectados -->
@@ -1002,6 +1027,115 @@ const esAdminStr = esAdmin ? 'true' : 'false';
     }
 
     // ============================================================
+    // MODAL VER DETALLE (labores ya registradas / planificadas)
+    // ============================================================
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function toggleModalDetalle(show) {
+        const modal = document.getElementById('modal-detalle-labor');
+        if (!modal) return;
+        if (show) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function abrirDetalleDesdeCard(card) {
+        if (!card) return;
+        let ejecucion = null;
+        try {
+            ejecucion = card.dataset.laborEjecucion
+                ? JSON.parse(card.dataset.laborEjecucion)
+                : null;
+        } catch (_) {
+            ejecucion = null;
+        }
+
+        const labor = {
+            labor_id: card.dataset.laborId,
+            nombre: card.dataset.laborNombre || 'Labor',
+            mes: card.dataset.laborMes || '',
+            estado: card.dataset.laborEstado || '',
+            tipo_proceso: card.dataset.laborTipo || '',
+            cantidad_proyectada: card.dataset.laborCantidad || '',
+            ejecucion,
+        };
+        renderDetalleLabor(labor);
+        toggleModalDetalle(true);
+    }
+
+    function renderDetalleLabor(labor) {
+        const root = document.getElementById('detalle-labor-contenido');
+        if (!root) return;
+        const ejec = labor.ejecucion;
+        const insumos = (ejec && ejec.insumos) || [];
+        const herramientas = (ejec && ejec.herramientas) || [];
+
+        const insumosHtml = insumos.length
+            ? `<ul class="mt-1 list-disc pl-5 space-y-0.5">${insumos.map(i =>
+                `<li>${escapeHtml(i.nombre)} — ${escapeHtml(i.cantidad)} ${escapeHtml(i.unidad)}</li>`
+            ).join('')}</ul>`
+            : '<p class="text-slate-400 mt-1">Sin insumos registrados</p>';
+
+        const herramientasHtml = herramientas.length
+            ? `<p class="mt-1">${herramientas.map(h => escapeHtml(h)).join(', ')}</p>`
+            : '<p class="text-slate-400 mt-1">Sin herramientas registradas</p>';
+
+        const ejecucionHtml = ejec
+            ? `
+                <div class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 space-y-2">
+                    <p class="text-xs font-bold uppercase tracking-wide text-emerald-700">Ejecución registrada</p>
+                    <p><span class="font-medium text-slate-500">Persona:</span> ${escapeHtml(ejec.persona_desarrollo || '—')}</p>
+                    ${ejec.nombre_jornalero ? `<p><span class="font-medium text-slate-500">Jornalero:</span> ${escapeHtml(ejec.nombre_jornalero)}${ejec.edad_jornalero != null ? ` (${escapeHtml(ejec.edad_jornalero)} años)` : ''}</p>` : ''}
+                    ${ejec.dias_trabajo != null ? `<p><span class="font-medium text-slate-500">Días de trabajo:</span> ${escapeHtml(ejec.dias_trabajo)}</p>` : ''}
+                    ${ejec.salario != null ? `<p><span class="font-medium text-slate-500">Salario / jornal:</span> ${escapeHtml(ejec.salario)}</p>` : ''}
+                    ${ejec.timestamp ? `<p><span class="font-medium text-slate-500">Fecha registro:</span> ${escapeHtml(new Date(ejec.timestamp).toLocaleString('es-EC'))}</p>` : ''}
+                    <div>
+                        <p class="font-medium text-slate-500">Detalle / estándar aplicado</p>
+                        <p class="mt-1 whitespace-pre-wrap leading-relaxed text-slate-800">${escapeHtml(ejec.detalle_aplicacion || 'Sin detalle')}</p>
+                    </div>
+                    <div>
+                        <p class="font-medium text-slate-500">Insumos</p>
+                        ${insumosHtml}
+                    </div>
+                    <div>
+                        <p class="font-medium text-slate-500">Herramientas</p>
+                        ${herramientasHtml}
+                    </div>
+                </div>
+            `
+            : `
+                <div class="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
+                    <p class="text-amber-800 text-sm">Esta labor está planificada pero aún no tiene ejecución registrada. Usa <strong>Registrar Labor</strong> para incorporar el detalle de campo.</p>
+                </div>
+            `;
+
+        root.innerHTML = `
+            <div class="flex flex-wrap gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">${escapeHtml(labor.estado)}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700">${escapeHtml(labor.tipo_proceso || 'N/A')}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-50 text-slate-500">${escapeHtml(labor.mes)}</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 leading-snug">${escapeHtml(labor.nombre)}</h3>
+                ${labor.cantidad_proyectada ? `<p class="text-slate-500 mt-1">Cantidad proyectada: ${escapeHtml(labor.cantidad_proyectada)}</p>` : ''}
+            </div>
+            ${ejecucionHtml}
+        `;
+    }
+
+    // ============================================================
     // 🔥 RENDERIZAR MATRIZ ANUAL CON BOTONES DE VALIDACIÓN
     // ============================================================
 
@@ -1075,14 +1209,30 @@ const esAdminStr = esAdmin ? 'true' : 'false';
                 cardBox.dataset.laborNombre = labor.nombre;
                 cardBox.dataset.laborMes = nombreMes;
                 cardBox.dataset.laborEstado = labor.estado;
+                cardBox.dataset.laborTipo = labor.tipo_proceso || '';
+                cardBox.dataset.laborCantidad = labor.cantidad_proyectada || '';
+                // Detalle de ejecución embebido en el calendario (API)
+                try {
+                    cardBox.dataset.laborEjecucion = labor.ejecucion ? JSON.stringify(labor.ejecucion) : '';
+                } catch (_) {
+                    cardBox.dataset.laborEjecucion = '';
+                }
 
                 // 🔥 Construir botones según el estado y rol
                 let botonesHTML = '';
 
+                // Siempre se puede ver el detalle (planificada o ejecutada)
+                botonesHTML += `
+                    <button type="button" class="btn-ver-detalle text-[9px] bg-slate-50 text-slate-700 px-3 py-0.5 rounded hover:bg-slate-100 transition font-medium flex items-center gap-1">
+                        <i data-lucide="eye" class="w-3 h-3"></i>
+                        Ver detalle
+                    </button>
+                `;
+
                 // Botón "Registrar Labor" (solo para PLANIFICADO y si puede validar)
                 if (labor.estado === "PLANIFICADO" && puedeValidar === 'true') {
                     botonesHTML += `
-                        <button class="btn-registrar-labor text-[9px] bg-emerald-50 text-emerald-600 px-3 py-0.5 rounded hover:bg-emerald-100 transition font-medium flex items-center gap-1">
+                        <button type="button" class="btn-registrar-labor text-[9px] bg-emerald-50 text-emerald-600 px-3 py-0.5 rounded hover:bg-emerald-100 transition font-medium flex items-center gap-1">
                             <i data-lucide="clipboard-check" class="w-3 h-3"></i>
                             Registrar Labor
                         </button>
@@ -1092,7 +1242,7 @@ const esAdminStr = esAdmin ? 'true' : 'false';
                 // 🔥 Botón "Validar Normativa" (para EJECUTADO) - SOLO SI PUEDE VALIDAR
                 if (labor.estado === "EJECUTADO" && puedeValidar === 'true') {
                     botonesHTML += `
-                        <button class="btn-validar-normativa text-[9px] bg-yellow-50 text-yellow-700 px-3 py-0.5 rounded hover:bg-yellow-100 transition font-medium flex items-center gap-1" 
+                        <button type="button" class="btn-validar-normativa text-[9px] bg-yellow-50 text-yellow-700 px-3 py-0.5 rounded hover:bg-yellow-100 transition font-medium flex items-center gap-1" 
                                 data-labor-id="${labor.labor_id}">
                             <i data-lucide="check-circle" class="w-3 h-3"></i>
                             Validar Normativa
@@ -1160,22 +1310,11 @@ const esAdminStr = esAdmin ? 'true' : 'false';
                     </div>
                 `;
 
-                // Evento click en la tarjeta
+                // Evento click en la tarjeta → abrir detalle (no solo PLANIFICADO)
                 cardBox.addEventListener('click', function(e) {
-                    if (e.target.closest('button') || e.target.closest('span')) return;
-                    
-                    const laborId = this.dataset.laborId;
-                    const laborNombre = this.dataset.laborNombre;
-                    const laborMes = this.dataset.laborMes;
-                    const laborEstado = this.dataset.laborEstado;
-                    
-                    if (laborEstado === "PLANIFICADO" && puedeValidar === 'true') {
-                        toggleModalEjecutar(true, {
-                            labor_id: laborId,
-                            nombre: laborNombre,
-                            mes: laborMes
-                        });
-                    }
+                    // Solo ignorar clics en botones de acción; los badges (span) no bloquean
+                    if (e.target.closest('button')) return;
+                    abrirDetalleDesdeCard(this);
                 });
 
                 contenedorMes.appendChild(cardBox);
@@ -1187,6 +1326,14 @@ const esAdminStr = esAdmin ? 'true' : 'false';
         // ============================================================
         // 🔥 EVENTOS DE BOTONES
         // ============================================================
+
+        document.querySelectorAll('.btn-ver-detalle').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const card = this.closest('[data-labor-id]');
+                if (card) abrirDetalleDesdeCard(card);
+            });
+        });
 
         document.querySelectorAll('.btn-registrar-labor').forEach(btn => {
             btn.addEventListener('click', function(e) {
@@ -1704,6 +1851,13 @@ const esAdminStr = esAdmin ? 'true' : 'false';
         document.getElementById('btn-eliminar-foto')?.addEventListener('click', () => {
             document.getElementById('foto-preview').classList.add('hidden');
             document.getElementById('ejecucion-foto').value = '';
+        });
+
+        // ---- Modal detalle ----
+        document.getElementById('btn-cerrar-detalle')?.addEventListener('click', () => toggleModalDetalle(false));
+        document.getElementById('btn-cerrar-detalle-footer')?.addEventListener('click', () => toggleModalDetalle(false));
+        document.getElementById('modal-detalle-labor')?.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-detalle-labor') toggleModalDetalle(false);
         });
     });
 
