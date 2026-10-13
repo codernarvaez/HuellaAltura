@@ -1,0 +1,13 @@
+---
+// V3. Ficha del lote.
+import ModuloTrazabilidad from "../../../../components/trazabilidad/ModuloTrazabilidad.astro";
+import { esLoteIdValido, obtenerVista } from "../../../../lib/trazabilidad/rutas";
+import { respuestaNoEncontrado } from "../../../../lib/trazabilidad/noEncontrado";
+
+const { id } = Astro.params;
+if (!esLoteIdValido(id)) {
+  return respuestaNoEncontrado();
+}
+---
+
+<ModuloTrazabilidad vista={obtenerVista("V3")} loteId={id} />

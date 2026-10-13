@@ -1,6 +1,8 @@
 ---
 import "../styles/global.css";
 import { isAdminRole } from "../services/roles";
+import { estaEnSeccion } from "../lib/acceso";
+import { BASE_TRAZABILIDAD } from "../lib/trazabilidad/rutas";
 import { AuthService } from "../services/auth.service.ts";
 import { FincaService } from "../services/finca.service.ts";
 import { ExpedienteService } from "../services/expediente.service.ts";
@@ -65,6 +67,9 @@ if (token) {
 const infoAgroUrl = fincaId ? `/infoAgro?finca_id=${fincaId}` : '/infoAgro';
 const expedientesUrl = fincaId ? `/expedientes?finca_id=${fincaId}` : '/expedientes';
 const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
+
+// Trazabilidad es común a todos los roles; se marca activa en todo el módulo.
+const enTrazabilidad = estaEnSeccion(Astro.url.pathname, BASE_TRAZABILIDAD);
 ---
 
 <!DOCTYPE html>
@@ -279,6 +284,26 @@ const satelitalUrl = fincaId ? `/satelital?finca_id=${fincaId}` : '/satelital';
             </>
           )
         }
+
+        <!-- TRAZABILIDAD (todos los roles) -->
+        <p
+          class="px-3 py-2 text-xs uppercase tracking-wider text-on-surface-variant"
+        >
+          Trazabilidad
+        </p>
+
+        <a
+          href={BASE_TRAZABILIDAD}
+          id="link-trazabilidad"
+          aria-current={enTrazabilidad ? "page" : undefined}
+          class={`flex items-center gap-3 px-3 py-3 rounded-lg transition ${enTrazabilidad ? 'bg-primary-container text-on-primary font-semibold' : 'hover:bg-surface-container'}`}
+        >
+          <span class="material-symbols-outlined">
+            account_tree
+          </span>
+
+          <span>Trazabilidad</span>
+        </a>
 
       </nav>
 

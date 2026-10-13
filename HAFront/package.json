@@ -11,8 +11,9 @@
     "build": "astro build",
     "check": "astro check",
     "lint": "astro check",
+    "test": "node --test --experimental-strip-types --experimental-test-coverage --test-coverage-include=\"src/lib/**\" \"tests/**/*.test.ts\"",
     "preview": "astro preview",
-    "ci": "npm run check && npm run build",
+    "ci": "npm run check && npm run test && npm run build",
     "astro": "astro"
   },
   "dependencies": {

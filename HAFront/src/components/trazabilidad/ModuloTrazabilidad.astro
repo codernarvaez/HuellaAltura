@@ -1,0 +1,94 @@
+---
+// Marco común de las páginas /trazabilidad/*: migas de pan, pestañas del
+// módulo, cabecera de la vista y su contenido. Mientras la tarea que completa
+// la vista no llega, muestra el marcador "En construcción".
+import DashboardLayout from "../../layouts/LayoutVariable.astro";
+import { BASE_TRAZABILIDAD, VISTAS, migasDePan, rutaVista, type Vista } from "../../lib/trazabilidad/rutas";
+
+interface Props {
+  vista: Vista;
+  loteId?: string;
+}
+
+const { vista } = Astro.props;
+const migas = migasDePan(Astro.url.pathname);
+const pestanas = VISTAS.filter((v) => v.alcance === "modulo");
+const tieneContenido = Astro.slots.has("default");
+---
+
+<DashboardLayout title={`${vista.titulo} · Trazabilidad`}>
+  <div class="space-y-6">
+    <nav aria-label="Migas de pan" class="text-sm text-on-surface-variant">
+      <ol class="flex flex-wrap items-center gap-1">
+        {migas.map((miga, i) => (
+          <li class="flex items-center gap-1">
+            {i > 0 && <span aria-hidden="true">/</span>}
+            {miga.href ? (
+              <a href={miga.href} class="hover:text-primary">{miga.etiqueta}</a>
+            ) : (
+              <span aria-current="page" class="font-semibold text-on-surface">{miga.etiqueta}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+
+    <nav aria-label="Secciones de trazabilidad" class="border-b border-outline-variant">
+      <ul class="flex flex-wrap gap-1">
+        {pestanas.map((p) => {
+          const activa = p.id === vista.id;
+          return (
+            <li>
+              <a
+                href={rutaVista(p.id)}
+                aria-current={activa ? "page" : undefined}
+                class={`flex items-center gap-2 px-4 py-2 -mb-px border-b-2 text-sm transition ${
+                  activa
+                    ? "border-primary text-primary font-semibold"
+                    : "border-transparent text-on-surface-variant hover:text-primary"
+                }`}
+              >
+                <span class="material-symbols-outlined text-base" aria-hidden="true">{p.icono}</span>
+                {p.titulo}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+
+    <header class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 class="text-3xl font-bold text-on-surface flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary text-3xl" aria-hidden="true">{vista.icono}</span>
+          {vista.titulo}
+        </h1>
+        <p class="text-sm text-on-surface-variant">{vista.hu} · {vista.id}</p>
+      </div>
+      <p class="text-on-surface-variant max-w-3xl">{vista.descripcion}</p>
+    </header>
+
+    {tieneContenido ? (
+      <slot />
+    ) : (
+      <section
+        role="status"
+        class="bg-surface-container-low border border-dashed border-outline-variant rounded-xl p-6 flex items-start gap-4"
+      >
+        <span class="material-symbols-outlined text-on-surface-variant" aria-hidden="true">construction</span>
+        <div>
+          <p class="font-semibold text-on-surface">En construcción</p>
+          <p class="text-sm text-on-surface-variant mt-1">
+            Esta vista se habilita en la tarea {vista.tarea}.
+          </p>
+          {vista.id !== "V1" && (
+            <a href={BASE_TRAZABILIDAD} class="inline-flex items-center gap-1 mt-3 text-sm text-primary hover:underline">
+              <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+              Volver al panel de lotes
+            </a>
+          )}
+        </div>
+      </section>
+    )}
+  </div>
+</DashboardLayout>

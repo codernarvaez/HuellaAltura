@@ -1,0 +1,14 @@
+---
+// V4-V7. Fases registradas sobre un lote: beneficio, secado, trilla y cata.
+import ModuloTrazabilidad from "../../../../components/trazabilidad/ModuloTrazabilidad.astro";
+import { vistaDesdeRuta } from "../../../../lib/trazabilidad/rutas";
+import { respuestaNoEncontrado } from "../../../../lib/trazabilidad/noEncontrado";
+
+// vistaDesdeRuta valida a la vez el id del lote y la fase.
+const encontrada = vistaDesdeRuta(Astro.url.pathname);
+if (!encontrada) {
+  return respuestaNoEncontrado();
+}
+---
+
+<ModuloTrazabilidad vista={encontrada.vista} loteId={encontrada.loteId} />
