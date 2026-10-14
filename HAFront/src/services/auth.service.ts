@@ -59,12 +59,23 @@ export class AuthService {
   /**
    * Inicia sesión en el backend y devuelve el token JWT
    */
-  static async login(credentials: LoginRequest): Promise<LoginResponse> {
+  static async login(
+    credentials: LoginRequest,
+    options?: { clientIp?: string },
+  ): Promise<LoginResponse> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    // Reenvía IP del navegador para que slowapi no agrupe todo el tráfico SSR
+    // de Render bajo una sola clave (causa típica de 429 en login).
+    if (options?.clientIp) {
+      headers["X-Forwarded-For"] = options.clientIp;
+      headers["X-Real-IP"] = options.clientIp;
+    }
+
     const response = await fetch(`${API_URL}/api/auth/login`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(credentials),
     });
 
@@ -73,7 +84,7 @@ export class AuthService {
     try {
       data = raw ? JSON.parse(raw) : {};
     } catch {
-      if (response.status === 429 || /too many requests/i.test(raw)) {
+      if (response.status === 429 || /too many requests|rate limit/i.test(raw)) {
         throw new Error(
           "El servidor o la base de datos están limitando peticiones (429). Espera 30–60 s e inténtalo de nuevo.",
         );
@@ -91,7 +102,15 @@ export class AuthService {
     }
 
     if (!response.ok) {
-      const detail = data.detail;
+      if (
+        response.status === 429 ||
+        /rate limit|too many requests/i.test(JSON.stringify(data))
+      ) {
+        throw new Error(
+          "El servidor o la base de datos están limitando peticiones (429). Espera 30–60 s e inténtalo de nuevo.",
+        );
+      }
+      const detail = data.detail ?? data.error;
       if (typeof detail === "string") {
         throw new Error(detail);
       } else if (Array.isArray(detail)) {

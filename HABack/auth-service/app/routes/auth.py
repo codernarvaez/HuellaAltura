@@ -159,7 +159,7 @@ async def register(
     summary="Iniciar Sesión",
     description="Autentica al usuario y devuelve un token JWT. Soporta formato JSON.",
 )
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def login(request: Request, login_data: UserLogin, db: Annotated[Prisma, Depends(get_db)]):
     email_lower = login_data.email.lower()
     user = await db.user.find_unique(where={"email": email_lower}, include={"role": True})
@@ -181,7 +181,7 @@ async def login(request: Request, login_data: UserLogin, db: Annotated[Prisma, D
         "y devuelve el JWT de la plataforma. Si el correo no existe, crea un PRODUCTOR."
     ),
 )
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def login_with_firebase(
     request: Request,
     body: FirebaseLogin,

@@ -11,7 +11,12 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const { email, password } = JSON.parse(text);
-    const response = await AuthService.login({ email, password });
+    const forwarded = request.headers.get("x-forwarded-for");
+    const clientIp =
+      (forwarded ? forwarded.split(",")[0]?.trim() : "") ||
+      request.headers.get("x-real-ip")?.trim() ||
+      undefined;
+    const response = await AuthService.login({ email, password }, { clientIp });
 
     return new Response(JSON.stringify(response), {
       status: 200,
@@ -20,17 +25,21 @@ export const POST: APIRoute = async ({ request }) => {
   } catch (e) {
     console.error("Login error:", e);
     const detail = e instanceof Error ? e.message : String(e);
+    const rateLimited = /429|limitando peticiones|rate limit|too many requests/i.test(detail);
     const upstream =
-      /auth-service falló|schema desfasado|429|limitando peticiones|respondió 5\d\d/i.test(
-        detail,
-      );
+      rateLimited ||
+      /auth-service falló|schema desfasado|respondió 5\d\d/i.test(detail);
     return new Response(
       JSON.stringify({
-        message: upstream ? "Error del servidor de autenticación" : "Error de autenticación",
+        message: rateLimited
+          ? "Demasiados intentos de acceso"
+          : upstream
+            ? "Error del servidor de autenticación"
+            : "Error de autenticación",
         detail,
       }),
       {
-        status: upstream ? 502 : 401,
+        status: rateLimited ? 429 : upstream ? 502 : 401,
         headers: { "Content-Type": "application/json" },
       },
     );
