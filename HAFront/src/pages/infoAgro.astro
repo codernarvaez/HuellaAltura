@@ -371,8 +371,18 @@ console.log("🔍 esSoloLectura:", esSoloLectura);
   </div>
 </DashboardLayout>
 
+{/* define:vars fuerza IIFE clásico: no puede convivir con import ES modules */}
 <script define:vars={{ puedeEditar, esProductor }}>
+  window.__INFOAGRO__ = { puedeEditar, esProductor };
+</script>
+
+<script>
   import { AgroambientalService } from "../services/InfoAgroambiental.ts";
+
+  const { puedeEditar, esProductor } = window.__INFOAGRO__ || {
+    puedeEditar: false,
+    esProductor: false,
+  };
 
   // DOM Elements
   const form = document.getElementById("infoagro-form");
