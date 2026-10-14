@@ -7,6 +7,11 @@ interface ImportMetaEnv {
   readonly PUBLIC_SUPABASE_URL: string;
   readonly PUBLIC_SUPABASE_ANON_KEY: string;
   readonly PUBLIC_SITE_URL: string;
+  // Red blockchain (T02): ver src/lib/chain/config.ts
+  readonly PUBLIC_CHAIN_ID?: string;
+  readonly PUBLIC_RPC_URL?: string;
+  readonly PUBLIC_IPFS_GATEWAY?: string;
+  readonly PUBLIC_FROM_BLOCK?: string;
 }
 
 interface ImportMeta {

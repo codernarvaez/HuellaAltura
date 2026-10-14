@@ -1,8 +1,13 @@
 ---
 // Marco común de las páginas /trazabilidad/*: migas de pan, pestañas del
 // módulo, cabecera de la vista y su contenido. Mientras la tarea que completa
-// la vista no llega, muestra el marcador "En construcción".
+// la vista no llega, muestra el marcador "En construcción". La red blockchain activa se indica
+// a la derecha de las migas (T02).
 import DashboardLayout from "../../layouts/LayoutVariable.astro";
+import ConfigNoDisponible from "./ConfigNoDisponible.astro";
+import IndicadorRed from "./IndicadorRed.astro";
+import { aConfigPublica } from "../../lib/chain/config";
+import { configCadenaSegura } from "../../lib/chain/registro";
 import { BASE_TRAZABILIDAD, VISTAS, migasDePan, rutaVista, type Vista } from "../../lib/trazabilidad/rutas";
 
 interface Props {
@@ -14,24 +19,30 @@ const { vista } = Astro.props;
 const migas = migasDePan(Astro.url.pathname);
 const pestanas = VISTAS.filter((v) => v.alcance === "modulo");
 const tieneContenido = Astro.slots.has("default");
+const cadena = configCadenaSegura();
+const red = cadena.ok ? aConfigPublica(cadena.cfg) : null;
 ---
 
 <DashboardLayout title={`${vista.titulo} · Trazabilidad`}>
   <div class="space-y-6">
-    <nav aria-label="Migas de pan" class="text-sm text-on-surface-variant">
-      <ol class="flex flex-wrap items-center gap-1">
-        {migas.map((miga, i) => (
-          <li class="flex items-center gap-1">
-            {i > 0 && <span aria-hidden="true">/</span>}
-            {miga.href ? (
-              <a href={miga.href} class="hover:text-primary">{miga.etiqueta}</a>
-            ) : (
-              <span aria-current="page" class="font-semibold text-on-surface">{miga.etiqueta}</span>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <nav aria-label="Migas de pan" class="text-sm text-on-surface-variant">
+        <ol class="flex flex-wrap items-center gap-1">
+          {migas.map((miga, i) => (
+            <li class="flex items-center gap-1">
+              {i > 0 && <span aria-hidden="true">/</span>}
+              {miga.href ? (
+                <a href={miga.href} class="hover:text-primary">{miga.etiqueta}</a>
+              ) : (
+                <span aria-current="page" class="font-semibold text-on-surface">{miga.etiqueta}</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
+      {red && <IndicadorRed red={red.red} chainId={red.chainId} />}
+    </div>
+    {!cadena.ok && <ConfigNoDisponible codigo={cadena.codigo} />}
 
     <nav aria-label="Secciones de trazabilidad" class="border-b border-outline-variant">
       <ul class="flex flex-wrap gap-1">

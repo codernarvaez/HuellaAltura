@@ -5,10 +5,12 @@ on:
     branches: [main, master, develop, develop-diego]
     paths:
       - "HAContract/**"
+      - "HAFront/src/lib/chain/**"
       - ".github/workflows/hacontract-ci.yml"
   pull_request:
     paths:
       - "HAContract/**"
+      - "HAFront/src/lib/chain/**"
       - ".github/workflows/hacontract-ci.yml"
 
 concurrency:
@@ -43,6 +45,9 @@ jobs:
 
       - name: Compile
         run: npm run compile
+
+      - name: ABI y direcciones de HAFront al día (T02)
+        run: npm run export:front:check
 
       - name: Typecheck scripts
         run: npm run typecheck

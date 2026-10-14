@@ -75,14 +75,12 @@ services:
       # Llamadas desde el servidor de Astro (dentro de la red de compose)
       INTERNAL_AUTH_URL: http://auth-service:8000
       INTERNAL_API_URL: http://exped-service:8001
-      # /verificar (HU-07): lectura de la cadena desde el navegador. Valores del nodo Hardhat local
-      # (HAContract/deployments/31337.json); en Amoy, su RPC público y deployments/80002.json.
-      PUBLIC_RPC_URL: ${PUBLIC_RPC_URL:-http://127.0.0.1:8545}
+      # Red blockchain (T02): PUBLIC_CHAIN_ID elige HAFront/src/lib/chain/deployments/<id>.json, de donde
+      # salen las direcciones, el RPC público y el bloque inicial. Las demás son opcionales (vacías = JSON).
       PUBLIC_CHAIN_ID: ${PUBLIC_CHAIN_ID:-31337}
-      PUBLIC_TRACEABILITY_ADDRESS: ${PUBLIC_TRACEABILITY_ADDRESS:-0x5FC8d32690cc91D4c39d9d3abcBD16989F875707}
-      PUBLIC_ORIGIN_ADDRESS: ${PUBLIC_ORIGIN_ADDRESS:-0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9}
-      PUBLIC_TOKEN_ADDRESS: ${PUBLIC_TOKEN_ADDRESS:-0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512}
-      PUBLIC_IPFS_GATEWAY: ${PUBLIC_IPFS_GATEWAY:-https://gateway.pinata.cloud/ipfs/}
+      PUBLIC_RPC_URL: ${PUBLIC_RPC_URL:-}
+      PUBLIC_IPFS_GATEWAY: ${PUBLIC_IPFS_GATEWAY:-}
+      PUBLIC_FROM_BLOCK: ${PUBLIC_FROM_BLOCK:-}
     ports:
       - "127.0.0.1:4321:4321"
     depends_on:

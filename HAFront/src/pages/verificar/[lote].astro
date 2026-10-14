@@ -1,66 +1,88 @@
 ---
 // HU-07 · Consulta del Consumidor (Transparencia): página pública a la que lleva el QR del paquete.
 // Los datos se leen de la cadena en el navegador (viem → RPC). Esta parte solo arma la
-// configuración (variables en tiempo de ejecución) y el QR de la propia URL.
+// configuración de la red activa (T02: PUBLIC_CHAIN_ID + deployments/<chainId>.json, leídos en
+// tiempo de ejecución) y el QR de la propia URL.
 import QRCode from "qrcode";
 import Layout from "../../layouts/Layout.astro";
+import ConfigNoDisponible from "../../components/trazabilidad/ConfigNoDisponible.astro";
+import IndicadorRed from "../../components/trazabilidad/IndicadorRed.astro";
+import { aConfigPublica } from "../../lib/chain/config";
+import { configCadenaSegura } from "../../lib/chain/registro";
 
 export const prerender = false;
 
-const env = (name: string, fallback: string) => process.env[name] || import.meta.env[name] || fallback;
-const config = {
-  rpcUrl: env("PUBLIC_RPC_URL", "http://127.0.0.1:8545"),
-  chainId: Number(env("PUBLIC_CHAIN_ID", "31337")),
-  traceability: env("PUBLIC_TRACEABILITY_ADDRESS", ""),
-  origin: env("PUBLIC_ORIGIN_ADDRESS", ""),
-  token: env("PUBLIC_TOKEN_ADDRESS", ""),
-  fromBlock: env("PUBLIC_FROM_BLOCK", "0"),
-  ipfsGateway: env("PUBLIC_IPFS_GATEWAY", "https://gateway.pinata.cloud/ipfs/"),
-};
+const cadena = configCadenaSegura();
+const config = cadena.ok ? aConfigPublica(cadena.cfg) : null;
+if (!config) Astro.response.status = 503;
 
 const lote = Astro.params.lote ?? "";
 const pageUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
-const qrSvg = await QRCode.toString(pageUrl, { type: "svg", margin: 1, width: 144, errorCorrectionLevel: "M" });
+const qrSvg = config
+  ? await QRCode.toString(pageUrl, { type: "svg", margin: 1, width: 144, errorCorrectionLevel: "M" })
+  : null;
 ---
 
 <Layout title="Verificar lote de café · Huella de Altura">
   <main class="mx-auto max-w-2xl px-margin-mobile py-6 sm:py-10">
     <header class="mb-6 flex items-start justify-between gap-4">
       <div>
-        <p class="text-label-md text-secondary">Huella de Altura · Trazabilidad en Polygon</p>
+        <p class="text-label-md text-secondary">
+          Huella de Altura · Trazabilidad{config && ` en ${config.red.name}`}
+        </p>
         <h1 class="text-headline-lg-mobile sm:text-headline-lg text-primary">Historia de tu café</h1>
         <p class="mt-1 text-sm text-on-surface-variant">
           Datos leídos directamente de la blockchain; sin datos personales del productor.
         </p>
+        {config && (
+          <div class="mt-2">
+            <IndicadorRed red={config.red} chainId={config.chainId} />
+          </div>
+        )}
       </div>
-      <figure class="shrink-0 rounded-lg border border-outline-variant bg-white p-1.5 text-center">
-        <div class="h-[96px] w-[96px] sm:h-[120px] sm:w-[120px] [&>svg]:h-full [&>svg]:w-full" set:html={qrSvg} />
-        <figcaption class="mt-1 text-[10px] text-on-surface-variant">Escanéame</figcaption>
-      </figure>
+      {qrSvg && (
+        <figure class="shrink-0 rounded-lg border border-outline-variant bg-white p-1.5 text-center">
+          <div class="h-[96px] w-[96px] sm:h-[120px] sm:w-[120px] [&>svg]:h-full [&>svg]:w-full" set:html={qrSvg} />
+          <figcaption class="mt-1 text-[10px] text-on-surface-variant">Escanéame</figcaption>
+        </figure>
+      )}
     </header>
 
-    <div id="verificar" data-config={JSON.stringify(config)} data-lote={lote} aria-live="polite">
-      <div data-state="loading" class="flex items-center gap-3 rounded-xl border border-outline-variant bg-white p-6">
-        <span class="material-symbols-outlined animate-spin text-primary">progress_activity</span>
-        <span>Consultando la blockchain…</span>
+    {!cadena.ok && <ConfigNoDisponible codigo={cadena.codigo} />}
+
+    {config && !config.abiCompatible && (
+      <div role="note" data-aviso="abi" class="mb-4 flex items-start gap-2 rounded-xl border border-outline-variant bg-secondary-container p-4 text-sm text-on-secondary-container">
+        <span class="material-symbols-outlined text-base" aria-hidden="true">info</span>
+        <p>Esta red usa una versión de contrato distinta a la de esta web. Los datos pueden estar incompletos.</p>
       </div>
-    </div>
+    )}
+
+    {config && (
+      <div id="verificar" data-config={JSON.stringify(config)} data-lote={lote} aria-live="polite">
+        <div data-state="loading" class="flex items-center gap-3 rounded-xl border border-outline-variant bg-white p-6">
+          <span class="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+          <span>Consultando la blockchain…</span>
+        </div>
+      </div>
+    )}
 
     <p id="verificar-meta" class="mt-6 text-center text-xs text-on-surface-variant"></p>
   </main>
 </Layout>
 
 <script>
-  import { loadLotHistory, parseLotId, type ChainConfig } from "../../lib/chain/trazabilidad";
+  import type { ConfigPublica } from "../../lib/chain/config";
+  import { loadLotHistory, parseLotId } from "../../lib/chain/trazabilidad";
   import { renderHistory } from "../../lib/chain/render";
 
   const t0 = performance.now();
-  const root = document.getElementById("verificar")!;
+  // Sin #verificar la configuración de red es inválida (503): no se lee la cadena.
+  const root = document.getElementById("verificar");
   const meta = document.getElementById("verificar-meta")!;
-  const cfg = JSON.parse(root.dataset.config!) as ChainConfig;
-  const raw = root.dataset.lote ?? "";
+  const cfg = root ? (JSON.parse(root.dataset.config!) as ConfigPublica) : null;
+  const raw = root?.dataset.lote ?? "";
 
-  const message = (icon: string, title: string, text: string) => {
+  const message = (root: HTMLElement, icon: string, title: string, text: string) => {
     root.innerHTML = `
       <div class="rounded-xl border border-outline-variant bg-white p-6 text-center">
         <span class="material-symbols-outlined text-4xl text-secondary">${icon}</span>
@@ -69,7 +91,7 @@ const qrSvg = await QRCode.toString(pageUrl, { type: "svg", margin: 1, width: 14
       </div>`;
   };
 
-  async function showPhotos() {
+  async function showPhotos(root: HTMLElement, cfg: ConfigPublica) {
     // HU-02: si el registro de cosecha en IPFS trae foto, se muestra. No bloquea la carga.
     for (const el of root.querySelectorAll<HTMLElement>("[data-photo-cid]")) {
       const cid = el.dataset.photoCid;
@@ -87,32 +109,28 @@ const qrSvg = await QRCode.toString(pageUrl, { type: "svg", margin: 1, width: 14
     }
   }
 
-  async function main() {
+  async function main(root: HTMLElement, cfg: ConfigPublica) {
     const id = parseLotId(raw);
     if (id === null) {
-      message("search_off", "Lote no encontrado", "El código no corresponde a un lote de café válido.");
-      return;
-    }
-    if (!cfg.traceability || !cfg.origin || !cfg.token) {
-      message("settings", "Verificación no configurada", "Faltan las direcciones de los contratos en el servidor.");
+      message(root, "search_off", "Lote no encontrado", "El código no corresponde a un lote de café válido.");
       return;
     }
     try {
       const history = await loadLotHistory(cfg, id);
       if (!history) {
-        message("search_off", "Lote no encontrado", "Este lote no existe en la blockchain.");
+        message(root, "search_off", "Lote no encontrado", "Este lote no existe en la blockchain.");
         return;
       }
       root.innerHTML = renderHistory(history, cfg.ipfsGateway);
       const ms = Math.round(performance.now() - t0);
       (window as unknown as { __verificarMs: number }).__verificarMs = ms;
-      meta.textContent = `Red ${cfg.chainId} · ${history.events.length} eventos · cargado en ${ms} ms`;
-      showPhotos();
+      meta.textContent = `${cfg.red.name} (${cfg.chainId}) · ${history.events.length} eventos · cargado en ${ms} ms`;
+      showPhotos(root, cfg);
     } catch (err) {
       console.error(err);
-      message("cloud_off", "No se pudo consultar la blockchain", "Inténtalo de nuevo en unos segundos.");
+      message(root, "cloud_off", "No se pudo consultar la blockchain", "Inténtalo de nuevo en unos segundos.");
     }
   }
 
-  main();
+  if (root && cfg) main(root, cfg);
 </script>

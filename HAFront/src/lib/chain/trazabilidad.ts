@@ -1,5 +1,5 @@
 import { createPublicClient, defineChain, hexToString, http, type Address, type Hex } from "viem";
-import { originAbi, tokenAbi, traceabilityAbi } from "./abi";
+import { originAbi, tokenAbi, traceabilityAbi } from "./abis";
 
 // Lectura de la historia de un lote directamente desde la cadena (HU-07). Todo en paralelo
 // (Promise.all) porque Multicall3 no está desplegado en la red local.

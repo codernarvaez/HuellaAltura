@@ -2,6 +2,7 @@ import "dotenv/config";
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
+import { NETWORKS } from "./scripts/lib/networks";
 
 // Nunca se escriben claves en el repo: todo se lee del entorno (.env local o secretos de CI).
 // Las cuentas por rol (FARMER_PRIVATE_KEY…) las carga scripts/lib/roles.ts.
@@ -18,14 +19,14 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: { chainId: 31337 },
-    localhost: { url: "http://127.0.0.1:8545", chainId: 31337 },
+    localhost: { url: NETWORKS[31337].rpcUrl, chainId: 31337 },
     amoy: {
-      url: process.env.AMOY_RPC_URL || "https://polygon-amoy-bor-rpc.publicnode.com",
+      url: process.env.AMOY_RPC_URL || NETWORKS[80002].rpcUrl,
       chainId: 80002,
       accounts,
     },
     polygon: {
-      url: process.env.POLYGON_RPC_URL || "https://polygon-bor-rpc.publicnode.com",
+      url: process.env.POLYGON_RPC_URL || NETWORKS[137].rpcUrl,
       chainId: 137,
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
     },

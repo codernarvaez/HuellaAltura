@@ -1,0 +1,52 @@
+---
+// Indicador de la red blockchain activa (T02, RF-T02-12). Lleva texto además del color y,
+// si la red tiene explorador, enlaza a él.
+import type { ConfigPublica } from "../../lib/chain/config";
+
+interface Props {
+  red: ConfigPublica["red"];
+  chainId: number;
+}
+
+const { red, chainId } = Astro.props;
+const estilos = {
+  local: {
+    texto: `Red local (Hardhat) · ${chainId}`,
+    descripcion: `Red local (Hardhat), chainId ${chainId}`,
+    clase: "bg-surface-container text-on-surface-variant",
+  },
+  testnet: {
+    texto: `${red.name} · prueba`,
+    descripcion: `${red.name}, red de prueba`,
+    clase: "bg-secondary-container text-on-secondary-container",
+  },
+  mainnet: {
+    texto: red.name,
+    descripcion: `${red.name}, red principal`,
+    clase: "bg-primary-container text-on-primary",
+  },
+}[red.kind];
+const clase = `inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${estilos.clase}`;
+const etiqueta = `Red blockchain: ${estilos.descripcion}`;
+---
+
+{red.explorerUrl ? (
+  <a
+    href={red.explorerUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    class={`${clase} hover:underline`}
+    aria-label={`${etiqueta} (abre el explorador en una pestaña nueva)`}
+    title={`chainId ${chainId}`}
+    data-red={red.kind}
+  >
+    <span class="h-2 w-2 rounded-full bg-current" aria-hidden="true"></span>
+    {estilos.texto}
+    <span class="material-symbols-outlined text-sm" aria-hidden="true">open_in_new</span>
+  </a>
+) : (
+  <span class={clase} role="img" aria-label={etiqueta} title={`chainId ${chainId}`} data-red={red.kind}>
+    <span class="h-2 w-2 rounded-full bg-current" aria-hidden="true"></span>
+    {estilos.texto}
+  </span>
+)}

@@ -21,7 +21,9 @@
     "demo:roles:local": "DEMO_SIGNERS=roles hardhat run scripts/demoFlow.ts --network localhost",
     "demo:roles:amoy": "DEMO_SIGNERS=roles hardhat run scripts/demoFlow.ts --network amoy",
     "upgrade:amoy": "hardhat run scripts/upgrade.ts --network amoy",
-    "verify:amoy": "hardhat run scripts/verify.ts --network amoy"
+    "verify:amoy": "hardhat run scripts/verify.ts --network amoy",
+    "export:front": "hardhat run scripts/exportFront.ts",
+    "export:front:check": "EXPORT_CHECK=1 hardhat run scripts/exportFront.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",

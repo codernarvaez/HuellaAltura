@@ -20,7 +20,11 @@
       "env": [
         "PUBLIC_SUPABASE_URL",
         "PUBLIC_SUPABASE_ANON_KEY",
-        "PUBLIC_SITE_URL"
+        "PUBLIC_SITE_URL",
+        "PUBLIC_CHAIN_ID",
+        "PUBLIC_RPC_URL",
+        "PUBLIC_IPFS_GATEWAY",
+        "PUBLIC_FROM_BLOCK"
       ]
     },
     "check": {

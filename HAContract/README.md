@@ -55,7 +55,7 @@ npm install
 cp .env.example .env        # ver la tabla de secretos
 
 npm run lint                # solhint
-npm test                    # 49 pruebas
+npm test                    # 87 pruebas (49 de contratos + 38 de la exportación a HAFront)
 npm run coverage            # 100 % de líneas, ~99 % de ramas
 npm run test:gas            # reporte de gas por función
 
@@ -71,6 +71,24 @@ npm run verify:amoy         # código verificado en amoy.polygonscan.com
 CONTRACT=TraceabilityController npm run upgrade:amoy
 RELAYER_ADDRESS=0x… npm run roles:amoy
 ```
+
+### Direcciones y ABI para HAFront (T02)
+
+Cada `deploy:*` y `upgrade:*` guarda `deployments/<chainId>.json` en el formato
+`huellaaltura.deployment/1` (esquema en `schemas/deployment.v1.json`: direcciones de proxies e
+implementaciones, ABI completo con su `abiHash`, `startBlock`, metadatos públicos de la red de
+`scripts/lib/networks.ts` y `generatedBy`) y lo copia a `HAFront/src/lib/chain/deployments/`, junto
+con `HAFront/src/lib/chain/abis.ts` generado desde `artifacts/`. HAFront elige la red solo con
+`PUBLIC_CHAIN_ID`.
+
+```bash
+npm run export:front         # repite la copia y regenera abis.ts sin desplegar
+npm run export:front:check   # CI: falla si abis.ts, los JSON o el 31337.json de HAFront no están al día
+START_BLOCK=<n> npm run export:front   # migra un deployments/80002.json anterior a T02 (sin startBlock)
+```
+
+La copia de HAFront solo se reescribe si cambian las direcciones, el `startBlock`, los ABI o la red,
+así un `deploy:local` no ensucia git. Nunca se copian claves ni la URL de `AMOY_RPC_URL`.
 
 ### Una cuenta por rol
 
