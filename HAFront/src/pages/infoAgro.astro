@@ -27,14 +27,14 @@ if (token) {
   error = "No hay sesión activa";
 }
 
-// 🔥 DETERMINAR ROLES PERMITIDOS
-// Solo TÉCNICO_DE_CAMPO y ADMIN pueden editar
-const puedeEditar = userRole === 'TECNICO_DE_CAMPO' || 
-                    userRole === 'ADMIN' || 
-                    userRole === 'SUPER_ADMIN' || 
-                    userRole === 'TENANT_ADMIN';
+// Roles que pueden editar (nombre real en auth: TECNICO_CAMPO, no TECNICO_DE_CAMPO)
+const puedeEditar =
+  userRole === "TECNICO_CAMPO" ||
+  userRole === "ADMIN" ||
+  userRole === "SUPER_ADMIN" ||
+  userRole === "TENANT_ADMIN";
 
-const esProductor = userRole === 'PRODUCTOR';
+const esProductor = userRole === "PRODUCTOR";
 const esSoloLectura = !puedeEditar && !esProductor;
 
 console.log("🔍 puedeEditar:", puedeEditar);
@@ -371,9 +371,8 @@ console.log("🔍 esSoloLectura:", esSoloLectura);
   </div>
 </DashboardLayout>
 
-<script type="module">
-  import { FincaService } from "/src/services/finca.service.ts";
-  import { AgroambientalService } from "/src/services/InfoAgroambiental.ts";
+<script define:vars={{ puedeEditar, esProductor }}>
+  import { AgroambientalService } from "../services/InfoAgroambiental.ts";
 
   // DOM Elements
   const form = document.getElementById("infoagro-form");
@@ -412,10 +411,6 @@ console.log("🔍 esSoloLectura:", esSoloLectura);
   const urlParams = new URLSearchParams(window.location.search);
   const fincaId = urlParams.get("finca_id");
 
-  // 🔥 DETERMINAR SI EL USUARIO PUEDE EDITAR (desde el servidor)
-  const puedeEditar = window.PUEDE_EDITAR === true || false;
-  const esProductor = window.ES_PRODUCTOR === true || false;
-
   // Variable para almacenar el dato_id si existe
   let datoId = null;
   let datosCargados = false;
@@ -447,6 +442,46 @@ console.log("🔍 esSoloLectura:", esSoloLectura);
     'TRADICIONAL': 'Tradicional',
     'OTRO': 'Otro'
   };
+
+  /** Normaliza texto libre del seed/API a códigos del <select>. */
+  function toUsoSueloCode(value) {
+    if (!value) return "";
+    const v = String(value).trim();
+    if (mapUsoSuelo[v]) return v;
+    const lower = v.toLowerCase();
+    if (/agr[ií]cola|caf[eé]|cultivo/.test(lower)) return "AGRICOLA";
+    if (/forestal|bosque/.test(lower)) return "FORESTAL";
+    if (/pastor/.test(lower)) return "PASTOREO";
+    if (/mixto/.test(lower)) return "MIXTO";
+    if (/conserv/.test(lower)) return "CONSERVACION";
+    return "OTRO";
+  }
+
+  function toCoberturaCode(value) {
+    if (!value) return "";
+    const v = String(value).trim();
+    if (mapCoberturaForestal[v]) return v;
+    const lower = v.toLowerCase();
+    if (/nativo/.test(lower)) return "BOSQUE_NATIVO";
+    if (/plantado/.test(lower)) return "BOSQUE_PLANTADO";
+    if (/pastizal/.test(lower)) return "PASTIZAL";
+    if (/cultivo|caf[eé]|media|alta|sombra/.test(lower)) return "CULTIVOS";
+    if (/secundaria|regener/.test(lower)) return "VEGETACION_SECUNDARIA";
+    return "OTRO";
+  }
+
+  function toSistemaCode(value) {
+    if (!value) return "";
+    const v = String(value).trim();
+    if (mapSistemaProduccion[v]) return v;
+    const lower = v.toLowerCase();
+    if (/org[aá]nico/.test(lower)) return "ORGANICO";
+    if (/convencional/.test(lower)) return "CONVENCIONAL";
+    if (/agroforestal/.test(lower)) return "AGROFORESTAL";
+    if (/silvopastoril/.test(lower)) return "SILVOPASTORIL";
+    if (/tradicional/.test(lower)) return "TRADICIONAL";
+    return "OTRO";
+  }
 
   // Función para mostrar el botón "Siguiente" con el dato_id
   function mostrarBotonSiguiente(mostrar, idAgroambiental = null) {
@@ -551,22 +586,29 @@ console.log("🔍 esSoloLectura:", esSoloLectura);
         if (fields.hojarasca_mantillo) fields.hojarasca_mantillo.value = dato.hojarasca_mantillo ?? '';
         if (fields.carbono_organico_suelo) fields.carbono_organico_suelo.value = dato.carbono_organico_suelo ?? '';
         
+        const usoCode = toUsoSueloCode(dato.uso_suelo);
+        const cobCode = toCoberturaCode(dato.cobertura_forestal);
+        const sisCode = toSistemaCode(dato.sistema_produccion);
+
         // Si NO puede editar, mostrar los valores en texto
         if (!puedeEditar) {
           if (fields.uso_suelo_text) {
-            fields.uso_suelo_text.value = mapUsoSuelo[dato.uso_suelo] || dato.uso_suelo || 'No especificado';
+            fields.uso_suelo_text.value =
+              mapUsoSuelo[usoCode] || dato.uso_suelo || "No especificado";
           }
           if (fields.cobertura_forestal_text) {
-            fields.cobertura_forestal_text.value = mapCoberturaForestal[dato.cobertura_forestal] || dato.cobertura_forestal || 'No especificado';
+            fields.cobertura_forestal_text.value =
+              mapCoberturaForestal[cobCode] || dato.cobertura_forestal || "No especificado";
           }
           if (fields.sistema_produccion_text) {
-            fields.sistema_produccion_text.value = mapSistemaProduccion[dato.sistema_produccion] || dato.sistema_produccion || 'No especificado';
+            fields.sistema_produccion_text.value =
+              mapSistemaProduccion[sisCode] || dato.sistema_produccion || "No especificado";
           }
         } else {
           // Si puede editar, seleccionar los valores en los selects
-          if (fields.uso_suelo) fields.uso_suelo.value = dato.uso_suelo ?? '';
-          if (fields.cobertura_forestal) fields.cobertura_forestal.value = dato.cobertura_forestal ?? '';
-          if (fields.sistema_produccion) fields.sistema_produccion.value = dato.sistema_produccion ?? '';
+          if (fields.uso_suelo) fields.uso_suelo.value = usoCode;
+          if (fields.cobertura_forestal) fields.cobertura_forestal.value = cobCode;
+          if (fields.sistema_produccion) fields.sistema_produccion.value = sisCode;
         }
         
         calcularTotalStock();
@@ -619,11 +661,18 @@ console.log("🔍 esSoloLectura:", esSoloLectura);
       datosCargados = false;
       dynamicVariablesContainer.classList.add('hidden');
       dynamicVariablesEl.innerHTML = '';
+      const msg = error instanceof Error ? error.message : String(error);
       if (!puedeEditar) {
         if (fields.uso_suelo_text) fields.uso_suelo_text.value = 'Error al cargar';
         if (fields.cobertura_forestal_text) fields.cobertura_forestal_text.value = 'Error al cargar';
         if (fields.sistema_produccion_text) fields.sistema_produccion_text.value = 'Error al cargar';
       }
+      showMessage(
+        /Failed to fetch|NetworkError|CORS/i.test(msg)
+          ? '❌ No se pudo contactar exped-service (CORS o red). Revisa CORS_ORIGINS e inténtalo de nuevo.'
+          : `❌ Error al cargar agroambiental: ${msg}`,
+        true,
+      );
       mostrarBotonSiguiente(false);
     }
   }
