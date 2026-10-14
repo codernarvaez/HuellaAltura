@@ -29,9 +29,11 @@ fi
 echo "Auth → $(grep '^EXPO_PUBLIC_API_BASE_URL=' .env | cut -d= -f2-)"
 echo "Exped → $(grep '^EXPO_PUBLIC_EXPED_API_URL=' .env | cut -d= -f2-)"
 echo ""
-echo "Nota: abre con el Dev Client de Huella (SDK 56), no con Expo Go de Play Store (SDK 57)."
-echo "      Si solo tienes Expo Go: instala el de SDK 56 → https://expo.dev/go?sdkVersion=56&platform=android&device=true"
-echo "      El mapa (Mapbox) NO funciona en Expo Go; necesita Dev Client."
+echo "Nota: el APK 'development' es Dev Client y necesita este Metro."
+echo "      Si ves 'Unable to load script / index.android.bundle':"
+echo "        • USB:  adb reverse tcp:8081 tcp:8081"
+echo "        • Wi‑Fi: mismo red que este PC; Metro ya arranca con --lan"
+echo "      Para APK sin Metro: bash scripts/build-preview-apk.sh"
 echo ""
 
 # CRÍTICO: no exportar CI=1 — Metro entra en modo CI, no muestra QR y parece colgado.
@@ -39,6 +41,12 @@ unset CI
 unset CONTINUOUS_INTEGRATION
 export EXPO_NO_TELEMETRY=1
 export EXPO_OFFLINE=1
+
+if command -v adb >/dev/null 2>&1; then
+  if adb devices 2>/dev/null | grep -qE 'device$'; then
+    adb reverse tcp:8081 tcp:8081 >/dev/null 2>&1 && echo "✓ adb reverse tcp:8081 listo (USB)"
+  fi
+fi
 
 # --dev-client evita abrir Expo Go (SDK 57) por error
 exec npx expo start --lan --dev-client

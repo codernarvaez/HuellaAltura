@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
-# Genera APK Dev Client (instalable) vía EAS Cloud.
+# Genera APK Dev Client vía EAS Cloud (REQUIERE Metro al abrir la app).
 # Uso: bash HAMobile/scripts/build-dev-apk.sh
+#
+# Si quieres una APK que abra sola (sin PC/Metro), usa:
+#   bash HAMobile/scripts/build-preview-apk.sh
+#
+# Con esta APK Dev Client:
+#   1) bash HAMobile/scripts/dev-start.sh
+#   2) USB → adb reverse tcp:8081 tcp:8081
+#      o misma Wi‑Fi que el PC (Metro --lan)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
