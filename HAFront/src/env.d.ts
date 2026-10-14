@@ -42,6 +42,19 @@ declare global {
       }) => Promise<unknown>;
     };
     __FINCA_DATA__?: unknown;
+    __HA_ACCESO_AUTH__?: {
+      firebaseConfigured: boolean;
+      authApiUrl?: string;
+    };
+    __HA_LOGIN_EMAIL__?: {
+      signInWithEmail: (email: string, password: string) => Promise<unknown>;
+      signUpWithEmail: (email: string, password: string, fullName: string) => Promise<unknown>;
+      openPlatformSession: (user: { getIdToken: () => Promise<string> }) => Promise<void>;
+    };
+    __INFOAGRO__?: {
+      puedeEditar: boolean;
+      esProductor: boolean;
+    };
   }
 
   namespace App {
