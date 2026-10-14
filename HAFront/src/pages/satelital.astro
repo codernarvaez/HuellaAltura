@@ -180,11 +180,30 @@ const estadoEudrStr = estadoEudr;
 const existeExpedienteStr = JSON.stringify(!!expedienteExistente);
 const expedienteEstadoStr = expedienteExistente?.estado || 'PENDIENTE';
 const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
+
+const mapboxToken = import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+const poligonoFinca = fincaData?.poligono ?? null;
+const centroFinca =
+  typeof fincaData?.latitud === 'number' && typeof fincaData?.longitud === 'number'
+    ? { lat: fincaData.latitud, lng: fincaData.longitud }
+    : null;
+const tienePoligono = !!(
+  poligonoFinca &&
+  (poligonoFinca.type === 'Polygon' ||
+    poligonoFinca.type === 'MultiPolygon' ||
+    poligonoFinca.type === 'Feature')
+);
 ---
 
 <Layout title="Huella de Altura | Auditoría Satelital">
 
-<!-- Datos inyectados para el cliente -->
+<link
+  href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css"
+  rel="stylesheet"
+/>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js" is:inline></script>
+
+<!-- Datos inyectados para el cliente (define:vars = IIFE; sin imports aquí) -->
 <script define:vars={{
   esProductor,
   puedeVerResultado,
@@ -195,8 +214,12 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
   expedienteIdStr,
   estadoEudrStr,
   existeExpediente: !!expedienteExistente,
-  expedienteEstadoStr
-}} is:inline>
+  expedienteEstadoStr,
+  mapboxToken,
+  poligonoFinca,
+  centroFinca,
+  fincaNombre,
+}}>
   window.ES_PRODUCTOR = esProductor;
   window.PUEDE_VER_RESULTADO = puedeVerResultado;
   window.VALIDACION_REALIZADA = validacionRealizada;
@@ -207,51 +230,48 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
   window.ESTADO_EUDR = estadoEudrStr;
   window.EXISTE_EXPEDIENTE = existeExpediente;
   window.EXPEDIENTE_ESTADO = expedienteEstadoStr;
-
-  console.log('📋 Datos inyectados en cliente:', {
-    ES_PRODUCTOR: window.ES_PRODUCTOR,
-    FINCA_ID: window.FINCA_ID,
-    ESTADO_EUDR: window.ESTADO_EUDR,
-    EXPEDIENTE_HABILITADO: window.EXPEDIENTE_HABILITADO,
-    EXISTE_EXPEDIENTE: window.EXISTE_EXPEDIENTE,
-    EXPEDIENTE_ESTADO: window.EXPEDIENTE_ESTADO
-  });
+  window.__SATELITAL_MAP__ = {
+    token: mapboxToken,
+    poligono: poligonoFinca,
+    centro: centroFinca,
+    nombre: fincaNombre,
+  };
 </script>
 
 <section class="flex overflow-hidden -m-8" style="height: calc(100vh - 4rem);">
 
   <div class="flex-grow relative bg-surface-dim overflow-hidden">
 
-    <!-- Imagen de fondo del mapa -->
+    <!-- Mapa Mapbox (satélite + polígono de finca) -->
     <div class="absolute inset-0 z-0">
-      <img
-        alt="Mapa Satelital"
-        class="w-full h-full object-cover grayscale-[0.2] contrast-[1.1]"
-        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDjAtsFX3vINrNQMtsTCQyAm5BcIy-r1CDh39eHkSCO-lPkbrpW3lKJXRxrSlzw1Aie7kt1beOXOiRSgmcd2lCRNeNNrO2c9HRB5sShshVsCfKPBWwHQnW-QGU_5ot0cv51KkIfCHH1qUOOc53PO8wApcFvki8fKTibBgusGFdLG_Y7O6IO9LH_yOKFjUIsP8rTIi9KfUNRqli0AgHXOnplAi_wvT39b3gvY9I1AhP7jMudm3Oxa_Dchg4wHq7Y0wHNeXC9kwAoi9M"
-      />
-      <div class="absolute inset-0 map-gradient-overlay"></div>
+      <div id="satelital-map" class="w-full h-full" role="application" aria-label="Mapa satelital de la finca"></div>
+      <div
+        id="satelital-map-status"
+        class="absolute inset-x-4 top-1/2 -translate-y-1/2 z-10 hidden glass-panel border border-outline-variant rounded-xl p-4 text-sm text-on-surface shadow-sm max-w-md mx-auto text-center"
+      ></div>
     </div>
 
-    <!-- Línea de escaneo -->
-    <div class="scanning-line"></div>
-
     <!-- Panel superior izquierdo -->
-    <div class="absolute top-4 left-4 z-30 flex flex-col gap-3">
+    <div class="absolute top-4 left-4 z-30 flex flex-col gap-3 pointer-events-none [&>*]:pointer-events-auto">
 
       <div class="glass-panel border border-outline-variant rounded-xl p-4 shadow-sm w-64">
         <div class="flex justify-between items-start mb-1">
-          <span class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Índice Satelital</span>
-          <span class="px-2 py-0.5 bg-primary-container text-on-primary-container rounded text-[10px] font-bold">EN VIVO</span>
+          <span class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Mapa</span>
+          <span class="px-2 py-0.5 bg-primary-container text-on-primary-container rounded text-[10px] font-bold">
+            {tienePoligono ? 'POLÍGONO' : 'SIN POLÍGONO'}
+          </span>
         </div>
-        <div class="text-xl font-semibold text-primary mt-1">Sentinel-2B</div>
+        <div class="text-xl font-semibold text-primary mt-1">Mapbox Satellite</div>
         <div class="mt-2 flex flex-col gap-1">
           <div class="flex justify-between text-xs">
-            <span class="text-on-surface-variant">Banda Espectral</span>
-            <span class="font-mono">B8A (Borde Rojo)</span>
+            <span class="text-on-surface-variant">Estilo</span>
+            <span class="font-mono">satellite-streets</span>
           </div>
           <div class="flex justify-between text-xs">
-            <span class="text-on-surface-variant">Cobertura Nubosa</span>
-            <span class="font-mono text-green-600">0.4%</span>
+            <span class="text-on-surface-variant">Token</span>
+            <span class={`font-mono ${mapboxToken ? 'text-green-600' : 'text-red-600'}`}>
+              {mapboxToken ? 'Configurado' : 'Falta'}
+            </span>
           </div>
         </div>
       </div>
@@ -309,16 +329,32 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
       )}
     </div>
 
-    <!-- Controles de zoom -->
-    <div class="absolute bottom-4 right-4 z-30 flex flex-col gap-2">
-      <button class="w-10 h-10 glass-panel border border-outline-variant rounded-lg flex items-center justify-center hover:bg-surface-container-high transition-colors">
+    <!-- Controles de zoom (Mapbox NavigationControl también está activo) -->
+    <div class="absolute bottom-4 left-4 z-30 flex flex-col gap-2">
+      <button
+        type="button"
+        id="satelital-zoom-in"
+        aria-label="Acercar"
+        class="w-10 h-10 glass-panel border border-outline-variant rounded-lg flex items-center justify-center hover:bg-surface-container-high transition-colors"
+      >
         <span class="material-symbols-outlined text-primary">add</span>
       </button>
-      <button class="w-10 h-10 glass-panel border border-outline-variant rounded-lg flex items-center justify-center hover:bg-surface-container-high transition-colors">
+      <button
+        type="button"
+        id="satelital-zoom-out"
+        aria-label="Alejar"
+        class="w-10 h-10 glass-panel border border-outline-variant rounded-lg flex items-center justify-center hover:bg-surface-container-high transition-colors"
+      >
         <span class="material-symbols-outlined text-primary">remove</span>
       </button>
-      <button class="w-10 h-10 glass-panel border border-outline-variant rounded-lg flex items-center justify-center hover:bg-surface-container-high transition-colors mt-4">
-        <span class="material-symbols-outlined text-primary">layers</span>
+      <button
+        type="button"
+        id="satelital-fit-bounds"
+        aria-label="Centrar en el polígono"
+        class="w-10 h-10 glass-panel border border-outline-variant rounded-lg flex items-center justify-center hover:bg-surface-container-high transition-colors mt-4"
+        title="Centrar en el polígono"
+      >
+        <span class="material-symbols-outlined text-primary">crop_free</span>
       </button>
     </div>
   </div>
@@ -560,281 +596,264 @@ const fincaNombre = fincaData?.nombre || 'Finca sin nombre';
 </Layout>
 
 <style>
-  .scanning-line {
-    position: absolute;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #0d5c3a, transparent);
-    box-shadow: 0 0 15px #8ed6aa;
-    animation: scan 4s linear infinite;
-    z-index: 20;
-  }
-  @keyframes scan {
-    0%   { top: 0%;   opacity: 0; }
-    10%  { opacity: 1; }
-    90%  { opacity: 1; }
-    100% { top: 100%; opacity: 0; }
-  }
   .glass-panel {
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
-  .map-gradient-overlay {
-    background: radial-gradient(circle at center, transparent 30%, rgba(0, 67, 40, 0.1) 100%);
+  #satelital-map .mapboxgl-ctrl-bottom-right {
+    bottom: 1rem;
+    right: 1rem;
+  }
+  #satelital-map .mapboxgl-canvas {
+    outline: none;
   }
 </style>
 
-<script is:inline>
-  import { GeoespacialService } from "/src/services/geoespacial.service.ts"
-  import { ExpedienteService } from "/src/services/expediente.service.ts";
+<script>
+  import { GeoespacialService } from "../services/geoespacial.service.ts";
+  import { ExpedienteService } from "../services/expediente.service.ts";
+  import { initSatelitalMap } from "../scripts/satelital-map.ts";
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const btnAudit = document.getElementById("btn-audit");
-    const btnExpediente = document.getElementById("btn-generar-expediente");
-    const scanningLine = document.querySelector(".scanning-line");
-    
-    // Obtener datos del enlace - 🔥 AHORA CON VALORES REALES
-    const fincaId = btnExpediente?.getAttribute('data-finca-id') || '';
-    const expedienteId = btnExpediente?.getAttribute('data-expediente-id') || '';
-    const existeExpediente = btnExpediente?.getAttribute('data-existe') === 'true';
-    const estadoEudrAttr = btnExpediente?.getAttribute('data-estado-eudr') || 'PENDIENTE';
-    const expedienteEstadoAttr = btnExpediente?.getAttribute('data-expediente-estado') || 'PENDIENTE';
-    
-    // Obtener valores de window
-    const esProductor = window.ES_PRODUCTOR === true;
-    const tienePermisoAuditoria = window.TIENE_PERMISO_AUDITORIA === true;
-    const fincaIdWindow = window.FINCA_ID || fincaId;
-    const estadoEudr = window.ESTADO_EUDR || estadoEudrAttr || 'PENDIENTE';
-    const expedienteHabilitado = window.EXPEDIENTE_HABILITADO === true;
-    const expedienteEstado = window.EXPEDIENTE_ESTADO || expedienteEstadoAttr || 'PENDIENTE';
-
-    console.log('📋 Configuración en cliente:', { 
-      fincaId: fincaIdWindow, 
-      existeExpediente, 
-      estadoEudr,
-      expedienteHabilitado,
-      expedienteEstado,
-      estadoEudrAttr,
-      expedienteEstadoAttr
-    });
-
-    function getCookie(name) {
-      const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-      return match ? decodeURIComponent(match[1]) : "";
+  // Mapbox CDN puede cargar después del módulo; reintentar breve.
+  function bootMap(attempt = 0) {
+    if (window.mapboxgl || attempt >= 20) {
+      initSatelitalMap();
+      return;
     }
+    setTimeout(() => bootMap(attempt + 1), 50);
+  }
+  bootMap();
 
-    const token = getCookie('token');
-    let validacionActual = null;
+  const btnAudit = document.getElementById("btn-audit") as HTMLButtonElement | null;
+  const btnExpediente = document.getElementById("btn-generar-expediente") as HTMLButtonElement | null;
 
-    // Función para actualizar estado de validación
-    function actualizarEstadoValidacion(data) {
-      if (!data) return;
-      
-      const resultado = data.resultado || data;
-      const estado = resultado.estado_eudr || data.estado_eudr || "PENDIENTE";
-      const deforestacion = resultado.deforestacion_detectada || data.deforestacion_detectada || false;
-      const porcentaje = resultado.porcentaje || data.porcentaje || 0;
-      const fecha = resultado.fecha_analisis || data.fecha_analisis || new Date().toLocaleDateString('es-ES');
-      const fuente = resultado.fuente || data.fuente || "Google Earth Engine - Sentinel-2";
+  const fincaId = btnExpediente?.getAttribute("data-finca-id") || "";
+  const existeExpediente = btnExpediente?.getAttribute("data-existe") === "true";
+  const estadoEudrAttr = btnExpediente?.getAttribute("data-estado-eudr") || "PENDIENTE";
+  const expedienteEstadoAttr = btnExpediente?.getAttribute("data-expediente-estado") || "PENDIENTE";
 
-      validacionActual = data;
+  const esProductor = window.ES_PRODUCTOR === true;
+  const fincaIdWindow = window.FINCA_ID || fincaId;
+  const estadoEudr = window.ESTADO_EUDR || estadoEudrAttr || "PENDIENTE";
+  const expedienteEstado = window.EXPEDIENTE_ESTADO || expedienteEstadoAttr || "PENDIENTE";
 
-      // Actualizar badge
-      const estadoBadge = document.querySelector('.bg-secondary\\/10 .text-secondary');
-      if (estadoBadge) {
-        if (estado === "APROBADO" || estado === "VALIDADO") {
-          estadoBadge.textContent = "Aprobado";
-        } else if (estado === "PRE_VALIDADO") {
-          estadoBadge.textContent = "Pre-validado";
-        } else if (estado === "ALERTA") {
-          estadoBadge.textContent = "¡Alerta!";
-        } else if (estado === "RECHAZADO") {
-          estadoBadge.textContent = "Rechazado";
-        } else {
-          estadoBadge.textContent = "Pendiente";
-        }
-      }
+  function getCookie(name: string) {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : "";
+  }
 
-      // Actualizar mensaje de deforestación
-      const deforestacionText = document.querySelector('.font-bold.text-sm');
-      if (deforestacionText) {
-        deforestacionText.textContent = deforestacion 
-          ? '⚠️ Deforestación Detectada' 
-          : '✅ Sin Deforestación Detectada';
-      }
+  const token = getCookie("token");
 
-      // Actualizar porcentaje
-      const porcentajeText = document.querySelector('.flex.justify-between.text-sm .font-bold');
-      if (porcentajeText) {
-        porcentajeText.textContent = porcentaje + '%';
-      }
+  function actualizarEstadoValidacion(data: Record<string, unknown>) {
+    if (!data) return;
 
-      // Actualizar barra
-      const barra = document.querySelector('.bg-outline-variant .h-full');
-      if (barra) {
-        barra.style.width = Math.min(porcentaje, 100) + '%';
-        barra.className = `h-full ${porcentaje > 10 ? 'bg-red-500' : 'bg-green-500'}`;
-      }
+    const resultado = (data.resultado as Record<string, unknown>) || data;
+    const estado = String(resultado.estado_eudr || data.estado_eudr || "PENDIENTE");
+    const deforestacion = Boolean(
+      resultado.deforestacion_detectada || data.deforestacion_detectada || false,
+    );
+    const porcentaje = Number(resultado.porcentaje || data.porcentaje || 0);
+    const fecha = String(
+      resultado.fecha_analisis ||
+        data.fecha_analisis ||
+        new Date().toLocaleDateString("es-ES"),
+    );
+    const fuente = String(
+      resultado.fuente || data.fuente || "Google Earth Engine - Sentinel-2",
+    );
 
-      // Actualizar fecha y fuente
-      const items = document.querySelectorAll('.flex.justify-between.text-xs');
-      if (items.length >= 2) {
-        const fechaElement = items[0]?.querySelector('.font-mono');
-        if (fechaElement) fechaElement.textContent = fecha;
-        const fuenteElement = items[1]?.querySelector('.font-mono');
-        if (fuenteElement) fuenteElement.textContent = fuente;
-      }
-
-      // Actualizar icono y panel
-      const iconContainer = document.querySelector('.w-12.h-12.rounded-full');
-      const icon = iconContainer?.querySelector('.material-symbols-outlined');
-      if (icon) {
-        if (estado === "APROBADO" || estado === "VALIDADO") {
-          icon.textContent = 'verified_user';
-          iconContainer.className = 'w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-green-100';
-        } else if (estado === "ALERTA" || estado === "RECHAZADO") {
-          icon.textContent = 'warning';
-          iconContainer.className = 'w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-red-100';
-        } else {
-          icon.textContent = 'pending';
-          iconContainer.className = 'w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-yellow-100';
-        }
-      }
-
-      const panel = document.querySelector('.border.rounded-xl.p-4.mb-4');
-      if (panel) {
-        if (estado === "APROBADO" || estado === "VALIDADO") {
-          panel.className = 'border rounded-xl p-4 mb-4 bg-green-50 border-green-200';
-        } else if (estado === "ALERTA" || estado === "RECHAZADO") {
-          panel.className = 'border rounded-xl p-4 mb-4 bg-red-50 border-red-200';
-        } else if (estado === "PRE_VALIDADO") {
-          panel.className = 'border rounded-xl p-4 mb-4 bg-yellow-50 border-yellow-200';
-        } else {
-          panel.className = 'border rounded-xl p-4 mb-4 bg-blue-50 border-blue-200';
-        }
-      }
-
-      // Si es productor, recargar para ver cambios
-      if (esProductor) {
-        setTimeout(() => location.reload(), 2000);
+    const estadoBadge = document.querySelector(".bg-secondary\\/10 .text-secondary");
+    if (estadoBadge) {
+      if (estado === "APROBADO" || estado === "VALIDADO") {
+        estadoBadge.textContent = "Aprobado";
+      } else if (estado === "PRE_VALIDADO") {
+        estadoBadge.textContent = "Pre-validado";
+      } else if (estado === "ALERTA") {
+        estadoBadge.textContent = "¡Alerta!";
+      } else if (estado === "RECHAZADO") {
+        estadoBadge.textContent = "Rechazado";
+      } else {
+        estadoBadge.textContent = "Pendiente";
       }
     }
 
-    // Función para generar expediente
-    async function generarExpediente(e) {
-      e.preventDefault();
-      
-      if (!fincaIdWindow) {
-        alert('No se encontró ID de finca');
-        return;
-      }
+    const deforestacionText = document.querySelector(".font-bold.text-sm");
+    if (deforestacionText) {
+      deforestacionText.textContent = deforestacion
+        ? "⚠️ Deforestación Detectada"
+        : "✅ Sin Deforestación Detectada";
+    }
 
-      // Si ya existe, redirigir
-      if (existeExpediente) {
-        console.log('🔍 Redirigiendo a expedientes con finca_id:', fincaIdWindow);
+    const porcentajeText = document.querySelector(
+      ".flex.justify-between.text-sm .font-bold",
+    );
+    if (porcentajeText) {
+      porcentajeText.textContent = porcentaje + "%";
+    }
+
+    const barra = document.querySelector(".bg-outline-variant .h-full") as HTMLElement | null;
+    if (barra) {
+      barra.style.width = Math.min(porcentaje, 100) + "%";
+      barra.className = `h-full ${porcentaje > 10 ? "bg-red-500" : "bg-green-500"}`;
+    }
+
+    const items = document.querySelectorAll(".flex.justify-between.text-xs");
+    if (items.length >= 2) {
+      const fechaElement = items[0]?.querySelector(".font-mono");
+      if (fechaElement) fechaElement.textContent = fecha;
+      const fuenteElement = items[1]?.querySelector(".font-mono");
+      if (fuenteElement) fuenteElement.textContent = fuente;
+    }
+
+    const iconContainer = document.querySelector(".w-12.h-12.rounded-full");
+    const icon = iconContainer?.querySelector(".material-symbols-outlined");
+    if (icon && iconContainer) {
+      if (estado === "APROBADO" || estado === "VALIDADO") {
+        icon.textContent = "verified_user";
+        iconContainer.className =
+          "w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-green-100";
+      } else if (estado === "ALERTA" || estado === "RECHAZADO") {
+        icon.textContent = "warning";
+        iconContainer.className =
+          "w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-red-100";
+      } else {
+        icon.textContent = "pending";
+        iconContainer.className =
+          "w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-yellow-100";
+      }
+    }
+
+    const panel = document.querySelector(".border.rounded-xl.p-4.mb-4");
+    if (panel) {
+      if (estado === "APROBADO" || estado === "VALIDADO") {
+        panel.className = "border rounded-xl p-4 mb-4 bg-green-50 border-green-200";
+      } else if (estado === "ALERTA" || estado === "RECHAZADO") {
+        panel.className = "border rounded-xl p-4 mb-4 bg-red-50 border-red-200";
+      } else if (estado === "PRE_VALIDADO") {
+        panel.className = "border rounded-xl p-4 mb-4 bg-yellow-50 border-yellow-200";
+      } else {
+        panel.className = "border rounded-xl p-4 mb-4 bg-blue-50 border-blue-200";
+      }
+    }
+
+    if (esProductor) {
+      setTimeout(() => location.reload(), 2000);
+    }
+  }
+
+  async function generarExpediente(e: Event) {
+    e.preventDefault();
+
+    if (!btnExpediente) return;
+
+    if (!fincaIdWindow) {
+      alert("No se encontró ID de finca");
+      return;
+    }
+
+    if (existeExpediente) {
+      window.location.href = `/expedientes?finca_id=${fincaIdWindow}`;
+      return;
+    }
+
+    const estaAprobado =
+      estadoEudr === "APROBADO" ||
+      estadoEudr === "VALIDADO" ||
+      expedienteEstado === "APROBADO" ||
+      expedienteEstado === "VALIDADO";
+
+    if (!estaAprobado) {
+      alert("El expediente solo puede generarse cuando la auditoría está aprobada.");
+      return;
+    }
+
+    try {
+      btnExpediente.disabled = true;
+      btnExpediente.innerHTML =
+        '<span class="material-symbols-outlined animate-spin">progress_activity</span> Generando...';
+      btnExpediente.className =
+        "w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-gray-400 text-white cursor-wait";
+
+      // Mantiene el payload previo de esta pantalla (finca_id + estado).
+      await ExpedienteService.create(
+        {
+          finca_id: fincaIdWindow,
+          organizacion_inquilino: "Asociación APECAEL",
+          estado: "APROBADO",
+        } as never,
+        token,
+      );
+
+      const notification = document.createElement("div");
+      notification.className =
+        "fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-xl z-50 text-sm font-semibold";
+      notification.innerText = "✅ Expediente EUDR generado correctamente";
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 4000);
+
+      btnExpediente.innerHTML =
+        '<span class="material-symbols-outlined">folder_open</span> Ver Expediente';
+      btnExpediente.className =
+        "w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm";
+      btnExpediente.setAttribute("data-existe", "true");
+      btnExpediente.disabled = false;
+
+      setTimeout(() => {
         window.location.href = `/expedientes?finca_id=${fincaIdWindow}`;
+      }, 1500);
+    } catch (error) {
+      console.error("❌ Error generando expediente:", error);
+      alert(
+        "Error al generar expediente: " +
+          (error instanceof Error ? error.message : "Error desconocido"),
+      );
+      btnExpediente.disabled = false;
+      btnExpediente.innerHTML = existeExpediente
+        ? '<span class="material-symbols-outlined">folder_open</span> Ver Expediente'
+        : '<span class="material-symbols-outlined">description</span> Generar Expediente';
+      btnExpediente.className = existeExpediente
+        ? "w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
+        : "w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm";
+    }
+  }
+
+  if (btnAudit && !esProductor && window.TIENE_PERMISO_AUDITORIA) {
+    btnAudit.addEventListener("click", async () => {
+      if (!fincaIdWindow) {
+        alert("No se encontró ID de finca");
         return;
       }
 
-      // Verificar si el expediente está habilitado
-      const estaAprobado = estadoEudr === "APROBADO" || estadoEudr === "VALIDADO" || 
-                          expedienteEstado === "APROBADO" || expedienteEstado === "VALIDADO";
-      
-      console.log('🔍 Verificando aprobación:', { estadoEudr, expedienteEstado, estaAprobado });
-      
-      if (!estaAprobado) {
-        alert('El expediente solo puede generarse cuando la auditoría está aprobada.');
-        return;
-      }
+      btnAudit.disabled = true;
+      btnAudit.innerHTML =
+        '<span class="material-symbols-outlined animate-spin">sync</span> Ejecutando Análisis...';
 
       try {
-        btnExpediente.disabled = true;
-        btnExpediente.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Generando...';
-        btnExpediente.className = 'w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-gray-400 text-white cursor-wait';
+        const resultado = await GeoespacialService.validarEudr(fincaIdWindow, token);
+        actualizarEstadoValidacion(resultado as unknown as Record<string, unknown>);
 
-        const payload = {
-          finca_id: fincaIdWindow,
-          organizacion_inquilino: 'Asociación APECAEL',
-          estado: 'APROBADO'
-        };
-
-        const expediente = await ExpedienteService.create(payload, token);
-
-        // Notificación
         const notification = document.createElement("div");
-        notification.className = "fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-xl z-50 text-sm font-semibold";
-        notification.innerText = "✅ Expediente EUDR generado correctamente";
+        notification.className =
+          "fixed bottom-6 right-6 bg-primary text-white px-6 py-3 rounded-lg shadow-xl z-50 text-sm font-semibold";
+        notification.innerText = "Auditoría Satelital Completada con Éxito";
         document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 4000);
-
-        // Actualizar botón a "Ver Expediente"
-        btnExpediente.innerHTML = '<span class="material-symbols-outlined">folder_open</span> Ver Expediente';
-        btnExpediente.className = 'w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm';
-        btnExpediente.setAttribute('data-existe', 'true');
-        btnExpediente.disabled = false;
-
-        // Después de generar, redirigir a expedientes
-        setTimeout(() => {
-          window.location.href = `/expedientes?finca_id=${fincaIdWindow}`;
-        }, 1500);
-
+        setTimeout(() => notification.remove(), 3000);
       } catch (error) {
-        console.error('❌ Error generando expediente:', error);
-        alert('Error al generar expediente: ' + (error.message || 'Error desconocido'));
-        btnExpediente.disabled = false;
-        btnExpediente.innerHTML = existeExpediente 
-          ? '<span class="material-symbols-outlined">folder_open</span> Ver Expediente'
-          : '<span class="material-symbols-outlined">description</span> Generar Expediente';
-        btnExpediente.className = existeExpediente
-          ? 'w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm'
-          : 'w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm';
+        console.error("❌ Error en auditoría:", error);
+        alert(
+          "Error al ejecutar la auditoría: " +
+            (error instanceof Error ? error.message : "Error desconocido"),
+        );
       }
-    }
 
-    // Evento: Ejecutar Auditoría
-    if (btnAudit && !esProductor && window.TIENE_PERMISO_AUDITORIA) {
-      btnAudit.addEventListener("click", async () => {
-        if (!fincaIdWindow) {
-          alert('No se encontró ID de finca');
-          return;
-        }
+      btnAudit.disabled = false;
+      btnAudit.innerHTML =
+        '<span class="material-symbols-outlined">refresh</span> Ejecutar Auditoría GEE';
+    });
+  }
 
-        btnAudit.disabled = true;
-        btnAudit.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Ejecutando Análisis...';
-        
-        if (scanningLine) {
-          scanningLine.style.animationDuration = "1.5s";
-        }
-
-        try {
-          const resultado = await GeoespacialService.validarEudr(fincaIdWindow, token);
-          validacionActual = resultado;
-          actualizarEstadoValidacion(resultado);
-
-          const notification = document.createElement("div");
-          notification.className = "fixed bottom-6 right-6 bg-primary text-white px-6 py-3 rounded-lg shadow-xl z-50 text-sm font-semibold";
-          notification.innerText = "Auditoría Satelital Completada con Éxito";
-          document.body.appendChild(notification);
-          setTimeout(() => notification.remove(), 3000);
-
-        } catch (error) {
-          console.error('❌ Error en auditoría:', error);
-          alert('Error al ejecutar la auditoría: ' + (error.message || 'Error desconocido'));
-        }
-
-        btnAudit.disabled = false;
-        btnAudit.innerHTML = '<span class="material-symbols-outlined">refresh</span> Ejecutar Auditoría GEE';
-        
-        if (scanningLine) {
-          scanningLine.style.animationDuration = "4s";
-        }
-      });
-    }
-
-    // Evento: Generar/Ver Expediente
-    if (btnExpediente) {
-      btnExpediente.addEventListener('click', generarExpediente);
-    }
-  });
+  if (btnExpediente) {
+    btnExpediente.addEventListener("click", generarExpediente);
+  }
 </script>

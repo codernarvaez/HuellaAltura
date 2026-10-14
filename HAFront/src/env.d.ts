@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly PUBLIC_FIREBASE_MESSAGING_SENDER_ID?: string;
   readonly PUBLIC_API_URL?: string;
   readonly PUBLIC_AUTH_API_URL?: string;
+  /** Token público Mapbox (`pk.`). Nunca uses `sk.` en el cliente. */
+  readonly PUBLIC_MAPBOX_ACCESS_TOKEN?: string;
 }
 
 interface ImportMeta {
@@ -55,6 +57,23 @@ declare global {
       puedeEditar: boolean;
       esProductor: boolean;
     };
+    __SATELITAL_MAP__?: {
+      token: string;
+      poligono: unknown;
+      centro: { lat: number; lng: number } | null;
+      nombre: string;
+    };
+    mapboxgl?: unknown;
+    ES_PRODUCTOR?: boolean;
+    PUEDE_VER_RESULTADO?: boolean;
+    VALIDACION_REALIZADA?: boolean;
+    EXPEDIENTE_HABILITADO?: boolean;
+    TIENE_PERMISO_AUDITORIA?: boolean;
+    FINCA_ID?: string;
+    EXPEDIENTE_ID?: string;
+    ESTADO_EUDR?: string;
+    EXISTE_EXPEDIENTE?: boolean;
+    EXPEDIENTE_ESTADO?: string;
   }
 
   namespace App {
