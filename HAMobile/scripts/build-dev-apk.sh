@@ -37,7 +37,22 @@ if [[ -z "$RNMAPBOX_MAPS_DOWNLOAD_TOKEN" || "$RNMAPBOX_MAPS_DOWNLOAD_TOKEN" != s
   echo "Falta RNMAPBOX_MAPS_DOWNLOAD_TOKEN=sk.… en .env (scope DOWNLOADS:READ)"
   exit 1
 fi
-echo "✓ Mapbox sk. (download)"
+echo "✓ Mapbox sk. presente"
+
+# Gradle de @rnmapbox/maps autentica con Basic (user=mapbox, pass=sk.).
+# Un sk. sin scope Downloads:Read responde 401 y tumba el build nativo.
+probe_code="$(
+  curl -s -o /dev/null -w '%{http_code}' \
+    -u "mapbox:${RNMAPBOX_MAPS_DOWNLOAD_TOKEN}" \
+    'https://api.mapbox.com/downloads/v2/releases/maven/com/mapbox/maps/android-ndk27/11.23.1/android-ndk27-11.23.1.pom'
+)"
+if [[ "$probe_code" != "200" ]]; then
+  echo "✗ Mapbox downloads rechazó el sk. (HTTP ${probe_code})."
+  echo "  Crea un Secret token en https://account.mapbox.com/access-tokens/"
+  echo "  con el scope Downloads:Read y actualiza RNMAPBOX_MAPS_DOWNLOAD_TOKEN en .env"
+  exit 1
+fi
+echo "✓ Mapbox sk. autorizado para downloads (Downloads:Read)"
 
 unset EXPO_OFFLINE
 unset CI
