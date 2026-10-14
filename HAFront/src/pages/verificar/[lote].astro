@@ -1,0 +1,118 @@
+---
+// HU-07 · Consulta del Consumidor (Transparencia): página pública a la que lleva el QR del paquete.
+// Los datos se leen de la cadena en el navegador (viem → RPC). Esta parte solo arma la
+// configuración (variables en tiempo de ejecución) y el QR de la propia URL.
+import QRCode from "qrcode";
+import Layout from "../../layouts/Layout.astro";
+
+export const prerender = false;
+
+const env = (name: string, fallback: string) => process.env[name] || import.meta.env[name] || fallback;
+const config = {
+  rpcUrl: env("PUBLIC_RPC_URL", "http://127.0.0.1:8545"),
+  chainId: Number(env("PUBLIC_CHAIN_ID", "31337")),
+  traceability: env("PUBLIC_TRACEABILITY_ADDRESS", ""),
+  origin: env("PUBLIC_ORIGIN_ADDRESS", ""),
+  token: env("PUBLIC_TOKEN_ADDRESS", ""),
+  fromBlock: env("PUBLIC_FROM_BLOCK", "0"),
+  ipfsGateway: env("PUBLIC_IPFS_GATEWAY", "https://gateway.pinata.cloud/ipfs/"),
+};
+
+const lote = Astro.params.lote ?? "";
+const pageUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
+const qrSvg = await QRCode.toString(pageUrl, { type: "svg", margin: 1, width: 144, errorCorrectionLevel: "M" });
+---
+
+<Layout title="Verificar lote de café · Huella de Altura">
+  <main class="mx-auto max-w-2xl px-margin-mobile py-6 sm:py-10">
+    <header class="mb-6 flex items-start justify-between gap-4">
+      <div>
+        <p class="text-label-md text-secondary">Huella de Altura · Trazabilidad en Polygon</p>
+        <h1 class="text-headline-lg-mobile sm:text-headline-lg text-primary">Historia de tu café</h1>
+        <p class="mt-1 text-sm text-on-surface-variant">
+          Datos leídos directamente de la blockchain; sin datos personales del productor.
+        </p>
+      </div>
+      <figure class="shrink-0 rounded-lg border border-outline-variant bg-white p-1.5 text-center">
+        <div class="h-[96px] w-[96px] sm:h-[120px] sm:w-[120px] [&>svg]:h-full [&>svg]:w-full" set:html={qrSvg} />
+        <figcaption class="mt-1 text-[10px] text-on-surface-variant">Escanéame</figcaption>
+      </figure>
+    </header>
+
+    <div id="verificar" data-config={JSON.stringify(config)} data-lote={lote} aria-live="polite">
+      <div data-state="loading" class="flex items-center gap-3 rounded-xl border border-outline-variant bg-white p-6">
+        <span class="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+        <span>Consultando la blockchain…</span>
+      </div>
+    </div>
+
+    <p id="verificar-meta" class="mt-6 text-center text-xs text-on-surface-variant"></p>
+  </main>
+</Layout>
+
+<script>
+  import { loadLotHistory, parseLotId, type ChainConfig } from "../../lib/chain/trazabilidad";
+  import { renderHistory } from "../../lib/chain/render";
+
+  const t0 = performance.now();
+  const root = document.getElementById("verificar")!;
+  const meta = document.getElementById("verificar-meta")!;
+  const cfg = JSON.parse(root.dataset.config!) as ChainConfig;
+  const raw = root.dataset.lote ?? "";
+
+  const message = (icon: string, title: string, text: string) => {
+    root.innerHTML = `
+      <div class="rounded-xl border border-outline-variant bg-white p-6 text-center">
+        <span class="material-symbols-outlined text-4xl text-secondary">${icon}</span>
+        <h2 class="mt-2 text-headline-md text-primary">${title}</h2>
+        <p class="mt-1 text-on-surface-variant">${text}</p>
+      </div>`;
+  };
+
+  async function showPhotos() {
+    // HU-02: si el registro de cosecha en IPFS trae foto, se muestra. No bloquea la carga.
+    for (const el of root.querySelectorAll<HTMLElement>("[data-photo-cid]")) {
+      const cid = el.dataset.photoCid;
+      if (!cid) continue;
+      try {
+        const res = await fetch(cfg.ipfsGateway + cid, { signal: AbortSignal.timeout(4000) });
+        const doc = await res.json();
+        const image: string | undefined = doc?.image;
+        if (image?.startsWith("ipfs://")) {
+          el.outerHTML = `<img class="mt-2 w-full rounded-lg" loading="lazy" alt="Foto del lote" src="${cfg.ipfsGateway}${image.slice(7)}">`;
+        }
+      } catch {
+        /* documento no disponible en el gateway */
+      }
+    }
+  }
+
+  async function main() {
+    const id = parseLotId(raw);
+    if (id === null) {
+      message("search_off", "Lote no encontrado", "El código no corresponde a un lote de café válido.");
+      return;
+    }
+    if (!cfg.traceability || !cfg.origin || !cfg.token) {
+      message("settings", "Verificación no configurada", "Faltan las direcciones de los contratos en el servidor.");
+      return;
+    }
+    try {
+      const history = await loadLotHistory(cfg, id);
+      if (!history) {
+        message("search_off", "Lote no encontrado", "Este lote no existe en la blockchain.");
+        return;
+      }
+      root.innerHTML = renderHistory(history, cfg.ipfsGateway);
+      const ms = Math.round(performance.now() - t0);
+      (window as unknown as { __verificarMs: number }).__verificarMs = ms;
+      meta.textContent = `Red ${cfg.chainId} · ${history.events.length} eventos · cargado en ${ms} ms`;
+      showPhotos();
+    } catch (err) {
+      console.error(err);
+      message("cloud_off", "No se pudo consultar la blockchain", "Inténtalo de nuevo en unos segundos.");
+    }
+  }
+
+  main();
+</script>

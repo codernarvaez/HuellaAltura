@@ -172,8 +172,8 @@ const fincaId = fincaData?.id || '';
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         >
           <option value="">Seleccionar género</option>
-          <option value="Masculino" selected={userData?.genero === 'Masculino'}>Masculino</option>
-          <option value="Femenino" selected={userData?.genero === 'Femenino'}>Femenino</option>
+          <option value="Masculino" selected={userData?.genero?.toUpperCase() === 'MASCULINO'}>Masculino</option>
+          <option value="Femenino" selected={userData?.genero?.toUpperCase() === 'FEMENINO'}>Femenino</option>
         </select>
       </div>
 
@@ -269,7 +269,7 @@ const fincaId = fincaData?.id || '';
           id="finca-barrio"
           type="text"
           readonly
-          value={fincaData?.barrio || ''}
+          value={fincaData?.sector || fincaData?.barrio || ''}
           placeholder="Barrio o sector"
           class="w-full h-14 px-4 bg-surface border border-outline-variant rounded-xl"
         />
@@ -308,7 +308,7 @@ const fincaId = fincaData?.id || '';
         >
           <option value="">Seleccionar tenencia</option>
           <option value="PROPIA" selected={fincaData?.tenencia === 'PROPIA'}>Propia</option>
-          <option value="ARRENDADA" selected={fincaData?.tenencia === 'ARRENDADA'}>Arrendada</option>
+          <option value="ARRENDADA" selected={fincaData?.tenencia === 'ARRENDADA' || fincaData?.tenencia === 'ARRENDAMIENTO'}>Arrendada</option>
           <option value="POSESION" selected={fincaData?.tenencia === 'POSESION'}>Posesión</option>
         </select>
       </div>

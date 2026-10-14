@@ -1,4 +1,4 @@
-const API_URL = "https://geoguard-exped.onrender.com";
+import { API_URL } from "./Api_Base";
 const VARIABLES_BASE = `${API_URL}/api/v1/variables`;
 
 export interface VariableDinamicaCreate {

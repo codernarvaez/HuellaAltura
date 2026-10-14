@@ -1,5 +1,5 @@
 //import { API_URL } from "./Api_Base";
-const API_URL = "https://huellaaltura.onrender.com";
+import { AUTH_URL as API_URL } from "./Api_Base";
 
 export interface LoginRequest {
   email: string;

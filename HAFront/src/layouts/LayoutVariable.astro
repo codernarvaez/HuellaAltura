@@ -26,7 +26,8 @@ if (token) {
     // Verificar si tiene finca
     if (userData?.id) {
       try {
-        const finca = await FincaService.getByProductorId(userData.id, token);
+        const fincas = await FincaService.getByUsuarioId(userData.id, token);
+        const finca = fincas?.[0] ?? null;
         // Ahora verificamos si finca es un objeto válido
         hasFinca = finca !== null && typeof finca === 'object' && Object.keys(finca).length > 0;
         

@@ -84,6 +84,9 @@ def crear_finca(
 
     if payload.get("poligono"):
         payload["poligono"] = Json(payload["poligono"])
+    else:
+        # Prisma no acepta None en un campo Json: sin polígono (alta desde la web) se omite.
+        payload.pop("poligono", None)
 
     payload["eudr_id"] = generar_eudr_id()
     return db.finca.create(data=payload)

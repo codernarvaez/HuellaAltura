@@ -1,0 +1,121 @@
+name: huella-altura
+
+services:
+  db:
+    build: ./docker/postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-huella}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-huella}
+      POSTGRES_DB: auth
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-huella} -d auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build: ./HABack/auth-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-huella}:${POSTGRES_PASSWORD:-huella}@db:5432/auth
+      SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en .env}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?define INTERNAL_API_KEY en .env}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 120
+      ENVIRONMENT: development
+      FRONTEND_URL: http://localhost:4321
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  exped-service:
+    build: ./HABack/exped-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-huella}:${POSTGRES_PASSWORD:-huella}@db:5432/exped
+      SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en .env}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?define INTERNAL_API_KEY en .env}
+      AUTH_SERVICE_URL: http://auth-service:8000
+      SESSION_VALIDATION_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  hafront:
+    build:
+      context: ./HAFront
+      args:
+        PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-}
+        PUBLIC_SUPABASE_ANON_KEY: ${PUBLIC_SUPABASE_ANON_KEY:-}
+        PUBLIC_SITE_URL: http://localhost:4321
+        PUBLIC_API_URL: http://localhost:8001
+        PUBLIC_AUTH_URL: http://localhost:8000
+    environment:
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      # Llamadas desde el servidor de Astro (dentro de la red de compose)
+      INTERNAL_AUTH_URL: http://auth-service:8000
+      INTERNAL_API_URL: http://exped-service:8001
+      # /verificar (HU-07): lectura de la cadena desde el navegador. Valores del nodo Hardhat local
+      # (HAContract/deployments/31337.json); en Amoy, su RPC público y deployments/80002.json.
+      PUBLIC_RPC_URL: ${PUBLIC_RPC_URL:-http://127.0.0.1:8545}
+      PUBLIC_CHAIN_ID: ${PUBLIC_CHAIN_ID:-31337}
+      PUBLIC_TRACEABILITY_ADDRESS: ${PUBLIC_TRACEABILITY_ADDRESS:-0x5FC8d32690cc91D4c39d9d3abcBD16989F875707}
+      PUBLIC_ORIGIN_ADDRESS: ${PUBLIC_ORIGIN_ADDRESS:-0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9}
+      PUBLIC_TOKEN_ADDRESS: ${PUBLIC_TOKEN_ADDRESS:-0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512}
+      PUBLIC_IPFS_GATEWAY: ${PUBLIC_IPFS_GATEWAY:-https://gateway.pinata.cloud/ipfs/}
+    ports:
+      - "127.0.0.1:4321:4321"
+    depends_on:
+      - auth-service
+      - exped-service
+
+  # Blockchain local para HAContract (Hardhat, chainId 31337). El estado vive en memoria: en cada
+  # arranque se vuelven a desplegar los contratos (mismas direcciones, porque el desplegador y sus
+  # nonces son siempre los mismos), se asignan los roles y se ejecuta el flujo demo.
+  hardhat:
+    build:
+      context: ./HAContract
+      dockerfile_inline: |
+        FROM node:22-slim
+        WORKDIR /app
+        COPY package.json package-lock.json ./
+        RUN npm ci --no-audit --no-fund
+        COPY . .
+        RUN npx hardhat compile
+    command: >
+      sh -c "npx hardhat node --hostname 0.0.0.0 --port 8545 > /tmp/node.log 2>&1 &
+             until node -e \"fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:'{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"id\\\":1,\\\"method\\\":\\\"eth_chainId\\\"}'}).then(()=>process.exit(0),()=>process.exit(1))\"; do sleep 1; done &&
+             npm run deploy:local && npm run accounts:local && npm run demo:roles:local &&
+             touch /tmp/ready && tail -f /tmp/node.log"
+    ports:
+      - "127.0.0.1:8545:8545"
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
