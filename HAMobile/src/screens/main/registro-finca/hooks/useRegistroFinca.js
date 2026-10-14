@@ -78,9 +78,9 @@ export const useRegistroFinca = (navigation) => {
   // Paso 3: Agroambiental
   const [indiceShannon, setIndiceShannon] = useState('2.56');
   const [indiceSimpson, setIndiceSimpson] = useState('0.84');
-  const [usoSuelo, setUsoSuelo] = useState('Sistema Agroforestal de Café');
-  const [coberturaForestal, setCoberturaForestal] = useState(['Laurel', 'Aguacate']);
-  const [sistemaProduccion, setSistemaProduccion] = useState('Sostenible');
+  const [usoSuelo, setUsoSuelo] = useState('AGRICOLA');
+  const [coberturaForestal, setCoberturaForestal] = useState('CULTIVOS');
+  const [sistemaProduccion, setSistemaProduccion] = useState('AGROFORESTAL');
   const [biomasaArboles, setBiomasaArboles] = useState('32.5');
   const [biomasaCafe, setBiomasaCafe] = useState('12.7');
   const [hojarascaMantillo, setHojarascaMantillo] = useState('5.4');
@@ -169,13 +169,34 @@ export const useRegistroFinca = (navigation) => {
   }, [latitud, longitud, provincia]);
 
   useEffect(() => {
-    let data = null;
-    if (puntos.length >= 3) {
-      data = GeoLookupService.lookupPolygonLocation(puntos);
-    } else if (latitud && longitud) {
-      data = GeoLookupService.lookupLocation(parseFloat(longitud), parseFloat(latitud));
+    if (puntos.length < 3) return;
+    try {
+      const { centroid, polygon } = require('@turf/turf');
+      const coords = [...puntos];
+      if (
+        coords[0][0] !== coords[coords.length - 1][0] ||
+        coords[0][1] !== coords[coords.length - 1][1]
+      ) {
+        coords.push(coords[0]);
+      }
+      const c = centroid(polygon([coords]));
+      if (c?.geometry?.coordinates) {
+        setLongitud(String(c.geometry.coordinates[0]));
+        setLatitud(String(c.geometry.coordinates[1]));
+      }
+    } catch (_) {
+      /* ignore turf errors */
     }
-    if (data) {
+  }, [puntos]);
+
+  // Solo lookup político con polígono listo (≥3). NO al abrir el mapa:
+  // cargar EC_Cantones.json (5.6MB) congela el hilo JS y el MapView queda negro.
+  useEffect(() => {
+    if (puntos.length < 3) return undefined;
+    let cancelled = false;
+    (async () => {
+      const data = await GeoLookupService.lookupPolygonLocation(puntos);
+      if (cancelled || !data) return;
       if (data.provincia) setProvincia(data.provincia);
       if (data.canton) setCanton(data.canton);
       if (data.provincia && data.provincia.toUpperCase() === 'LOJA') {
@@ -183,8 +204,11 @@ export const useRegistroFinca = (navigation) => {
       } else {
         setParroquia('');
       }
-    }
-  }, [puntos, latitud, longitud]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [puntos]);
 
   const obtenerUbicacionActual = async () => {
     setLocating(true);
@@ -208,13 +232,56 @@ export const useRegistroFinca = (navigation) => {
   };
 
   const agregarPunto = useCallback((e) => {
-    if (!isDrawing) return;
-    const { geometry } = e;
-    setPuntos(prev => [...prev, geometry.coordinates]);
-  }, [isDrawing]);
+    // Acepta evento Mapbox ({ geometry }) o coordenadas [lon, lat]
+    const coords = Array.isArray(e) ? e : e?.geometry?.coordinates;
+    if (!coords || coords.length < 2) return;
+    const lon = Number(coords[0]);
+    const lat = Number(coords[1]);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+    setPuntos((prev) => [...prev, [lon, lat]]);
+  }, []);
 
-  const limpiarMapa = () => { setPuntos([]); setIsDrawing(false); };
-  const deshacerPunto = () => { if (puntos.length > 0) setPuntos(prev => prev.slice(0, -1)); };
+  const limpiarMapa = () => {
+    setPuntos([]);
+    setIsDrawing(true);
+  };
+  const deshacerPunto = () => {
+    setPuntos((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+  };
+
+  /** Valida el paso actual antes de avanzar en el wizard. */
+  const puedeAvanzar = useCallback(() => {
+    if (step === 1) {
+      if (!nombreProductor?.trim() || !cedulaId?.trim()) {
+        showAlert('Datos incompletos', 'Nombre y cédula del productor son obligatorios.', 'warning');
+        return false;
+      }
+      return true;
+    }
+    if (step === 2) {
+      if (!nombreFinca?.trim()) {
+        showAlert('Finca', 'Indica el nombre de la finca.', 'warning');
+        return false;
+      }
+      if (puntos.length < 3) {
+        showAlert(
+          'Polígono incompleto',
+          'Dibuja el perímetro con al menos 3 vértices. Puedes agregar tantos como necesites para mayor precisión EUDR.',
+          'warning',
+        );
+        setShowFullMap(true);
+        setIsDrawing(true);
+        return false;
+      }
+      return true;
+    }
+    return true;
+  }, [step, nombreProductor, cedulaId, nombreFinca, puntos.length, showAlert]);
+
+  const irSiguiente = useCallback(() => {
+    if (!puedeAvanzar()) return;
+    setStep((s) => Math.min(3, s + 1));
+  }, [puedeAvanzar]);
 
   const adjuntarDocumento = async (tipoClave, archivo) => {
     try {
@@ -285,7 +352,7 @@ export const useRegistroFinca = (navigation) => {
 
       await sqlite.insert(require('@/data/local/esquema').datosAgroambientales).values({
         id: datoId, finca_id: fincaId, indice_shannon: parseFloat(indiceShannon) || 0, indice_simpson: parseFloat(indiceSimpson) || 0,
-        uso_suelo: usoSuelo, cobertura_forestal: JSON.stringify(coberturaForestal), sistema_produccion: sistemaProduccion,
+        uso_suelo: usoSuelo, cobertura_forestal: coberturaForestal, sistema_produccion: sistemaProduccion,
         biomasa_arboles: parseFloat(biomasaArboles) || 0, biomasa_cafe: parseFloat(biomasaCafe) || 0, hojarasca_mantillo: parseFloat(hojarascaMantillo) || 0,
         carbono_organico_suelo: parseFloat(carbonoSuelo) || 0, total_stock_carbono: parseFloat(totalStockCarbono) || 0, sync_status: 'pending', creado_en: new Date()
       });
@@ -340,16 +407,17 @@ export const useRegistroFinca = (navigation) => {
     // Step 2
     nombreFinca, setNombreFinca, eudrId, provincia, setProvincia, canton, setCanton, parroquia, setParroquia,
     barrio, setBarrio, areaTotal, setAreaTotal, areaCultivada, setAreaCultivada, tenencia, setTenencia,
-    latitud, longitud, puntos, isDrawing, setIsDrawing, locating,
+    latitud, setLatitud, longitud, setLongitud, altitud, setAltitud,
+    puntos, isDrawing, setIsDrawing, locating,
     obtenerUbicacionActual, agregarPunto, limpiarMapa, deshacerPunto,
     // Step 3
     indiceShannon, setIndiceShannon, indiceSimpson, setIndiceSimpson, usoSuelo, setUsoSuelo,
-    coberturaForestal, sistemaProduccion, setSistemaProduccion, biomasaArboles, setBiomasaArboles,
+    coberturaForestal, setCoberturaForestal, sistemaProduccion, setSistemaProduccion, biomasaArboles, setBiomasaArboles,
     biomasaCafe, setBiomasaCafe, hojarascaMantillo, setHojarascaMantillo, carbonoSuelo, setCarbonoSuelo,
     totalStockCarbono, setTotalStockCarbono, camposDinamicos, agregarCampoDinamico, actualizarCampoDinamico, eliminarCampoDinamico,
     // Paso 3: Documentos
     documentos, adjuntarDocumento, eliminarDocumento,
     // Actions
-    guardarRegistro,
+    guardarRegistro, puedeAvanzar, irSiguiente,
   };
 };

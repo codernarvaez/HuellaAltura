@@ -12,6 +12,11 @@ import { db } from '../../../data/local/database';
 import { fincas as fincasSchema, datosAgroambientales } from '../../../data/local/esquema';
 import { eq } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
+import {
+  toUsoSueloCode,
+  toCoberturaCode,
+  toSistemaCode,
+} from '../../../constants/agroEnums';
 
 export default function TecnicoCampoScreen() {
   const { user } = useAuth();
@@ -25,14 +30,14 @@ export default function TecnicoCampoScreen() {
   const [datoId, setDatoId] = useState(null);
   const [indiceShannon, setIndiceShannon] = useState('');
   const [indiceSimpson, setIndiceSimpson] = useState('');
-  const [usoSuelo, setUsoSuelo] = useState('');
-  const [sistemaProduccion, setSistemaProduccion] = useState('');
+  const [usoSuelo, setUsoSuelo] = useState('AGRICOLA');
+  const [sistemaProduccion, setSistemaProduccion] = useState('AGROFORESTAL');
   const [biomasaArboles, setBiomasaArboles] = useState('');
   const [biomasaCafe, setBiomasaCafe] = useState('');
   const [hojarascaMantillo, setHojarascaMantillo] = useState('');
   const [carbonoSuelo, setCarbonoSuelo] = useState('');
   const [totalStockCarbono, setTotalStockCarbono] = useState('');
-  const [coberturaForestal, setCoberturaForestal] = useState({});
+  const [coberturaForestal, setCoberturaForestal] = useState('CULTIVOS');
   const [organizacion, setOrganizacion] = useState('');
   const [camposDinamicos, setCamposDinamicos] = useState([]);
 
@@ -81,8 +86,9 @@ export default function TecnicoCampoScreen() {
     setDatoId(dato.id);
     setIndiceShannon(dato.indice_shannon?.toString() || '');
     setIndiceSimpson(dato.indice_simpson?.toString() || '');
-    setUsoSuelo(dato.uso_suelo || '');
-    setSistemaProduccion(dato.sistema_produccion || '');
+    setUsoSuelo(toUsoSueloCode(dato.uso_suelo));
+    setCoberturaForestal(toCoberturaCode(dato.cobertura_forestal));
+    setSistemaProduccion(toSistemaCode(dato.sistema_produccion));
     setBiomasaArboles(dato.biomasa_arboles?.toString() || '');
     setBiomasaCafe(dato.biomasa_cafe?.toString() || '');
     setHojarascaMantillo(dato.hojarasca_mantillo?.toString() || '');
@@ -140,9 +146,9 @@ export default function TecnicoCampoScreen() {
         finca_id: selectedFinca.id,
         indice_shannon: parseFloat(indiceShannon) || 0,
         indice_simpson: parseFloat(indiceSimpson) || 0,
-        uso_suelo: usoSuelo,
-        cobertura_forestal: JSON.stringify(coberturaForestal),
-        sistema_produccion: sistemaProduccion,
+        uso_suelo: toUsoSueloCode(usoSuelo),
+        cobertura_forestal: toCoberturaCode(coberturaForestal),
+        sistema_produccion: toSistemaCode(sistemaProduccion),
         biomasa_arboles: parseFloat(biomasaArboles) || 0,
         biomasa_cafe: parseFloat(biomasaCafe) || 0,
         hojarasca_mantillo: parseFloat(hojarascaMantillo) || 0,
@@ -208,7 +214,7 @@ export default function TecnicoCampoScreen() {
               indiceShannon={indiceShannon} setIndiceShannon={setIndiceShannon}
               indiceSimpson={indiceSimpson} setIndiceSimpson={setIndiceSimpson}
               usoSuelo={usoSuelo} setUsoSuelo={setUsoSuelo}
-              coberturaForestal={coberturaForestal}
+              coberturaForestal={coberturaForestal} setCoberturaForestal={setCoberturaForestal}
               sistemaProduccion={sistemaProduccion} setSistemaProduccion={setSistemaProduccion}
               biomasaArboles={biomasaArboles} setBiomasaArboles={setBiomasaArboles}
               biomasaCafe={biomasaCafe} setBiomasaCafe={setBiomasaCafe}

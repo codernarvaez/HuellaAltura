@@ -1,13 +1,51 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Trees, Leaf, PlusCircle, XCircle, Cloud } from 'lucide-react-native';
 import { styles } from '../styles';
 import { theme } from '../../../../theme/theme';
+import {
+  USO_SUELO_OPTIONS,
+  COBERTURA_FORESTAL_OPTIONS,
+  SISTEMA_PRODUCCION_OPTIONS,
+} from '../../../../constants/agroEnums';
+
+function EnumPicker({ label, value, onChange, options }) {
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View
+        style={[
+          styles.input,
+          {
+            paddingHorizontal: 0,
+            paddingVertical: 0,
+            justifyContent: 'center',
+            overflow: 'hidden',
+            height: Platform.OS === 'ios' ? 120 : 48,
+          },
+        ]}
+      >
+        <Picker
+          selectedValue={value}
+          onValueChange={onChange}
+          style={{ color: theme.colors.onSurface, width: '100%' }}
+          dropdownIconColor={theme.colors.onSurfaceVariant}
+        >
+          {options.map((opt) => (
+            <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+          ))}
+        </Picker>
+      </View>
+    </View>
+  );
+}
 
 export const Step3Agroambiental = ({
   organizacion, setOrganizacion,
   indiceShannon, setIndiceShannon, indiceSimpson, setIndiceSimpson, usoSuelo, setUsoSuelo,
-  coberturaForestal, sistemaProduccion, setSistemaProduccion, biomasaArboles, setBiomasaArboles,
+  coberturaForestal, setCoberturaForestal, sistemaProduccion, setSistemaProduccion,
+  biomasaArboles, setBiomasaArboles,
   biomasaCafe, setBiomasaCafe, hojarascaMantillo, setHojarascaMantillo, carbonoSuelo, setCarbonoSuelo,
   totalStockCarbono, camposDinamicos, actualizarCampoDinamico, eliminarCampoDinamico, agregarCampoDinamico
 }) => (
@@ -30,26 +68,26 @@ export const Step3Agroambiental = ({
       </View>
     </View>
 
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>Uso de Suelo</Text>
-      <TextInput style={styles.input} value={usoSuelo} onChangeText={setUsoSuelo} />
-    </View>
+    <EnumPicker
+      label="Uso de Suelo *"
+      value={usoSuelo}
+      onChange={setUsoSuelo}
+      options={USO_SUELO_OPTIONS}
+    />
 
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>Cobertura Forestal (Tags)</Text>
-      <TextInput style={styles.input} value={coberturaForestal.join(', ')} editable={false} />
-    </View>
+    <EnumPicker
+      label="Cobertura Forestal *"
+      value={coberturaForestal}
+      onChange={setCoberturaForestal}
+      options={COBERTURA_FORESTAL_OPTIONS}
+    />
 
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>Sistema de Producción</Text>
-      <TextInput 
-        style={[styles.input, { height: 60, textAlignVertical: 'top' }]} 
-        value={sistemaProduccion} 
-        onChangeText={setSistemaProduccion} 
-        multiline 
-        placeholder="Ej. Agroforestal"
-      />
-    </View>
+    <EnumPicker
+      label="Sistema de Producción *"
+      value={sistemaProduccion}
+      onChange={setSistemaProduccion}
+      options={SISTEMA_PRODUCCION_OPTIONS}
+    />
 
     </View>
 
@@ -118,8 +156,8 @@ export const Step3Agroambiental = ({
     ))}
 
     <TouchableOpacity style={styles.addFieldButton} onPress={agregarCampoDinamico}>
-      <PlusCircle size={16} color="#fff" />
-      <Text style={styles.addFieldText}>Añadir Variable</Text>
+      <Trees size={18} color={theme.colors.onPrimary} />
+      <Text style={styles.addFieldText}>Agregar variable</Text>
     </TouchableOpacity>
     </View>
   </View>

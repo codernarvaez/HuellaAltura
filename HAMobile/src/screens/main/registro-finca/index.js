@@ -17,18 +17,28 @@ const RegistroFincaScreen = ({ navigation }) => {
 
   if (state.showFullMap) {
     return (
-      <FarmMapEditor 
-        fullScreen={true}
-        latitud={state.latitud}
-        longitud={state.longitud}
-        puntos={state.puntos}
-        isDrawing={state.isDrawing}
-        setIsDrawing={state.setIsDrawing}
-        agregarPunto={state.agregarPunto}
-        limpiarMapa={state.limpiarMapa}
-        deshacerPunto={state.deshacerPunto}
-        onClose={() => state.setShowFullMap(false)}
-      />
+      <View style={{ flex: 1, backgroundColor: '#1a2e24' }}>
+        <FarmMapEditor
+          fullScreen
+          styleMode="satellite"
+          latitud={state.latitud}
+          longitud={state.longitud}
+          puntos={state.puntos}
+          isDrawing={state.isDrawing}
+          setIsDrawing={state.setIsDrawing}
+          agregarPunto={state.agregarPunto}
+          limpiarMapa={state.limpiarMapa}
+          deshacerPunto={state.deshacerPunto}
+          onClose={() => state.setShowFullMap(false)}
+          onGpsCenter={(lat, lon, alt) => {
+            state.setLatitud(String(lat));
+            state.setLongitud(String(lon));
+            if (alt != null && Number.isFinite(alt)) {
+              state.setAltitud(String(Math.round(alt)));
+            }
+          }}
+        />
+      </View>
     );
   }
 
@@ -59,7 +69,7 @@ const RegistroFincaScreen = ({ navigation }) => {
             <View style={{ flex: 1 }} />
 
             {state.step < 3 ? (
-              <TouchableOpacity style={styles.navButtonMinimal} onPress={() => state.setStep(state.step + 1)}>
+              <TouchableOpacity style={styles.navButtonMinimal} onPress={state.irSiguiente}>
                 <Text style={styles.navButtonMinimalText}>Sig.</Text>
                 <ChevronRight size={20} color={theme.colors.primary} style={{ marginLeft: 4 }} />
               </TouchableOpacity>

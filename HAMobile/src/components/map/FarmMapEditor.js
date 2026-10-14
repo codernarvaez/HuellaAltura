@@ -1,291 +1,455 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { theme } from '../../theme/theme';
-
-Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN);
-
-// Importar divisiones geográficas
-import cantonesGeoJson from '../../../assets/geo/EC_Cantones.json';
-import parroquiasLojaGeoJson from '../../../assets/geo/Parroquias_Loja.json';
-
-
-import { 
+import { MAPBOX_TOKEN } from '../../mapboxInit';
+import {
   ChevronLeft,
   PenTool,
-  CheckCircle2,
   Undo2,
   RotateCcw,
-  MapPin
+  MapPin,
+  Plus,
+  Check,
+  LocateFixed,
 } from 'lucide-react-native';
 
-import * as Crypto from 'expo-crypto';
+export const POLYGON_SOFT_MAX = 200;
+export const POLYGON_MIN_POINTS = 3;
 
-// Helper para calcular el bounding box del polígono
-const getBounds = (points) => {
-  if (!points || points.length < 2) return null;
-  let minLon = points[0][0];
-  let maxLon = points[0][0];
-  let minLat = points[0][1];
-  let maxLat = points[0][1];
+const { width: WIN_W, height: WIN_H } = Dimensions.get('window');
 
-  points.forEach(([lon, lat]) => {
-    if (lon < minLon) minLon = lon;
-    if (lon > maxLon) maxLon = lon;
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-  });
+/** Calles por defecto (más fiable offline). Satélite si styleMode='satellite'. */
+const STYLE_STREET = Mapbox.StyleURL?.Street || 'mapbox://styles/mapbox/streets-v12';
+const STYLE_SATELLITE =
+  Mapbox.StyleURL?.SatelliteStreet || 'mapbox://styles/mapbox/satellite-streets-v12';
 
-  // Ajustar si es un solo punto o línea vertical/horizontal para evitar errores de Mapbox
-  if (minLon === maxLon) { minLon -= 0.001; maxLon += 0.001; }
-  if (minLat === maxLat) { minLat -= 0.001; maxLat += 0.001; }
+function parseCenter(longitud, latitud) {
+  const lon = parseFloat(longitud);
+  const lat = parseFloat(latitud);
+  if (Number.isFinite(lon) && Number.isFinite(lat)) return [lon, lat];
+  return [-79.20422, -3.99313];
+}
 
-  return {
-    ne: [maxLon, maxLat],
-    sw: [minLon, minLat],
-    paddingLeft: 40,
-    paddingRight: 40,
-    paddingTop: 40,
-    paddingBottom: 40,
-  };
-};
-
-// Componente de Mapa Memoizado para evitar re-renders innecesarios
-const MapViewMemo = React.memo(({ 
-  latitud, 
-  longitud, 
-  puntos, 
-  isDrawing, 
-  agregarPunto, 
-  renderPolygon, 
-  renderPoints, 
-  renderDivisions,
-  fullScreen = false 
-}) => {
-  // Solo calcular bounds para el minimapa para mantenerlo centrado. 
-  // En pantalla completa dejamos que el usuario controle la cámara.
-  const bounds = React.useMemo(() => !fullScreen ? getBounds(puntos) : null, [puntos, fullScreen]);
-
-  return (
-    <Mapbox.MapView 
-      style={fullScreen ? styles.fullMap : styles.miniMap} 
-      onPress={agregarPunto}
-      logoEnabled={false}
-      attributionEnabled={false}
-      styleURL={Mapbox.StyleURL.Satellite}
-      scrollEnabled={fullScreen}
-      zoomEnabled={fullScreen}
-      pitchEnabled={fullScreen}
-      rotateEnabled={fullScreen}
-    >
-      <Mapbox.Camera
-        zoomLevel={fullScreen ? 16 : 14}
-        centerCoordinate={!bounds ? [parseFloat(longitud), parseFloat(latitud)] : undefined}
-        bounds={bounds || undefined}
-        animationMode="moveTo"
-        animationDuration={0}
-      />
-      {renderDivisions()}
-      {renderPolygon()}
-      {fullScreen && renderPoints()}
-      {fullScreen && <Mapbox.UserLocation />}
-    </Mapbox.MapView>
-  );
-},
- (prevProps, nextProps) => {
-  return (
-    prevProps.latitud === nextProps.latitud &&
-    prevProps.longitud === nextProps.longitud &&
-    prevProps.puntos === nextProps.puntos &&
-    prevProps.isDrawing === nextProps.isDrawing &&
-    prevProps.fullScreen === nextProps.fullScreen
-  );
-});
-
+/**
+ * Token + MapView solo tras setAccessToken (evita mapa negro nativo).
+ */
 export const FarmMapEditor = ({
   latitud,
   longitud,
-  puntos,
+  puntos = [],
   isDrawing,
   setIsDrawing,
   agregarPunto,
   limpiarMapa,
   deshacerPunto,
   onClose,
-  fullScreen = true
+  onGpsCenter,
+  fullScreen = true,
+  styleMode = 'street', // 'street' | 'satellite'
 }) => {
   const insets = useSafeAreaInsets();
+  const cameraRef = useRef(null);
+  const token = MAPBOX_TOKEN;
+  const styleUrl = styleMode === 'satellite' ? STYLE_SATELLITE : STYLE_STREET;
+  const [hint, setHint] = useState('');
+  const [mapError, setMapError] = useState('');
+  const [mapReady, setMapReady] = useState(false);
+  const [gpsBusy, setGpsBusy] = useState(false);
+  const [center, setCenter] = useState(() => parseCenter(longitud, latitud));
+  const centerRef = useRef(center);
+  const [showUserLoc, setShowUserLoc] = useState(false);
 
-  const renderDivisions = React.useCallback(() => {
-    return (
-      <>
-        {/* Capa de Cantones (Nacional) */}
-        <Mapbox.ShapeSource id="cantonesSource" shape={cantonesGeoJson}>
-          <Mapbox.LineLayer 
-            id="cantonesLines" 
-            style={{ 
-              lineColor: 'rgba(255, 255, 255, 0.4)', 
-              lineWidth: 1,
-              lineDasharray: [2, 2]
-            }} 
-          />
-        </Mapbox.ShapeSource>
+  useEffect(() => {
+    centerRef.current = center;
+  }, [center]);
 
-        {/* Capa de Parroquias (Solo Loja) */}
-        <Mapbox.ShapeSource id="parroquiasLojaSource" shape={parroquiasLojaGeoJson}>
-          <Mapbox.FillLayer 
-            id="parroquiasLojaFill" 
-            style={{ 
-              fillColor: 'rgba(255, 255, 255, 0.05)',
-            }} 
-          />
-          <Mapbox.LineLayer 
-            id="parroquiasLojaLines" 
-            style={{ 
-              lineColor: 'rgba(0, 255, 127, 0.6)', 
-              lineWidth: 1.5,
-            }} 
-          />
-        </Mapbox.ShapeSource>
-      </>
-    );
+  useEffect(() => {
+    const next = parseCenter(longitud, latitud);
+    setCenter(next);
+    centerRef.current = next;
+  }, [longitud, latitud]);
+
+  const flyTo = useCallback((coord, zoom = 16) => {
+    if (!coord || coord.length < 2) return;
+    setCenter(coord);
+    centerRef.current = coord;
+    requestAnimationFrame(() => {
+      try {
+        cameraRef.current?.setCamera?.({
+          centerCoordinate: coord,
+          zoomLevel: zoom,
+          animationDuration: 500,
+        });
+      } catch (_) {
+        /* ignore */
+      }
+    });
   }, []);
 
-  const renderPolygon = React.useCallback(() => {
-    if (puntos.length < 2) return null;
-    const coords = puntos.length >= 3 ? [...puntos, puntos[0]] : puntos;
-    return (
-      <Mapbox.ShapeSource
-        id="polygonSource"
-        shape={{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } }}
-      >
-        <Mapbox.FillLayer id="polygonFill" style={{ fillColor: theme.colors.secondary, fillOpacity: 0.4 }} />
-        <Mapbox.LineLayer id="polygonLine" style={{ lineColor: '#fff', lineWidth: 3 }} />
-      </Mapbox.ShapeSource>
-    );
-  }, [puntos]);
+  const locateGps = useCallback(async () => {
+    setGpsBusy(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setHint('Activa el permiso de ubicación para centrar el mapa.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const coord = [loc.coords.longitude, loc.coords.latitude];
+      flyTo(coord, 17);
+      setShowUserLoc(true);
+      onGpsCenter?.(loc.coords.latitude, loc.coords.longitude, loc.coords.altitude);
+      setHint('GPS listo. Pulsa + o toca el mapa para dibujar el perímetro.');
+    } catch (e) {
+      console.warn('[FarmMapEditor] GPS', e);
+      setHint('GPS no disponible. Mueve el mapa y dibuja con +.');
+    } finally {
+      setGpsBusy(false);
+    }
+  }, [flyTo, onGpsCenter]);
 
-  const renderPoints = React.useCallback(() => {
-    return puntos.map((p, i) => (
-      <Mapbox.PointAnnotation key={`p-${i}`} id={`p-${i}`} coordinate={p}>
-        <View style={styles.pointMarker} />
-      </Mapbox.PointAnnotation>
-    ));
-  }, [puntos]);
+  useEffect(() => {
+    if (!fullScreen || !token) return undefined;
+    setIsDrawing?.(true);
+    // GPS después de montar el mapa (no bloquear el primer frame)
+    const id = setTimeout(() => {
+      locateGps();
+    }, 400);
+    return () => clearTimeout(id);
+  }, [fullScreen, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onMapPress = useCallback(
+    (e) => {
+      if (!isDrawing) return;
+      agregarPunto?.(e);
+      const next = (puntos?.length || 0) + 1;
+      setHint(
+        next < POLYGON_MIN_POINTS
+          ? `${next}/${POLYGON_MIN_POINTS} mín. — sigue agregando vértices`
+          : `${next} vértices — puedes confirmar o seguir afinando`,
+      );
+    },
+    [isDrawing, agregarPunto, puntos?.length],
+  );
+
+  const onCameraChanged = useCallback((state) => {
+    const c = state?.properties?.center;
+    if (Array.isArray(c) && c.length >= 2) centerRef.current = c;
+  }, []);
+
+  const addCenterVertex = useCallback(() => {
+    if (!isDrawing) setIsDrawing?.(true);
+    const [lon, lat] = centerRef.current || center;
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+    agregarPunto?.({ geometry: { coordinates: [lon, lat] } });
+  }, [isDrawing, setIsDrawing, agregarPunto, center]);
+
+  const n = puntos?.length || 0;
+  const canConfirm = n >= POLYGON_MIN_POINTS;
+
+  const polygonShape = useMemo(() => {
+    if (n < 2) return null;
+    if (n === 2) {
+      return {
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: puntos },
+      };
+    }
+    const coords = [...puntos];
+    const a = coords[0];
+    const b = coords[coords.length - 1];
+    if (a[0] !== b[0] || a[1] !== b[1]) coords.push(a);
+    return {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [coords] },
+    };
+  }, [puntos, n]);
+
+  const verticesShape = useMemo(() => {
+    if (!n) return null;
+    return {
+      type: 'FeatureCollection',
+      features: puntos.map((coord, i) => ({
+        type: 'Feature',
+        id: `v-${i}`,
+        properties: {},
+        geometry: { type: 'Point', coordinates: coord },
+      })),
+    };
+  }, [puntos, n]);
+
+  const mapStyle = fullScreen
+    ? { width: WIN_W, height: WIN_H }
+    : styles.miniMap;
+
+  if (!token) {
+    return (
+      <View style={[fullScreen ? styles.fullMapContainer : styles.miniMapShell, styles.centerMsg]}>
+        <Text style={styles.msgTitle}>Mapbox sin token</Text>
+        <Text style={styles.msgBody}>
+          Añade EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.… en HAMobile/.env y reinicia Metro
+          (npx expo start -c).
+        </Text>
+        {fullScreen && (
+          <TouchableOpacity style={styles.confirmBtn} onPress={onClose}>
+            <Text style={styles.confirmBtnText}>Volver</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
+
+  const mapNode = (
+    <Mapbox.MapView
+      style={mapStyle}
+      styleURL={styleUrl}
+      onPress={fullScreen && isDrawing ? onMapPress : undefined}
+      onCameraChanged={fullScreen ? onCameraChanged : undefined}
+      onDidFinishLoadingMap={() => {
+        setMapReady(true);
+        setMapError('');
+      }}
+      onMapLoadingError={(e) => {
+        const msg =
+          e?.nativeEvent?.message ||
+          e?.message ||
+          'Error cargando el estilo Mapbox (token o red).';
+        console.warn('[FarmMapEditor] map load error', msg);
+        setMapError(String(msg));
+      }}
+      logoEnabled={false}
+      attributionEnabled={false}
+      compassEnabled={fullScreen}
+      scaleBarEnabled={false}
+      scrollEnabled={fullScreen}
+      zoomEnabled={fullScreen}
+      pitchEnabled={false}
+      rotateEnabled={false}
+      {...(Platform.OS === 'android' ? { surfaceView: true } : {})}
+    >
+      <Mapbox.Camera
+        ref={cameraRef}
+        centerCoordinate={center}
+        zoomLevel={fullScreen ? 16 : 13}
+        animationMode="moveTo"
+        animationDuration={0}
+      />
+      {polygonShape && (
+        <Mapbox.ShapeSource id="farmPoly" shape={polygonShape}>
+          {n >= 3 ? (
+            <Mapbox.FillLayer
+              id="farmFill"
+              style={{ fillColor: theme.colors.secondary, fillOpacity: 0.35 }}
+            />
+          ) : null}
+          <Mapbox.LineLayer
+            id="farmLine"
+            style={{ lineColor: '#ffffff', lineWidth: 3 }}
+          />
+        </Mapbox.ShapeSource>
+      )}
+      {fullScreen && verticesShape && (
+        <Mapbox.ShapeSource id="farmVerts" shape={verticesShape}>
+          <Mapbox.CircleLayer
+            id="farmVertCircles"
+            style={{
+              circleRadius: 7,
+              circleColor: theme.colors.secondary,
+              circleStrokeWidth: 2,
+              circleStrokeColor: '#fff',
+            }}
+          />
+        </Mapbox.ShapeSource>
+      )}
+      {fullScreen && showUserLoc ? <Mapbox.UserLocation visible /> : null}
+    </Mapbox.MapView>
+  );
 
   if (!fullScreen) {
     return (
-      <MapViewMemo 
-        latitud={latitud} 
-        longitud={longitud} 
-        puntos={puntos} 
-        isDrawing={false} 
-        agregarPunto={() => {}} 
-        renderPolygon={renderPolygon} 
-        renderPoints={() => null} 
-        renderDivisions={renderDivisions}
-        fullScreen={false}
-      />
+      <View style={styles.miniMapShell}>
+        {mapNode}
+        {!!mapError && (
+          <View style={styles.miniError}>
+            <Text style={styles.miniErrorText} numberOfLines={2}>
+              {mapError}
+            </Text>
+          </View>
+        )}
+      </View>
     );
   }
 
   return (
     <View style={styles.fullMapContainer}>
       <StatusBar barStyle="light-content" />
-      <MapViewMemo 
-        fullScreen={true} 
-        latitud={latitud} 
-        longitud={longitud} 
-        puntos={puntos} 
-        isDrawing={isDrawing} 
-        agregarPunto={agregarPunto} 
-        renderPolygon={renderPolygon} 
-        renderPoints={renderPoints} 
-        renderDivisions={renderDivisions}
-      />
-      
-      {/* Overlay Superior: Toolbar de Herramientas Minimalista */}
+      {mapNode}
+      {!mapReady && !mapError && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.loadingText}>Cargando mapa…</Text>
+        </View>
+      )}
+      {!!mapError && (
+        <View style={styles.loadingOverlay}>
+          <Text style={styles.msgTitle}>Mapa no cargó</Text>
+          <Text style={styles.msgBody}>{mapError}</Text>
+        </View>
+      )}
+
+      <View pointerEvents="none" style={styles.crosshairWrap}>
+        <View style={styles.crosshairH} />
+        <View style={styles.crosshairV} />
+        <View style={styles.crosshairDot} />
+      </View>
+
       <View style={[styles.mapTopOverlay, { top: insets.top || 10 }]}>
         <View style={styles.mapToolbar}>
           <TouchableOpacity style={styles.toolbarIconButton} onPress={onClose}>
             <ChevronLeft size={24} color="#fff" />
           </TouchableOpacity>
-          
           <View style={styles.toolbarSpacer} />
-          
           <View style={styles.toolsContainer}>
-            {/* Indicador de vértices dentro del panel de acciones */}
             <View style={styles.actionBadge}>
-              <MapPin size={12} color={theme.colors.surface} />
-              <Text style={styles.actionBadgeText}>{puntos.length}</Text>
+              <MapPin size={12} color="#fff" />
+              <Text style={styles.actionBadgeText}>{n}</Text>
             </View>
-
-            <TouchableOpacity 
-              style={[styles.toolButton, isDrawing && styles.toolButtonActive]} 
+            <TouchableOpacity
+              style={styles.toolButton}
+              onPress={locateGps}
+              disabled={gpsBusy}
+            >
+              {gpsBusy ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <LocateFixed size={18} color="#fff" />
+              )}
+              <Text style={styles.toolButtonText}>GPS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toolButton, isDrawing && styles.toolButtonActive]}
               onPress={() => setIsDrawing(!isDrawing)}
             >
-              {isDrawing ? <CheckCircle2 size={18} color="#fff" /> : <PenTool size={18} color="#fff" />}
-              <Text style={styles.toolButtonText}>{isDrawing ? 'Listo' : 'Dibujar'}</Text>
+              <PenTool size={18} color="#fff" />
+              <Text style={styles.toolButtonText}>
+                {isDrawing ? 'Dibujando' : 'Dibujar'}
+              </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.toolIconButtonSmall} 
-              onPress={deshacerPunto} 
-              disabled={puntos.length === 0}
+            <TouchableOpacity
+              style={styles.toolIconButtonSmall}
+              onPress={deshacerPunto}
+              disabled={n === 0}
             >
-              <Undo2 size={18} color={puntos.length === 0 ? 'rgba(255,255,255,0.3)' : '#fff'} />
+              <Undo2 size={18} color={n === 0 ? 'rgba(255,255,255,0.3)' : '#fff'} />
             </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.toolIconButtonSmall} 
-              onPress={limpiarMapa} 
-              disabled={puntos.length === 0}
+            <TouchableOpacity
+              style={styles.toolIconButtonSmall}
+              onPress={limpiarMapa}
+              disabled={n === 0}
             >
-              <RotateCcw size={18} color={puntos.length === 0 ? 'rgba(255,255,255,0.3)' : '#fff'} />
+              <RotateCcw size={18} color={n === 0 ? 'rgba(255,255,255,0.3)' : '#fff'} />
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
-      {/* Info flotante de ayuda */}
-      {!isDrawing && puntos.length < 3 && (
-        <View style={styles.mapFloatingInfo}>
-          <Text style={styles.mapFloatingInfoText}>Toca 'Dibujar' para empezar</Text>
-        </View>
-      )}
+      <TouchableOpacity
+        style={[styles.fabAdd, { bottom: (insets.bottom || 0) + 118 }]}
+        onPress={addCenterVertex}
+        activeOpacity={0.85}
+      >
+        <Plus size={28} color="#fff" />
+      </TouchableOpacity>
+
+      <View style={[styles.bottomPanel, { paddingBottom: (insets.bottom || 0) + 12 }]}>
+        <Text style={styles.statusText}>
+          {hint ||
+            (n === 0
+              ? 'Pulsa GPS, luego + o toca el mapa para el perímetro (sin límite de vértices).'
+              : canConfirm
+                ? `${n} vértices — confirma o sigue afinando`
+                : `${n}/${POLYGON_MIN_POINTS} mín.`)}
+        </Text>
+        <TouchableOpacity
+          style={[styles.confirmBtn, !canConfirm && styles.confirmBtnDisabled]}
+          disabled={!canConfirm}
+          onPress={() => {
+            setIsDrawing(false);
+            onClose?.();
+          }}
+        >
+          <Check size={18} color={canConfirm ? theme.colors.onPrimaryFixed : '#999'} />
+          <Text
+            style={[styles.confirmBtnText, !canConfirm && styles.confirmBtnTextDisabled]}
+          >
+            {canConfirm ? `Usar polígono (${n})` : `Faltan ${POLYGON_MIN_POINTS - n}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  miniMap: { flex: 1 },
-  fullMapContainer: { flex: 1, backgroundColor: '#000' },
-  fullMap: { flex: 1 },
-  mapTopOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingHorizontal: 16 },
-  mapToolbar: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(0,0,0,0.75)', 
-    borderRadius: theme.roundness.xl, 
-    padding: 6, 
-    marginTop: 10, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10
+  miniMapShell: { flex: 1, backgroundColor: '#1a2e24', overflow: 'hidden' },
+  miniMap: { flex: 1, width: '100%', height: '100%' },
+  miniError: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    padding: 8,
   },
-  toolbarIconButton: { padding: 10, borderRadius: 8 },
+  miniErrorText: { color: '#fff', fontSize: 11, textAlign: 'center' },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(26,46,36,0.85)',
+    zIndex: 20,
+    padding: 24,
+  },
+  loadingText: { color: '#fff', marginTop: 10, fontWeight: '600' },
+  fullMapContainer: {
+    flex: 1,
+    width: WIN_W,
+    height: WIN_H,
+    backgroundColor: '#1a2e24',
+  },
+  centerMsg: { alignItems: 'center', justifyContent: 'center', padding: 24 },
+  msgTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  msgBody: { color: 'rgba(255,255,255,0.85)', fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 16 },
+  mapTopOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 12,
+  },
+  mapToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.78)',
+    borderRadius: 16,
+    padding: 6,
+    marginTop: 8,
+  },
+  toolbarIconButton: { padding: 10 },
   toolbarSpacer: { flex: 1 },
   toolsContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionBadge: {
@@ -294,49 +458,89 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primaryContainer,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: theme.roundness.md,
-    marginRight: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
+    borderRadius: 10,
+    gap: 4,
   },
-  actionBadgeText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: 4
-  },
-  toolButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: theme.colors.primaryContainer, 
-    paddingHorizontal: 14, 
-    paddingVertical: 8, 
-    borderRadius: theme.roundness.lg, 
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
+  actionBadgeText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  toolButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.primaryContainer,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   toolButtonActive: { backgroundColor: theme.colors.secondary },
-  toolButtonText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
+  toolButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   toolIconButtonSmall: {
     padding: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: theme.roundness.md,
-    alignItems: 'center',
-    justifyContent: 'center'
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
   },
-  mapFloatingInfo: { 
-    position: 'absolute', 
-    bottom: 40, 
-    left: '20%', 
-    right: '20%', 
-    backgroundColor: 'rgba(0,0,0,0.8)', 
-    padding: 12, 
-    borderRadius: theme.roundness.xl, 
+  crosshairWrap: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
+    justifyContent: 'center',
+    zIndex: 5,
   },
-  mapFloatingInfoText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  pointMarker: { height: 12, width: 12, borderRadius: 6, backgroundColor: theme.colors.secondary, borderWidth: 2, borderColor: '#fff' },
+  crosshairH: { position: 'absolute', width: 28, height: 2, backgroundColor: '#fff' },
+  crosshairV: { position: 'absolute', width: 2, height: 28, backgroundColor: '#fff' },
+  crosshairDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.secondary,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  fabAdd: {
+    position: 'absolute',
+    alignSelf: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 12,
+    elevation: 8,
+  },
+  bottomPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 11,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center',
+  },
+  statusText: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  confirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.primaryFixedDim,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    borderRadius: 28,
+    minWidth: '80%',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  confirmBtnDisabled: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  confirmBtnText: {
+    color: theme.colors.onPrimaryFixed,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  confirmBtnTextDisabled: { color: '#999' },
 });
