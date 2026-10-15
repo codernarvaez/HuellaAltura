@@ -1,0 +1,235 @@
+---
+// Pipeline de trazabilidad: etapas del lote y qué dato va on-chain (contrato o evento), a IPFS o
+// se queda privado. Se alimenta solo de lib/trazabilidad/pipeline.ts. Sin JavaScript de cliente:
+// cada etapa es un <details>.
+// Con `estado` (enum LotState o su nombre) marca qué etapas ya hizo el lote; así lo puede usar la
+// ficha del lote (V3) además del panel (V1).
+import {
+  DESTINO_INFO,
+  ETAPAS,
+  ETAPAS_LINEALES,
+  FASES_SGTC,
+  FORMA_ETIQUETA,
+  ROL_ETIQUETA,
+  avanceDelLote,
+  camposPorDestino,
+  obtenerEtapa,
+  resumenDestinos,
+  type Avance,
+  type Destino,
+  type EstadoLote,
+  type EtapaPipeline,
+} from "../../lib/trazabilidad/pipeline";
+import { obtenerVista, rutaVista } from "../../lib/trazabilidad/rutas";
+
+interface Props {
+  estado?: EstadoLote | number | null;
+  /** Abre por defecto la etapa actual (o ninguna si no hay estado). */
+  abrirActual?: boolean;
+}
+
+const { estado = null, abrirActual = true } = Astro.props;
+const avance = new Map(avanceDelLote(estado).map((a) => [a.etapa.id, a.avance]));
+const conLote = estado !== null;
+const vigentes = resumenDestinos(true);
+const todos = resumenDestinos();
+const transversales = ETAPAS.filter((e) => e.transversal);
+
+const chipDestino: Record<Destino, string> = {
+  storage: "bg-primary text-on-primary",
+  evento: "bg-primary-container text-on-primary-container",
+  ipfs: "bg-secondary-container text-on-secondary-container",
+  privado: "bg-surface-container text-on-surface-variant border border-outline-variant",
+};
+
+const marcaAvance: Record<Avance, { clase: string; icono: string; texto: string }> = {
+  hecha: { clase: "bg-primary text-on-primary border-primary", icono: "check", texto: "Hecha" },
+  actual: { clase: "bg-secondary-container text-on-secondary-container border-secondary", icono: "radio_button_checked", texto: "Estado actual" },
+  pendiente: { clase: "bg-surface text-on-surface-variant border-outline-variant", icono: "", texto: "Pendiente" },
+};
+
+/** Enlace a la vista que registra la etapa, solo si es una vista del módulo (no necesita lote). */
+function enlaceVista(etapa: EtapaPipeline): { href: string; texto: string } | null {
+  if (!etapa.vista) return null;
+  const vista = obtenerVista(etapa.vista);
+  if (vista.alcance !== "modulo") return null;
+  return { href: rutaVista(vista.id), texto: vista.titulo };
+}
+
+const numero = (etapa: EtapaPipeline) => ETAPAS_LINEALES.indexOf(etapa) + 1;
+---
+
+<section aria-labelledby="pipeline-titulo" class="space-y-6">
+  <header class="space-y-1">
+    <h2 id="pipeline-titulo" class="text-xl font-bold text-on-surface flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary" aria-hidden="true">conversion_path</span>
+      Pipeline del lote
+    </h2>
+    <p class="text-sm text-on-surface-variant max-w-3xl">
+      Cada etapa la firma un rol distinto en Polygon. El contrato guarda solo lo que necesita para sus reglas,
+      el detalle de la fase va en un documento IPFS cuya huella queda en la cadena y los datos personales no salen
+      de la cooperativa.
+    </p>
+  </header>
+
+  <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Dónde se guarda cada dato">
+    {(Object.keys(DESTINO_INFO) as Destino[]).map((d) => (
+      <li class="rounded-xl border border-outline-variant bg-surface-container-low p-4">
+        <div class="flex items-center gap-2">
+          <span class={`inline-flex h-8 w-8 items-center justify-center rounded-full ${chipDestino[d]}`}>
+            <span class="material-symbols-outlined text-base" aria-hidden="true">{DESTINO_INFO[d].icono}</span>
+          </span>
+          <p class="font-semibold text-on-surface">{DESTINO_INFO[d].titulo}</p>
+        </div>
+        <p class="mt-2 text-sm text-on-surface-variant">{DESTINO_INFO[d].resumen}</p>
+        <p class="mt-2 text-xs text-on-surface-variant">
+          {vigentes[d]} {vigentes[d] === 1 ? "campo" : "campos"} hoy{todos[d] > vigentes[d] && ` · ${todos[d] - vigentes[d]} propuestos`}
+        </p>
+      </li>
+    ))}
+  </ul>
+
+  <ol class="flex flex-wrap items-stretch gap-2" aria-label="Etapas en orden">
+    {ETAPAS_LINEALES.map((etapa, i) => {
+      const a = avance.get(etapa.id)!;
+      return (
+        <li class="flex items-center gap-2">
+          <a
+            href={`#etapa-${etapa.id}`}
+            class={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition hover:opacity-90 ${
+              conLote ? marcaAvance[a].clase : "bg-surface-container-low text-on-surface border-outline-variant"
+            }`}
+            aria-current={conLote && a === "actual" ? "step" : undefined}
+          >
+            <span class="material-symbols-outlined text-base" aria-hidden="true">{etapa.icono}</span>
+            <span>{etapa.titulo}</span>
+            {conLote && <span class="sr-only">({marcaAvance[a].texto})</span>}
+          </a>
+          {i < ETAPAS_LINEALES.length - 1 && (
+            <span class="material-symbols-outlined text-on-surface-variant text-base" aria-hidden="true">chevron_right</span>
+          )}
+        </li>
+      );
+    })}
+  </ol>
+
+  <div class="space-y-3">
+    {[...ETAPAS_LINEALES, ...transversales].map((etapa) => {
+      const a = avance.get(etapa.id);
+      const enlace = enlaceVista(etapa);
+      const abierta = abrirActual && conLote && a === "actual";
+      return (
+        <details id={`etapa-${etapa.id}`} open={abierta} class="group rounded-xl border border-outline-variant bg-surface-container-low">
+          <summary class="flex cursor-pointer list-none flex-wrap items-center gap-3 p-4">
+            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-primary border border-outline-variant">
+              {etapa.transversal ? (
+                <span class="material-symbols-outlined text-base" aria-hidden="true">{etapa.icono}</span>
+              ) : (
+                <span class="text-sm font-bold">{numero(etapa)}</span>
+              )}
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-on-surface flex flex-wrap items-center gap-2">
+                {etapa.titulo}
+                {etapa.estado && (
+                  <code class="rounded bg-surface px-1.5 py-0.5 text-xs text-on-surface-variant border border-outline-variant">{etapa.estado}</code>
+                )}
+                {etapa.transversal && <span class="text-xs font-normal text-on-surface-variant">En cualquier etapa antes de exportar</span>}
+                {conLote && a && <span class={`rounded-full border px-2 py-0.5 text-xs ${marcaAvance[a].clase}`}>{marcaAvance[a].texto}</span>}
+              </p>
+              <p class="text-sm text-on-surface-variant">
+                {ROL_ETIQUETA[etapa.rol]} · {etapa.contrato}.{etapa.funciones.join(" / ")}
+                {etapa.forma && ` · ${FORMA_ETIQUETA[etapa.forma]}`}
+              </p>
+            </div>
+            <span class="material-symbols-outlined text-on-surface-variant transition group-open:rotate-180" aria-hidden="true">expand_more</span>
+          </summary>
+
+          <div class="space-y-4 border-t border-outline-variant p-4">
+            <p class="text-sm text-on-surface">{etapa.descripcion}</p>
+            <dl class="grid gap-x-6 gap-y-1 text-xs text-on-surface-variant sm:grid-cols-2">
+              <div><dt class="inline font-semibold">Exige estado:</dt> <dd class="inline">{etapa.requiere ? etapa.requiere.join(" o ") : "Ninguno"}</dd></div>
+              <div><dt class="inline font-semibold">Eventos:</dt> <dd class="inline">{etapa.eventos.join(", ")}</dd></div>
+              <div><dt class="inline font-semibold">Historia:</dt> <dd class="inline">{etapa.hu}</dd></div>
+              <div>
+                <dt class="inline font-semibold">En SGTC:</dt>{" "}
+                <dd class="inline">{etapa.sgtc.length ? etapa.sgtc.join(", ") : "No existe"}</dd>
+              </div>
+              {etapa.cambiaId && etapa.id !== "cosecha" && (
+                <div class="sm:col-span-2">
+                  <dt class="inline font-semibold">Token:</dt>{" "}
+                  <dd class="inline">el contrato quema el id anterior y acuña uno nuevo que guarda a su padre (linaje).</dd>
+                </div>
+              )}
+            </dl>
+
+            <div class="grid gap-3 lg:grid-cols-2">
+              {camposPorDestino(etapa).map(({ destino, campos }) => (
+                <div class="rounded-lg border border-outline-variant bg-surface p-3">
+                  <p class="mb-2 flex items-center gap-2 text-sm font-semibold text-on-surface">
+                    <span class={`inline-flex h-6 w-6 items-center justify-center rounded-full ${chipDestino[destino]}`}>
+                      <span class="material-symbols-outlined text-sm" aria-hidden="true">{DESTINO_INFO[destino].icono}</span>
+                    </span>
+                    {DESTINO_INFO[destino].titulo}
+                  </p>
+                  <ul class="space-y-2">
+                    {campos.map((c) => (
+                      <li class="text-sm">
+                        <p class="flex flex-wrap items-center gap-1.5 text-on-surface">
+                          <span>{c.etiqueta}{c.unidad && ` (${c.unidad})`}</span>
+                          {c.obligatorio && <span class="text-xs text-on-surface-variant">obligatorio</span>}
+                          {c.estado === "propuesto" && (
+                            <span class="rounded-full bg-secondary-container px-2 py-0.5 text-xs text-on-secondary-container">propuesto</span>
+                          )}
+                          <code class="text-xs text-on-surface-variant">{c.clave}</code>
+                        </p>
+                        {c.opciones && <p class="text-xs text-on-surface-variant">{c.opciones.map((o) => o.etiqueta).join(" · ")}</p>}
+                        {c.codificacion && <p class="text-xs text-on-surface-variant">Cadena: {c.codificacion}</p>}
+                        {c.sgtc && <p class="text-xs text-on-surface-variant">SGTC: {c.sgtc}</p>}
+                        {c.nota && <p class="text-xs text-on-surface-variant">{c.nota}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            {enlace && (
+              <a href={enlace.href} class="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+                Ir a {enlace.texto}
+              </a>
+            )}
+          </div>
+        </details>
+      );
+    })}
+  </div>
+
+  <details class="rounded-xl border border-outline-variant bg-surface-container-low">
+    <summary class="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-on-surface">
+      <span class="material-symbols-outlined text-primary" aria-hidden="true">compare_arrows</span>
+      Equivalencia con las fases de SGTC-Trazabilidad
+    </summary>
+    <div class="overflow-x-auto border-t border-outline-variant p-4">
+      <table class="w-full text-left text-sm">
+        <thead class="text-on-surface-variant">
+          <tr>
+            <th scope="col" class="py-2 pr-4 font-semibold">Fase SGTC</th>
+            <th scope="col" class="py-2 pr-4 font-semibold">Etapa aquí</th>
+            <th scope="col" class="py-2 font-semibold">Qué cambia</th>
+          </tr>
+        </thead>
+        <tbody>
+          {FASES_SGTC.map((f) => (
+            <tr class="border-t border-outline-variant align-top">
+              <td class="py-2 pr-4 text-on-surface">{f.fase}</td>
+              <td class="py-2 pr-4 text-on-surface">{f.etapa ? obtenerEtapa(f.etapa).titulo : "Sin etapa"}</td>
+              <td class="py-2 text-on-surface-variant">{f.nota}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>

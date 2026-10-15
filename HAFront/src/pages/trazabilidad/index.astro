@@ -1,7 +1,11 @@
 ---
-// V1. Panel de lotes.
+// V1. Panel de lotes. Por ahora muestra el pipeline: qué registra cada etapa y dónde queda cada
+// dato. El listado de lotes por estado llega con T07.
 import ModuloTrazabilidad from "../../components/trazabilidad/ModuloTrazabilidad.astro";
+import PipelineTrazabilidad from "../../components/trazabilidad/PipelineTrazabilidad.astro";
 import { obtenerVista } from "../../lib/trazabilidad/rutas";
 ---
 
-<ModuloTrazabilidad vista={obtenerVista("V1")} />
+<ModuloTrazabilidad vista={obtenerVista("V1")}>
+  <PipelineTrazabilidad />
+</ModuloTrazabilidad>
