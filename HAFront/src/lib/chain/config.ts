@@ -90,7 +90,12 @@ export interface ConfigPublica {
   token: Address;
   fromBlock: string;
   ipfsGateway: string;
-  red: { name: string; kind: ChainKind; explorerUrl: string };
+  red: {
+    name: string;
+    kind: ChainKind;
+    explorerUrl: string;
+    nativeCurrency: { name: string; symbol: string; decimals: number }; // para wallet_addEthereumChain (T03)
+  };
   abiCompatible: boolean; // los tres contratos coinciden
 }
 
@@ -285,7 +290,12 @@ export function aConfigPublica(cfg: ConfigCadena): ConfigPublica {
     token: cfg.contratos.CoffeeToken,
     fromBlock: cfg.fromBlock.toString(),
     ipfsGateway: cfg.ipfsGateway,
-    red: { name: cfg.chain.name, kind: cfg.chain.kind, explorerUrl: cfg.chain.explorerUrl },
+    red: {
+      name: cfg.chain.name,
+      kind: cfg.chain.kind,
+      explorerUrl: cfg.chain.explorerUrl,
+      nativeCurrency: cfg.chain.nativeCurrency,
+    },
     abiCompatible: CONTRATOS.every((n) => cfg.abiCompatible[n]),
   };
 }

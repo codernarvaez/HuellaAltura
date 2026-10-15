@@ -321,7 +321,12 @@ describe("aConfigPublica, exigirAbiCompatible y urlExplorador", () => {
     assert.deepEqual(Object.keys(p).sort(), [
       "abiCompatible", "chainId", "fromBlock", "ipfsGateway", "origin", "red", "rpcUrl", "token", "traceability",
     ]);
-    assert.deepEqual(p.red, { name: "Polygon Amoy", kind: "testnet", explorerUrl: "https://amoy.polygonscan.com" });
+    assert.deepEqual(p.red, {
+      name: "Polygon Amoy",
+      kind: "testnet",
+      explorerUrl: "https://amoy.polygonscan.com",
+      nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 },
+    });
     assert.equal(p.fromBlock, "27100421");
     assert.equal(p.traceability, AMOY.contracts.TraceabilityController.proxy);
     assert.equal(p.origin, AMOY.contracts.OriginRegistry.proxy);
