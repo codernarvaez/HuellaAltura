@@ -1,0 +1,87 @@
+name: huella-altura
+
+services:
+  db:
+    build: ./docker/postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-huella}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-huella}
+      POSTGRES_DB: auth
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-huella} -d auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build: ./HABack/auth-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-huella}:${POSTGRES_PASSWORD:-huella}@db:5432/auth
+      SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en .env}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?define INTERNAL_API_KEY en .env}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 120
+      ENVIRONMENT: development
+      FRONTEND_URL: http://localhost:4321
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  exped-service:
+    build: ./HABack/exped-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-huella}:${POSTGRES_PASSWORD:-huella}@db:5432/exped
+      SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en .env}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?define INTERNAL_API_KEY en .env}
+      AUTH_SERVICE_URL: http://auth-service:8000
+      SESSION_VALIDATION_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  hafront:
+    build:
+      context: ./HAFront
+      args:
+        PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-}
+        PUBLIC_SUPABASE_ANON_KEY: ${PUBLIC_SUPABASE_ANON_KEY:-}
+        PUBLIC_SITE_URL: http://localhost:4321
+        PUBLIC_API_URL: http://localhost:8001
+        PUBLIC_AUTH_URL: http://localhost:8000
+    environment:
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      # El SSR corre dentro del contenedor: usa la red interna; el navegador usa los PUBLIC_* de arriba
+      AUTH_INTERNAL_URL: http://auth-service:8000
+      EXPED_INTERNAL_URL: http://exped-service:8001
+    ports:
+      - "127.0.0.1:4321:4321"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      exped-service:
+        condition: service_healthy
+
+volumes:
+  pgdata:
