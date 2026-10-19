@@ -307,9 +307,10 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
   </div>
 </DashboardLayout>
 
-<script type="module">
-  import { FincaService } from "/src/services/finca.service.ts";
-  import { AgroambientalService } from "/src/services/InfoAgroambiental.ts";
+<script>
+  // @ts-nocheck — script heredado en JS sin tipos (antes era inline)
+  import { FincaService } from "../services/finca.service.ts";
+  import { AgroambientalService } from "../services/InfoAgroambiental.ts";
 
   console.log('🔍 [INFOAGRO] Iniciando script...');
 

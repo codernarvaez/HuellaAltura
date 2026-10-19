@@ -156,8 +156,9 @@ import DashboardLayout from "../layouts/LayoutVariable.astro";
 
 </DashboardLayout>
 
-<script type="module">
-  import { RoleService } from "/src/services/rol.service.ts";
+<script>
+  // @ts-nocheck — script heredado en JS sin tipos (antes era inline)
+  import { RoleService } from "../services/rol.service.ts";
 
   // ============================================================
   // DOM ELEMENTS
