@@ -1,0 +1,314 @@
+---
+import DashboardLayout from "../layouts/LayoutVariable.astro";
+import { canonicalJson } from "../lib/trazabilidad/hash";
+import { construirPipeline, type EstadoEtapa, type EtapaCalculada } from "../lib/trazabilidad/pipeline";
+import { LOTE_DEMO } from "../lib/trazabilidad/demo";
+
+const lote = LOTE_DEMO;
+const esEjemplo = true;
+const { loteId, etapas } = construirPipeline(lote);
+
+const completadas = etapas.filter((e) => e.estado === "Completada");
+const seleccionInicial = completadas.at(-1)?.indice ?? 0;
+const etapaMasa = [...completadas].reverse().find((e) => e.registro?.cantidadKg !== undefined);
+const datosOrigen = lote.etapas.ORIGEN?.datos ?? {};
+const variedad = lote.etapas.SEMILLA?.datos.variedad as string | undefined;
+
+const corto = (h?: string) => (h ? `${h.slice(0, 8)}…${h.slice(-6)}` : "—");
+const fmtFecha = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString("es-EC", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "—";
+const fmtKg = (kg?: number) => (kg === undefined ? "—" : `${kg.toLocaleString("es-EC")} kg`);
+
+function fmtValor(v: unknown, unidad?: string): string {
+  if (v === undefined || v === null || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Sí" : "No";
+  if (Array.isArray(v)) return v.join(", ");
+  if (typeof v === "object") return Object.entries(v).map(([k, n]) => `${k}: ${n}`).join(" · ");
+  if (typeof v === "string") {
+    if (/^0x[0-9a-f]{64}$/i.test(v)) return corto(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return fmtFecha(v);
+    if (/^[A-Z_]+$/.test(v)) return v.charAt(0) + v.slice(1).toLowerCase().replaceAll("_", " ");
+  }
+  const texto = typeof v === "number" ? v.toLocaleString("es-EC") : String(v);
+  return unidad ? `${texto} ${unidad}` : texto;
+}
+
+const estadoUi: Record<EstadoEtapa, { nodo: string; chip: string; texto: string }> = {
+  Completada: { nodo: "bg-primary text-on-primary", chip: "bg-emerald-100 text-emerald-800", texto: "Completada" },
+  "En Proceso": { nodo: "bg-secondary-container text-on-secondary-container", chip: "bg-amber-100 text-amber-800", texto: "En proceso" },
+  Pendiente: { nodo: "bg-surface-container text-outline", chip: "bg-slate-100 text-slate-600", texto: "Pendiente" },
+};
+
+function registroUi(e: EtapaCalculada) {
+  if (e.registro?.anclaje) return { icono: "verified", clase: "bg-emerald-50 text-emerald-800", texto: "Registrado en blockchain" };
+  if (e.recordHash) return { icono: "schedule", clase: "bg-amber-50 text-amber-800", texto: "Pendiente de registro" };
+  if (e.estado === "En Proceso") return { icono: "hourglass_top", clase: "bg-slate-50 text-slate-700", texto: "Se registrará al completar la etapa" };
+  return { icono: "radio_button_unchecked", clase: "bg-slate-50 text-slate-600", texto: "Etapa sin iniciar" };
+}
+---
+
+<DashboardLayout title="Trazabilidad del lote">
+  <div class="space-y-6">
+    <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-on-surface">Trazabilidad del lote</h1>
+        <p class="text-on-surface-variant mt-1">
+          {String(datosOrigen.finca_nombre ?? "")} · {String(datosOrigen.parroquia ?? "")}, {String(datosOrigen.provincia ?? "")}
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        {esEjemplo && (
+          <span class="px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 text-sm font-medium">Lote de ejemplo</span>
+        )}
+        <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary text-on-primary text-sm font-mono">
+          <span class="material-symbols-outlined text-base">deployed_code</span>{lote.codigo}
+        </span>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+      <div class="bg-white border border-outline-variant rounded-xl p-4">
+        <p class="text-xs text-on-surface-variant">Finca</p>
+        <p class="font-semibold mt-1">{String(datosOrigen.finca_nombre ?? "—")}</p>
+        <p class="text-xs text-on-surface-variant">Parcela {String(datosOrigen.parcela_codigo ?? "—")}</p>
+      </div>
+      <div class="bg-white border border-outline-variant rounded-xl p-4">
+        <p class="text-xs text-on-surface-variant">Variedad</p>
+        <p class="font-semibold mt-1">{variedad ?? "—"}</p>
+        <p class="text-xs text-on-surface-variant">{fmtValor(datosOrigen.altitud_msnm, "msnm")}</p>
+      </div>
+      <div class="bg-white border border-outline-variant rounded-xl p-4">
+        <p class="text-xs text-on-surface-variant">Avance</p>
+        <p class="font-semibold mt-1">{completadas.length} de {etapas.length} etapas</p>
+        <div class="w-full bg-outline-variant/40 rounded-full h-1.5 mt-2 overflow-hidden">
+          <div class="bg-primary h-full" style={`width: ${(completadas.length / etapas.length) * 100}%`}></div>
+        </div>
+      </div>
+      <div class="bg-white border border-outline-variant rounded-xl p-4">
+        <p class="text-xs text-on-surface-variant">Cantidad actual</p>
+        <p class="font-semibold mt-1">{fmtKg(etapaMasa?.registro?.cantidadKg)}</p>
+        <p class="text-xs text-on-surface-variant">{etapaMasa?.def.cantidad ?? ""}</p>
+      </div>
+      <div class="col-span-2 xl:col-span-1 min-w-0 bg-white border border-outline-variant rounded-xl p-4">
+        <p class="text-xs text-on-surface-variant">ID en blockchain</p>
+        <button type="button" data-copiar={loteId} title="Copiar" class="font-mono text-sm mt-1 hover:text-primary flex items-center gap-1 max-w-full">
+          <span class="truncate">{corto(loteId)}</span>
+          <span class="material-symbols-outlined text-base shrink-0" data-icono-copiar>content_copy</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="bg-surface-container-low border border-outline-variant rounded-xl p-4">
+      <div class="overflow-x-auto">
+        <ol class="flex min-w-max">
+          {etapas.map((e) => (
+            <li class="flex items-start">
+              <button
+                type="button"
+                data-etapa-btn={e.indice}
+                aria-controls={`panel-${e.def.id}`}
+                class="flex flex-col items-center gap-2 w-24 px-1 py-2 rounded-lg hover:bg-surface-container transition"
+              >
+                <span class={`relative w-11 h-11 rounded-full flex items-center justify-center ${estadoUi[e.estado].nodo}`}>
+                  <span class="material-symbols-outlined">{e.def.icono}</span>
+                  {e.estado === "En Proceso" && <span class="absolute inset-0 rounded-full ring-2 ring-secondary animate-pulse"></span>}
+                </span>
+                <span class="text-xs font-semibold text-center leading-tight">{e.def.nombre}</span>
+                <span class="text-[10px] text-on-surface-variant">{fmtFecha(e.registro?.fechaFin ?? e.registro?.fechaInicio)}</span>
+                <span class={`text-[10px] px-2 py-0.5 rounded-full ${estadoUi[e.estado].chip}`}>{estadoUi[e.estado].texto}</span>
+              </button>
+              {e.indice < etapas.length - 1 && (
+                <span class={`mt-7 h-0.5 w-6 ${e.estado === "Completada" ? "bg-primary" : "bg-outline-variant"}`}></span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    {etapas.map((e) => {
+      const r = e.registro;
+      const verificaciones = e.reglas.filter((regla) => regla.ok !== undefined);
+      const estadoRegistro = registroUi(e);
+      return (
+        <section id={`panel-${e.def.id}`} data-panel={e.indice} class={e.indice === seleccionInicial ? "" : "hidden"}>
+          <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+            <div class="xl:col-span-3 space-y-6">
+              <div class="bg-white border border-outline-variant rounded-xl p-5 flex items-start gap-4">
+                <span class={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${estadoUi[e.estado].nodo}`}>
+                  <span class="material-symbols-outlined">{e.def.icono}</span>
+                </span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-xl font-semibold text-primary">{e.def.nombre}</h2>
+                    <span class={`text-xs px-2 py-0.5 rounded-full ${estadoUi[e.estado].chip}`}>{estadoUi[e.estado].texto}</span>
+                  </div>
+                  <p class="text-sm text-on-surface-variant mt-1">{e.def.descripcion}</p>
+                </div>
+              </div>
+
+              <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+                <h3 class="px-5 py-3 border-b border-outline-variant font-semibold">Información de la etapa</h3>
+                {r ? (
+                  <dl class="divide-y divide-outline-variant/60 text-sm">
+                    {e.def.cantidad && (
+                      <div class="px-5 py-3 grid grid-cols-2 gap-4">
+                        <dt class="text-on-surface-variant">{e.def.cantidad}</dt>
+                        <dd class="font-semibold">{fmtKg(r.cantidadKg)}</dd>
+                      </div>
+                    )}
+                    {e.def.campos.map((c) =>
+                      c.visibilidad === "publico" ? (
+                        <div class="px-5 py-3 grid grid-cols-2 gap-4">
+                          <dt class="text-on-surface-variant">{c.etiqueta}</dt>
+                          <dd class="font-medium wrap-anywhere">{fmtValor(r.datos[c.clave], c.unidad)}</dd>
+                        </div>
+                      ) : (
+                        r.privado?.[c.clave] !== undefined && (
+                          <div class="px-5 py-3 grid grid-cols-2 gap-4">
+                            <dt class="text-on-surface-variant">{c.etiqueta}</dt>
+                            <dd class="flex items-center gap-1 text-on-surface-variant">
+                              <span class="material-symbols-outlined text-base">lock</span>Privado
+                            </dd>
+                          </div>
+                        )
+                      ),
+                    )}
+                  </dl>
+                ) : (
+                  <p class="px-5 py-8 text-sm text-on-surface-variant text-center">Esta etapa aún no ha comenzado.</p>
+                )}
+              </div>
+
+              {r && verificaciones.length > 0 && (
+                <div class="bg-white border border-outline-variant rounded-xl p-5">
+                  <h3 class="font-semibold mb-3">Verificaciones</h3>
+                  <ul class="space-y-2 text-sm">
+                    {verificaciones.map((regla) => (
+                      <li class="flex items-center gap-2">
+                        <span class={`material-symbols-outlined text-base ${regla.ok ? "text-emerald-600" : "text-red-600"}`}>
+                          {regla.ok ? "check_circle" : "cancel"}
+                        </span>
+                        {regla.texto}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div class="xl:col-span-2">
+              <div class="bg-white border border-outline-variant rounded-xl p-5">
+                <h3 class="font-semibold flex items-center gap-1">
+                  <span class="material-symbols-outlined text-primary">link</span>Registro en blockchain
+                </h3>
+                <div class={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${estadoRegistro.clase}`}>
+                  <span class="material-symbols-outlined text-base">{estadoRegistro.icono}</span>
+                  {estadoRegistro.texto}
+                </div>
+
+                {r && (
+                  <dl class="mt-3 text-sm divide-y divide-outline-variant/60">
+                    <div class="py-2 flex justify-between gap-4"><dt class="text-on-surface-variant">Inicio</dt><dd>{fmtFecha(r.fechaInicio)}</dd></div>
+                    <div class="py-2 flex justify-between gap-4"><dt class="text-on-surface-variant">Fin</dt><dd>{fmtFecha(r.fechaFin)}</dd></div>
+                    {r.anclaje && (
+                      <div class="py-2 flex justify-between gap-4">
+                        <dt class="text-on-surface-variant">Transacción</dt>
+                        <dd class="font-mono">{corto(r.anclaje.txHash)}</dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
+
+                {e.payload && (
+                  <details class="mt-4 group">
+                    <summary class="cursor-pointer select-none text-sm text-primary flex items-center gap-1">
+                      <span class="material-symbols-outlined text-base transition group-open:rotate-90">chevron_right</span>
+                      Detalles técnicos
+                    </summary>
+                    <dl class="mt-2 text-sm divide-y divide-outline-variant/60">
+                      {[
+                        ["Huella de los datos", e.dataHash],
+                        ["Huella de la etapa anterior", e.prevHash],
+                        ["Huella del registro", e.recordHash],
+                      ].map(([etiqueta, valor]) => (
+                        <div class="py-2 flex justify-between gap-4">
+                          <dt class="text-on-surface-variant">{etiqueta}</dt>
+                          <dd>
+                            {valor ? (
+                              <button type="button" data-copiar={valor} title="Copiar" class="font-mono hover:text-primary flex items-center gap-1">
+                                {corto(valor)}
+                                <span class="material-symbols-outlined text-sm" data-icono-copiar>content_copy</span>
+                              </button>
+                            ) : (
+                              "—"
+                            )}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <button
+                      type="button"
+                      data-copiar={canonicalJson(e.payload)}
+                      class="mt-3 w-full py-2 rounded-lg border border-outline-variant text-sm hover:bg-surface-container-low flex items-center justify-center gap-1"
+                    >
+                      <span class="material-symbols-outlined text-base" data-icono-copiar>content_copy</span>Copiar datos (JSON)
+                    </button>
+                  </details>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    })}
+  </div>
+</DashboardLayout>
+
+<script>
+  const botones = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-etapa-btn]"));
+  const paneles = Array.from(document.querySelectorAll<HTMLElement>("[data-panel]"));
+  const MARCA = ["ring-2", "ring-primary", "bg-surface-container"];
+
+  function seleccionar(indice: number, actualizarUrl = true) {
+    paneles.forEach((p) => p.classList.toggle("hidden", Number(p.dataset.panel) !== indice));
+    botones.forEach((b) => {
+      const activo = Number(b.dataset.etapaBtn) === indice;
+      MARCA.forEach((c) => b.classList.toggle(c, activo));
+      b.setAttribute("aria-selected", String(activo));
+      // Centrar la etapa en el stepper sin mover el scroll vertical de la página.
+      const carril = b.closest<HTMLElement>(".overflow-x-auto");
+      if (activo && carril) {
+        const delta = b.getBoundingClientRect().left - carril.getBoundingClientRect().left;
+        carril.scrollLeft += delta - (carril.clientWidth - b.clientWidth) / 2;
+      }
+    });
+    const panel = paneles.find((p) => Number(p.dataset.panel) === indice);
+    if (actualizarUrl && panel) history.replaceState(null, "", `#${panel.id.replace("panel-", "")}`);
+  }
+
+  botones.forEach((b) => b.addEventListener("click", () => seleccionar(Number(b.dataset.etapaBtn))));
+
+  const panelDeUrl = () => paneles.find((p) => p.id === `panel-${location.hash.slice(1)}`);
+  const visible = paneles.find((p) => !p.classList.contains("hidden"));
+  seleccionar(Number((panelDeUrl() ?? visible)?.dataset.panel ?? 0), false);
+  window.addEventListener("hashchange", () => {
+    const panel = panelDeUrl();
+    if (panel) seleccionar(Number(panel.dataset.panel), false);
+  });
+
+  document.querySelectorAll<HTMLElement>("[data-copiar]").forEach((el) =>
+    el.addEventListener("click", async () => {
+      const icono = el.querySelector<HTMLElement>("[data-icono-copiar]");
+      try {
+        await navigator.clipboard.writeText(el.dataset.copiar ?? "");
+        if (icono) {
+          icono.textContent = "check";
+          setTimeout(() => (icono.textContent = "content_copy"), 1200);
+        }
+      } catch {
+        window.prompt("Copia el valor:", el.dataset.copiar ?? "");
+      }
+    }),
+  );
+</script>

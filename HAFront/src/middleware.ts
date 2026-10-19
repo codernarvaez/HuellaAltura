@@ -34,6 +34,7 @@ const SHARED_PREFIXES = [
   "/productorFinca",
   "/expedientes",
   "/satelital",
+  "/trazabilidad",
   "/informacion-agroambiental",
   "/soporte",
   "/logout",
